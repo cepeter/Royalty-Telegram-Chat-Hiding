@@ -4,6 +4,14 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+### Fixed
+
+- The three-second reveal gesture now fires when its hold deadline is reached instead of requiring a later `ACTION_UP`, and resolves Telegram 12.10.4’s owning dialog fragment directly from the touched ActionBar.
+
+### Changed
+
+- Pull-request CI now retains the debug APK for three days so physical-device acceptance can use the exact reviewed build.
+
 ## [2.1.0] - 2026-09-24
 
 ### Changed

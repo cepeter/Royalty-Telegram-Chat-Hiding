@@ -2,6 +2,7 @@ package io.github.cepeter.royalty.xposed;
 
 import android.content.Context;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.Toast;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -22,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class TelegramHook implements IXposedHookLoadPackage {
     private static final long CATALOG_PUBLISH_INTERVAL_MS = 3000;
+    private static final long REVEAL_HOLD_DURATION_MS = 3000;
     private static final String[] ACTION_BAR_CLASS_NAMES = {
         "org.telegram.ui.ActionBar.ActionBar",
         "org.telegram.ui.ActionBar.l"
@@ -30,6 +32,10 @@ public final class TelegramHook implements IXposedHookLoadPackage {
         "org.telegram.ui.DialogsActivity",
         "org.telegram.ui.iz"
     };
+    private static final String[] BASE_FRAGMENT_CLASS_NAMES = {
+        "org.telegram.ui.ActionBar.BaseFragment",
+        "org.telegram.ui.ActionBar.q2"
+    };
     private static final String ACTION_BAR_LAYOUT_CLASS =
             "org.telegram.ui.ActionBar.ActionBarLayout";
 
@@ -37,8 +43,13 @@ public final class TelegramHook implements IXposedHookLoadPackage {
     private static final CatalogSnapshotStore CATALOGS = new CatalogSnapshotStore();
     private static final AtomicBoolean REVEALED = new AtomicBoolean(false);
     private static final AtomicBoolean RUNTIME_HOOKS_INSTALLED = new AtomicBoolean(false);
-    private static final PressAndHoldGesture REVEAL_GESTURE = new PressAndHoldGesture(3000);
+    private static final PressAndHoldGesture REVEAL_GESTURE =
+            new PressAndHoldGesture(REVEAL_HOLD_DURATION_MS);
     private static final Map<Integer, Long> LAST_CATALOG_PUBLISH = new LinkedHashMap<>();
+
+    private static View pendingRevealView;
+    private static Runnable pendingRevealTask;
+    private static long revealGestureGeneration;
 
     private static ClassLoader telegramClassLoader;
 
@@ -168,52 +179,89 @@ public final class TelegramHook implements IXposedHookLoadPackage {
                     protected void beforeHookedMethod(MethodHookParam param) {
                         MotionEvent event = (MotionEvent) param.args[0];
                         if (event == null) {
-                            REVEAL_GESTURE.cancel();
+                            cancelRevealGesture();
                             return;
                         }
 
                         int action = event.getActionMasked();
                         try {
                             if (action == MotionEvent.ACTION_DOWN) {
-                                Object fragment = findDialogsFragment(
-                                        param.thisObject, classLoader);
+                                View actionBar = (View) param.thisObject;
+                                Object fragment = findDialogsFragment(actionBar, classLoader);
                                 if (fragment == null) {
-                                    REVEAL_GESTURE.cancel();
+                                    cancelRevealGesture();
                                     return;
                                 }
-                                REVEAL_GESTURE.onDown(event.getEventTime());
+                                scheduleRevealGesture(
+                                        actionBar,
+                                        fragment,
+                                        classLoader,
+                                        event.getEventTime());
                                 return;
                             }
-                            if (action == MotionEvent.ACTION_CANCEL) {
-                                REVEAL_GESTURE.cancel();
-                                return;
+                            if (action == MotionEvent.ACTION_UP
+                                    || action == MotionEvent.ACTION_CANCEL) {
+                                cancelRevealGesture();
                             }
-                            if (action != MotionEvent.ACTION_UP) {
-                                return;
-                            }
-
-                            Object fragment = findDialogsFragment(param.thisObject, classLoader);
-                            if (fragment == null
-                                    || !REVEAL_GESTURE.onUp(event.getEventTime())) {
-                                return;
-                            }
-
-                            boolean revealed = toggleReveal();
-                            Context context = ((android.view.View) param.thisObject).getContext();
-                            Toast.makeText(
-                                            context,
-                                            revealed
-                                                    ? "Hidden chats revealed"
-                                                    : "Hidden chats concealed",
-                                            Toast.LENGTH_SHORT)
-                                    .show();
-                            requestDialogsReload(fragment);
                         } catch (Throwable error) {
-                            REVEAL_GESTURE.cancel();
+                            cancelRevealGesture();
                             reportRuntimeError("reveal", error);
                         }
                     }
                 });
+    }
+
+    private static synchronized void scheduleRevealGesture(
+            View actionBar, Object fragment, ClassLoader classLoader, long eventTimeMs) {
+        cancelRevealGesture();
+        REVEAL_GESTURE.onDown(eventTimeMs);
+        long generation = ++revealGestureGeneration;
+        Runnable task = () -> completeRevealGesture(
+                generation, actionBar, fragment, classLoader);
+        pendingRevealView = actionBar;
+        pendingRevealTask = task;
+        if (!actionBar.postDelayed(task, REVEAL_HOLD_DURATION_MS)) {
+            cancelRevealGesture();
+        }
+    }
+
+    private static synchronized void cancelRevealGesture() {
+        revealGestureGeneration++;
+        if (pendingRevealView != null && pendingRevealTask != null) {
+            pendingRevealView.removeCallbacks(pendingRevealTask);
+        }
+        pendingRevealView = null;
+        pendingRevealTask = null;
+        REVEAL_GESTURE.cancel();
+    }
+
+    private static void completeRevealGesture(
+            long generation, View actionBar, Object expectedFragment, ClassLoader classLoader) {
+        synchronized (TelegramHook.class) {
+            if (generation != revealGestureGeneration
+                    || !REVEAL_GESTURE.onDeadline(android.os.SystemClock.uptimeMillis())) {
+                return;
+            }
+            pendingRevealView = null;
+            pendingRevealTask = null;
+        }
+
+        try {
+            Object fragment = findDialogsFragment(actionBar, classLoader);
+            if (fragment != expectedFragment) {
+                return;
+            }
+            boolean revealed = toggleReveal();
+            Toast.makeText(
+                            actionBar.getContext(),
+                            revealed ? "Hidden chats revealed" : "Hidden chats concealed",
+                            Toast.LENGTH_SHORT)
+                    .show();
+            requestDialogsReload(fragment);
+        } catch (Throwable error) {
+            cancelRevealGesture();
+            reportRuntimeError("reveal", error);
+        }
     }
 
     private static Class<?> resolveActionBarClass(ClassLoader classLoader) {
@@ -225,7 +273,7 @@ public final class TelegramHook implements IXposedHookLoadPackage {
                     return candidate;
                 }
             } catch (XposedHelpers.ClassNotFoundError ignored) {
-                // Try the verified Telegram 12.8.3 alias.
+                // Try the verified Telegram 12.10.4 alias.
             }
         }
         throw new IllegalStateException("Supported ActionBar class not found");
@@ -238,10 +286,21 @@ public final class TelegramHook implements IXposedHookLoadPackage {
                 candidate.getMethod("createView", Context.class);
                 return candidate;
             } catch (XposedHelpers.ClassNotFoundError | NoSuchMethodException ignored) {
-                // Try the verified Telegram 12.8.3 alias.
+                // Try the verified Telegram 12.10.4 alias.
             }
         }
         throw new IllegalStateException("Supported DialogsActivity class not found");
+    }
+
+    private static Class<?> resolveBaseFragmentClass(ClassLoader classLoader) {
+        for (String className : BASE_FRAGMENT_CLASS_NAMES) {
+            try {
+                return XposedHelpers.findClass(className, classLoader);
+            } catch (XposedHelpers.ClassNotFoundError ignored) {
+                // Try the verified Telegram 12.10.4 alias.
+            }
+        }
+        throw new IllegalStateException("Supported BaseFragment class not found");
     }
 
     private static boolean declaresDispatchTouchEvent(Class<?> candidate) {
@@ -261,6 +320,12 @@ public final class TelegramHook implements IXposedHookLoadPackage {
     private static Object findDialogsFragment(Object actionBar, ClassLoader classLoader)
             throws IllegalAccessException {
         Class<?> dialogsActivity = resolveDialogsActivityClass(classLoader);
+        Object owningFragment = findOwningDialogsFragment(
+                actionBar, classLoader, dialogsActivity);
+        if (owningFragment != null) {
+            return owningFragment;
+        }
+
         Class<?> actionBarLayout = XposedHelpers.findClass(
                 ACTION_BAR_LAYOUT_CLASS, classLoader);
         android.app.Activity activity = findActivity(
@@ -282,6 +347,31 @@ public final class TelegramHook implements IXposedHookLoadPackage {
                     continue;
                 }
                 Object fragment = XposedHelpers.callMethod(layout, "getLastFragment");
+                if (!dialogsActivity.isInstance(fragment)) {
+                    continue;
+                }
+                Object fragmentActionBar = XposedHelpers.callMethod(fragment, "getActionBar");
+                if (fragmentActionBar == actionBar) {
+                    return fragment;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static Object findOwningDialogsFragment(
+            Object actionBar, ClassLoader classLoader, Class<?> dialogsActivity)
+            throws IllegalAccessException {
+        Class<?> baseFragmentClass = resolveBaseFragmentClass(classLoader);
+        for (Class<?> type = actionBar.getClass();
+                type != null && type != Object.class;
+                type = type.getSuperclass()) {
+            for (java.lang.reflect.Field field : type.getDeclaredFields()) {
+                if (!baseFragmentClass.isAssignableFrom(field.getType())) {
+                    continue;
+                }
+                field.setAccessible(true);
+                Object fragment = field.get(actionBar);
                 if (!dialogsActivity.isInstance(fragment)) {
                     continue;
                 }

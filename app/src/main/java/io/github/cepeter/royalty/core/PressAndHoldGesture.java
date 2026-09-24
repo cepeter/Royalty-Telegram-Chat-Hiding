@@ -15,14 +15,16 @@ public final class PressAndHoldGesture {
         startedAtMs = eventTimeMs;
     }
 
-    public synchronized boolean onUp(long eventTimeMs) {
+    public synchronized boolean onDeadline(long eventTimeMs) {
         if (startedAtMs == Long.MIN_VALUE || eventTimeMs < startedAtMs) {
             startedAtMs = Long.MIN_VALUE;
             return false;
         }
-        long durationMs = eventTimeMs - startedAtMs;
+        if (eventTimeMs - startedAtMs < minimumDurationMs) {
+            return false;
+        }
         startedAtMs = Long.MIN_VALUE;
-        return durationMs >= minimumDurationMs;
+        return true;
     }
 
     public synchronized void cancel() {

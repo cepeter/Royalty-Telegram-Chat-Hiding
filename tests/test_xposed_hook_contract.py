@@ -20,14 +20,19 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("param.args[0] = filtered", self.source)
         self.assertNotIn(".remove(", self.source)
 
-    def test_reveal_supports_verified_telegram_12_8_3_obfuscated_types(self):
+    def test_reveal_supports_verified_telegram_12_10_4_runtime_types(self):
         self.assertIn('"org.telegram.ui.ActionBar.l"', self.source)
+        self.assertIn('"org.telegram.ui.ActionBar.q2"', self.source)
         self.assertIn('"org.telegram.ui.iz"', self.source)
         self.assertIn('"org.telegram.ui.ActionBar.ActionBarLayout"', self.source)
         self.assertIn('"getLastFragment"', self.source)
         self.assertIn('"getActionBar"', self.source)
         self.assertIn('"dispatchTouchEvent"', self.source)
-        self.assertIn("new PressAndHoldGesture(3000)", self.source)
+        self.assertIn("REVEAL_HOLD_DURATION_MS = 3000", self.source)
+        self.assertIn("postDelayed", self.source)
+        self.assertIn("onDeadline", self.source)
+        self.assertIn("baseFragmentClass.isAssignableFrom(field.getType())", self.source)
+        self.assertNotIn("REVEAL_GESTURE.onUp", self.source)
         self.assertNotIn('"onInterceptTouchEvent"', self.source)
         self.assertNotIn('"android.view.View"', self.source)
 

@@ -4,7 +4,7 @@ Status: **Approved on 2026-09-24 — implementation may proceed through the plan
 
 ## Overview
 
-Extend Royalty so the same account-aware hidden-dialog configuration also controls Telegram 12.8.3 search/global search, share/contact pickers, and new-group/member-invite screens. Implement each surface as a separate, reviewable pull request. Preserve Telegram-owned collections, XSharedPreferences hot reload, process-memory reveal state, notification behavior, and fail-open runtime safety.
+Extend Royalty so the same account-aware hidden-dialog configuration also controls Telegram 12.10.4 search/global search, share/contact pickers, and new-group/member-invite screens. Implement each surface as a separate, reviewable pull request. Preserve Telegram-owned collections, XSharedPreferences hot reload, process-memory reveal state, notification behavior, and fail-open runtime safety.
 
 ## Assumptions
 
@@ -12,7 +12,7 @@ Extend Royalty so the same account-aware hidden-dialog configuration also contro
 2. Temporary reveal bypasses all visual filtering, while notification suppression remains independent.
 3. Search scope includes recent/local/global peer results and message results belonging to hidden dialogs.
 4. Contact/group screens hide users corresponding to hidden private dialogs; group/channel keys are ignored where the screen is user-only.
-5. Official Telegram 12.8.3 (`org.telegram.messenger`) is the only release target for this initiative.
+5. Official Telegram 12.10.4 (`org.telegram.messenger`) is the only release target for this initiative.
 6. Unknown rows, unresolved classes, and extractor errors fail open and report per-surface status instead of crashing Telegram.
 
 ## Capability Map
@@ -82,7 +82,7 @@ Every rendering/filter hook reads `CONFIG.current()` and `REVEALED.get()` at inv
 
 ### 6. Exact-version compatibility
 
-The documented source commit `9552e554…` identifies itself as Telegram 12.10.3, not 12.8.3. It may guide surface discovery only. Release aliases, fields, signatures, and inner-class ownership must be derived from the exact official Telegram 12.8.3 APK. Do not commit the APK or decompiled proprietary artifacts.
+The documented source commit `9552e554…` identifies itself as Telegram 12.10.3, not 12.10.4. It may guide surface discovery only. Release aliases, fields, signatures, and inner-class ownership must be derived from the exact official Telegram 12.10.4 APK. Do not commit the APK or decompiled proprietary artifacts.
 
 ## Commands
 
@@ -111,11 +111,11 @@ Device evidence uses ADB from the connected workstation; exact commands belong i
 
 ### PR 1 — Compatibility foundation
 
-Goal: freeze exact Telegram 12.8.3 runtime contracts before feature code.
+Goal: freeze exact Telegram 12.10.4 runtime contracts before feature code.
 
 #### Task 1.1: Map exact APK surfaces
 
-**Description:** Extract the installed official Telegram 12.8.3 APK through ADB, record package/version/hash, and map source names to obfuscated runtime aliases for search, share, contacts, group creation, member invite, and relevant inner adapters.
+**Description:** Extract the installed official Telegram 12.10.4 APK through ADB, record package/version/hash, and map source names to obfuscated runtime aliases for search, share, contacts, group creation, member invite, and relevant inner adapters.
 
 **Acceptance criteria:**
 - [ ] Mapping identifies class aliases, method signatures, owning account fields, item fields, and parallel lists.
@@ -124,10 +124,10 @@ Goal: freeze exact Telegram 12.8.3 runtime contracts before feature code.
 
 **Verification:**
 - [ ] Reflection probe resolves every required class/signature on the device without installing hooks.
-- [ ] `docs/telegram-12.8.3-surface-map.md` records APK SHA-256 and evidence.
+- [ ] `docs/telegram-12.10.4-surface-map.md` records APK SHA-256 and evidence.
 
 **Files likely touched:**
-- `docs/telegram-12.8.3-surface-map.md`
+- `docs/telegram-12.10.4-surface-map.md`
 - `tests/test_xposed_hook_contract.py`
 
 **Estimated scope:** Small
@@ -166,7 +166,7 @@ Goal: freeze exact Telegram 12.8.3 runtime contracts before feature code.
 **Files likely touched:**
 - `app/src/main/java/io/github/cepeter/telegramhider/xposed/TelegramObjectKey.java`
 - `tests/test_xposed_hook_contract.py`
-- `docs/telegram-12.8.3-surface-map.md`
+- `docs/telegram-12.10.4-surface-map.md`
 
 **Estimated scope:** Medium
 
@@ -175,7 +175,7 @@ Goal: freeze exact Telegram 12.8.3 runtime contracts before feature code.
 - [ ] Repository contracts pass.
 - [ ] JVM tests pass.
 - [ ] GitHub Android CI passes.
-- [ ] Device reflection probe passes on exact Telegram 12.8.3.
+- [ ] Device reflection probe passes on exact Telegram 12.10.4.
 - [ ] Human reviews the surface map before PR 2.
 
 ### PR 2 — Search and global-search hiding
@@ -310,7 +310,7 @@ Goal: hide users corresponding to hidden private dialogs from user-centric creat
 
 #### Task 4.1: Inventory and freeze contact screen coverage
 
-**Description:** Confirm exact 12.8.3 adapters and entry points for `ContactsActivity`, `GroupCreateActivity`, add-member, and invite-member flows. Record which screens list only users versus chats.
+**Description:** Confirm exact 12.10.4 adapters and entry points for `ContactsActivity`, `GroupCreateActivity`, add-member, and invite-member flows. Record which screens list only users versus chats.
 
 **Acceptance criteria:**
 - [ ] Every user-facing entry point has a mapped adapter and account source.
@@ -321,7 +321,7 @@ Goal: hide users corresponding to hidden private dialogs from user-centric creat
 - [ ] Device navigation checklist reaches every mapped entry point.
 
 **Files likely touched:**
-- `docs/telegram-12.8.3-surface-map.md`
+- `docs/telegram-12.10.4-surface-map.md`
 - `docs/device-acceptance-2.1.0.md`
 
 **Estimated scope:** Small
@@ -452,7 +452,7 @@ Each supported surface must pass all applicable states:
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Obfuscated 12.8.3 aliases differ from source | High | Exact APK map and reflection probe before each feature hook |
+| Obfuscated 12.10.4 aliases differ from source | High | Exact APK map and reflection probe before each feature hook |
 | Search/share parallel lists lose alignment | High | Paired-copy core contract and mismatch fail-open tests |
 | Async server results reintroduce hidden rows | High | Filter every presentation invocation, not only search completion callbacks |
 | Telegram-owned cache mutation breaks reveal | High | Copy-only policy plus source contract rejecting destructive list operations |
@@ -478,7 +478,7 @@ Each supported surface must pass all applicable states:
 - Add a new dependency.
 - Add per-surface user settings.
 - Change hidden-dialog persistence format.
-- Expand support beyond official Telegram 12.8.3.
+- Expand support beyond official Telegram 12.10.4.
 - Suppress hints or entire sections beyond the policies above.
 
 ### Never

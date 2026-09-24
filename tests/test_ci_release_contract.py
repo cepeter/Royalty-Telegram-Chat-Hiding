@@ -45,6 +45,12 @@ class CiReleaseContractTests(unittest.TestCase):
         self.assertIn("contents: read", self.workflow)
         self.assertIn("contents: write", self.workflow)
 
+    def test_pull_requests_upload_debug_acceptance_apk(self):
+        self.assertIn("Upload debug acceptance APK", self.workflow)
+        self.assertIn("github.event_name == 'pull_request'", self.workflow)
+        self.assertIn("app/build/outputs/apk/debug/app-debug.apk", self.workflow)
+        self.assertIn("retention-days: 3", self.workflow)
+
     def test_release_assets_use_royalty_brand(self):
         self.assertIn('"release-apk/royalty-${GITHUB_REF_NAME}.apk"', self.workflow)
         self.assertNotIn("release-apk/telegram-chat-hider-", self.workflow)

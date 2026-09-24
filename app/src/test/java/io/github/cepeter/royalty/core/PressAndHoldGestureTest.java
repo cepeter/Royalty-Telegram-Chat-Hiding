@@ -7,21 +7,23 @@ import org.junit.Test;
 
 public final class PressAndHoldGestureTest {
     @Test
-    public void triggersAfterThreeSecondHold() {
+    public void triggersAtThreeSecondDeadline() {
         PressAndHoldGesture gesture = new PressAndHoldGesture(3000);
 
         gesture.onDown(1000);
 
-        assertTrue(gesture.onUp(4000));
+        assertTrue(gesture.onDeadline(4000));
+        assertFalse(gesture.onDeadline(4001));
     }
 
     @Test
-    public void shortPressDoesNotTrigger() {
+    public void earlyDeadlineDoesNotTrigger() {
         PressAndHoldGesture gesture = new PressAndHoldGesture(3000);
 
         gesture.onDown(1000);
 
-        assertFalse(gesture.onUp(3999));
+        assertFalse(gesture.onDeadline(3999));
+        assertTrue(gesture.onDeadline(4000));
     }
 
     @Test
@@ -31,16 +33,16 @@ public final class PressAndHoldGestureTest {
 
         gesture.cancel();
 
-        assertFalse(gesture.onUp(5000));
+        assertFalse(gesture.onDeadline(5000));
     }
 
     @Test
     public void invalidTimestampsDoNotTrigger() {
         PressAndHoldGesture gesture = new PressAndHoldGesture(3000);
 
-        assertFalse(gesture.onUp(4000));
+        assertFalse(gesture.onDeadline(4000));
         gesture.onDown(5000);
-        assertFalse(gesture.onUp(4999));
-        assertFalse(gesture.onUp(9000));
+        assertFalse(gesture.onDeadline(4999));
+        assertFalse(gesture.onDeadline(9000));
     }
 }

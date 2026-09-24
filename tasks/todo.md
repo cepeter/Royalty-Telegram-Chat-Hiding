@@ -4,7 +4,7 @@ Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ## PR 1 — Compatibility foundation
 
-- [ ] 1.1 Map exact official Telegram 12.8.3 APK classes, aliases, fields, signatures, ownership, and APK SHA-256.
+- [ ] 1.1 Map exact official Telegram 12.10.4 APK classes, aliases, fields, signatures, ownership, and APK SHA-256.
 - [ ] 1.2 Add paired item/metadata filtered-copy behavior with JVM tests.
 - [ ] 1.3 Add explicit-account runtime object-to-`DialogKey` extraction and reflection probe.
 
@@ -40,7 +40,7 @@ Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ## PR 4 — New-group and contact invite
 
-- [ ] 4.1 Map every contact/group/add-member/invite entry point on Telegram 12.8.3.
+- [ ] 4.1 Map every contact/group/add-member/invite entry point on Telegram 12.10.4.
 - [ ] 4.2 Filter normal user/contact/member adapter copies.
 - [ ] 4.3 Filter local/global contact search without globally removing Telegram users.
 
