@@ -3,9 +3,10 @@
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 ![Tested Telegram: 12.8.3](https://img.shields.io/badge/Telegram-12.8.3-26A5E4.svg)
 
+just because https://github.com/Xposed-Modules-Repo/ru.mike.loyalty stopped working for me, so I build it myself.
 **Royalty** is an Android Xposed module that hides selected dialogs from Telegram’s main dialog lists and suppresses their new-message notifications.
 
-> Version 2.0 replaces the unsupported native APatch implementation. It requires [Vector](https://github.com/JingMatrix/Vector) or a compatible LSPosed installation.
+> It requires [Vector](https://github.com/JingMatrix/Vector) , its requirement or a compatible LSPosed installation.
 > The current hook mappings are tested against official Telegram **12.8.3** (`org.telegram.messenger`). Other Telegram versions are not guaranteed to work.
 
 ## Requirements
