@@ -14,12 +14,23 @@ class CiReleaseContractTests(unittest.TestCase):
             "11d5960a326750d5838078e36cf38b85af677262",
             "cf277c60eb25467037889841efdb72551f06f6c3",
             "9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407",
+            "c18668ad3cf93ea998bef934396af7bb5c839dc7",
             "ea165f8d65b6e75b540449e92b4886f43607fa02",
             "d3f86a106a0bac45b974a628896c90dbdf5c8093",
             "3bb12739c298aeb8a4eeaf626c5b8d85266b0e65",
         )
         for sha in shas:
             self.assertIn(sha, self.workflow)
+
+    def test_ci_uses_pinned_uv_before_android_setup(self):
+        uv_setup = self.workflow.index("astral-sh/setup-uv@")
+        contracts = self.workflow.index("uv run --no-project python -m unittest discover")
+        android_setup = self.workflow.index("android-actions/setup-android@")
+
+        self.assertLess(uv_setup, contracts)
+        self.assertLess(contracts, android_setup)
+        self.assertIn('version: "0.12.18"', self.workflow)
+        self.assertNotIn("run: python3 -m unittest discover", self.workflow)
 
     def test_android_setup_does_not_request_removed_tools_package(self):
         self.assertIn("packages: platform-tools", self.workflow)
