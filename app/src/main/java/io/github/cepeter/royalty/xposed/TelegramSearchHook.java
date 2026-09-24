@@ -1,8 +1,5 @@
 package io.github.cepeter.royalty.xposed;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
@@ -32,9 +29,9 @@ final class TelegramSearchHook {
         Method count = adapter.getDeclaredMethod("h");
         Method item = adapter.getDeclaredMethod("J", int.class);
 
-        XposedBridge.hookMethod(count, new XC_MethodHook() {
+        ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) {
+            protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
                 try {
                     int sourceCount = ((Number) param.getResult()).intValue();
                     int[] positions = buildPositions(
@@ -52,22 +49,22 @@ final class TelegramSearchHook {
         hookPosition(adapter.getDeclaredMethod("i", int.class), 0, revealed, status);
         hookPosition(findMethod(adapter, "v", 2), 1, revealed, status);
 
-        XC_MethodHook invalidate = new XC_MethodHook() {
+        ModernHookBridge.MethodHook invalidate = new ModernHookBridge.MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
+            protected void beforeHookedMethod(ModernHookBridge.MethodHookParam param) {
                 POSITIONS.remove(param.thisObject);
             }
         };
-        XposedBridge.hookMethod(adapter.getDeclaredMethod("U", int.class, String.class), invalidate);
+        ModernHookBridge.hookMethod(adapter.getDeclaredMethod("U", int.class, String.class), invalidate);
         Class<?> view = Class.forName("org.telegram.ui.Components.eo0", false, loader);
-        if (XposedBridge.hookAllMethods(view, "l", invalidate).isEmpty()) {
+        if (ModernHookBridge.hookAllMethods(view, "l", invalidate).isEmpty()) {
             throw new NoSuchMethodException(view.getName() + ".l");
         }
 
-        XposedBridge.hookMethod(adapter.getDeclaredMethod("T"), new XC_MethodHook() {
+        ModernHookBridge.hookMethod(adapter.getDeclaredMethod("T"), new ModernHookBridge.MethodHook() {
             @Override
-            protected void afterHookedMethod(MethodHookParam param) {
-                XposedHelpers.callMethod(param.thisObject, "l");
+            protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
+                ModernHookBridge.callMethod(param.thisObject, "l");
             }
         });
     }
@@ -77,9 +74,9 @@ final class TelegramSearchHook {
             int argumentIndex,
             BooleanSupplier revealed,
             StatusReporter status) {
-        XposedBridge.hookMethod(method, new XC_MethodHook() {
+        ModernHookBridge.hookMethod(method, new ModernHookBridge.MethodHook() {
             @Override
-            protected void beforeHookedMethod(MethodHookParam param) {
+            protected void beforeHookedMethod(ModernHookBridge.MethodHookParam param) {
                 try {
                     if (revealed.getAsBoolean()) return;
                     int[] positions = POSITIONS.get(param.thisObject);
@@ -101,7 +98,7 @@ final class TelegramSearchHook {
             Supplier<HiddenConfig> config,
             BooleanSupplier revealed,
             StatusReporter status) {
-        int account = XposedHelpers.getIntField(adapter, "r0");
+        int account = ModernHookBridge.getIntField(adapter, "r0");
         boolean[] degraded = {false};
         int[] positions = DialogFilter.visiblePositions(
                 sourceCount,
@@ -123,7 +120,7 @@ final class TelegramSearchHook {
     private static Object invokeItem(
             Method item, Object adapter, int index, boolean[] degraded) {
         try {
-            return XposedBridge.invokeOriginalMethod(item, adapter, new Object[] {index});
+            return ModernHookBridge.invokeOriginalMethod(item, adapter, new Object[] {index});
         } catch (VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable error) {
@@ -148,6 +145,6 @@ final class TelegramSearchHook {
             throw (VirtualMachineError) error;
         }
         status.report("runtime_error", error.getClass().getSimpleName());
-        XposedBridge.log("Royalty: search filtering failed open: " + error);
+        ModernHookBridge.log("Royalty: search filtering failed open: " + error);
     }
 }

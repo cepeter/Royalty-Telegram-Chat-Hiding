@@ -10,8 +10,12 @@ class XposedHookContractTests(unittest.TestCase):
         self.source = HOOK.read_text()
 
     def test_only_official_telegram_main_process_is_hooked(self):
-        self.assertIn('"org.telegram.messenger".equals(lpparam.packageName)', self.source)
-        self.assertIn("lpparam.packageName.equals(lpparam.processName)", self.source)
+        self.assertIn("extends XposedModule", self.source)
+        self.assertIn("onModuleLoaded", self.source)
+        self.assertIn("onPackageReady", self.source)
+        self.assertIn('"org.telegram.messenger".equals(param.getPackageName())', self.source)
+        self.assertIn("param.isFirstPackage()", self.source)
+        self.assertIn("param.getPackageName().equals(processName)", self.source)
 
     def test_dialog_hook_returns_copy_and_notification_hook_replaces_argument(self):
         self.assertIn('"getDialogs"', self.source)
@@ -39,11 +43,14 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertNotIn('"onInterceptTouchEvent"', self.source)
         self.assertNotIn('"android.view.View"', self.source)
 
-    def test_xposed_preferences_reload_and_catalog_uses_callback_bridge(self):
+    def test_modern_remote_preferences_and_catalog_callback_bridge(self):
         repository = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/XposedConfigRepository.java").read_text()
+        service = (ROOT / "app/src/main/java/io/github/cepeter/royalty/config/XposedPreferenceService.java").read_text()
         bridge = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogRequestBridge.java").read_text()
-        self.assertIn("new XSharedPreferences", repository)
-        self.assertIn("preferences.reload()", repository)
+        self.assertIn("SharedPreferences", repository)
+        self.assertNotIn("XSharedPreferences", repository)
+        self.assertIn("XposedServiceHelper.registerListener", service)
+        self.assertIn("getRemotePreferences", service)
         self.assertIn("CatalogRequestBridge.register", self.source)
         self.assertIn("CatalogProtocol.ACTION_REQUEST", bridge)
         self.assertNotIn("bindService", bridge)
@@ -55,7 +62,7 @@ class XposedHookContractTests(unittest.TestCase):
 
     def test_telegram_classes_are_resolved_after_application_on_create(self):
         package_load = self.source[
-            self.source.index("public void handleLoadPackage") :
+            self.source.index("public void onPackageReady") :
             self.source.index("private static void installApplicationBridge")
         ]
         self.assertIn('install("bridge"', package_load)

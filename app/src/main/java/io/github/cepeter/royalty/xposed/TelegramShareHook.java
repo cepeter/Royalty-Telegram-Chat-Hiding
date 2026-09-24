@@ -1,8 +1,5 @@
 package io.github.cepeter.royalty.xposed;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
@@ -31,23 +28,23 @@ final class TelegramShareHook {
             BooleanSupplier revealed, StatusReporter status) throws Exception {
         Class<?> main = Class.forName("org.telegram.ui.Components.oq0", false, loader);
         Class<?> search = Class.forName("org.telegram.ui.Components.sq0", false, loader);
-        XposedBridge.hookMethod(main.getDeclaredMethod("E"), new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookMethod(main.getDeclaredMethod("E"), new ModernHookBridge.MethodHook() {
+            @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> applyMain(p.thisObject, config, revealed, status));
             }
         });
-        XposedBridge.hookMethod(main.getDeclaredMethod("h"), new XC_MethodHook() {
-            @Override protected void beforeHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookMethod(main.getDeclaredMethod("h"), new ModernHookBridge.MethodHook() {
+            @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> applyMain(p.thisObject, config, revealed, status));
             }
         });
-        XposedBridge.hookMethod(search.getDeclaredMethod("E", String.class), new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookMethod(search.getDeclaredMethod("E", String.class), new ModernHookBridge.MethodHook() {
+            @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> applySearch(p.thisObject, config, revealed, status));
             }
         });
-        XposedBridge.hookMethod(search.getDeclaredMethod("h"), new XC_MethodHook() {
-            @Override protected void beforeHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookMethod(search.getDeclaredMethod("h"), new ModernHookBridge.MethodHook() {
+            @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> applySearch(p.thisObject, config, revealed, status));
             }
         });
@@ -55,8 +52,8 @@ final class TelegramShareHook {
 
     private static void applyMain(Object adapter, Supplier<HiddenConfig> config,
             BooleanSupplier revealed, StatusReporter status) {
-        Object outer = XposedHelpers.getObjectField(adapter, "f");
-        int account = XposedHelpers.getIntField(outer, "currentAccount");
+        Object outer = ModernHookBridge.getObjectField(adapter, "f");
+        int account = ModernHookBridge.getIntField(outer, "currentAccount");
         HiddenConfig hidden = config.get();
         boolean reveal = revealed.getAsBoolean();
         ListState state = capture(adapter, "d", MAIN);
@@ -64,20 +61,20 @@ final class TelegramShareHook {
                 row -> TelegramObjectKey.fromDialog(account, row),
                 hidden, reveal, status);
         apply(adapter, "d", state, visible);
-        Object oldMap = XposedHelpers.getObjectField(adapter, "e");
-        XposedHelpers.setObjectField(adapter, "e", dialogMap(oldMap, visible));
+        Object oldMap = ModernHookBridge.getObjectField(adapter, "e");
+        ModernHookBridge.setObjectField(adapter, "e", dialogMap(oldMap, visible));
         guardSelection(outer, state.raw, account, hidden, reveal);
     }
 
     private static void applySearch(Object adapter, Supplier<HiddenConfig> config,
             BooleanSupplier revealed, StatusReporter status) {
-        Object outer = XposedHelpers.getObjectField(adapter, "J");
-        int account = XposedHelpers.getIntField(outer, "currentAccount");
+        Object outer = ModernHookBridge.getObjectField(adapter, "J");
+        int account = ModernHookBridge.getIntField(outer, "currentAccount");
         HiddenConfig hidden = config.get();
         boolean reveal = revealed.getAsBoolean();
         filterField(adapter, "d", SEARCH,
                 row -> TelegramObjectKey.fromShareSearch(account, row), hidden, reveal, status);
-        Object helper = XposedHelpers.getObjectField(adapter, "e");
+        Object helper = ModernHookBridge.getObjectField(adapter, "e");
         filterField(helper, "d", HELPER,
                 row -> TelegramObjectKey.fromSearchResult(account, row), hidden, reveal, status);
         filterField(outer, "D0", RECENT,
@@ -92,7 +89,7 @@ final class TelegramShareHook {
     }
 
     private static ListState capture(Object owner, String field, Map<Object, ListState> states) {
-        List<?> current = (List<?>) XposedHelpers.getObjectField(owner, field);
+        List<?> current = (List<?>) ModernHookBridge.getObjectField(owner, field);
         ListState state = states.get(owner);
         if (state == null || current != state.applied || !current.equals(state.snapshot)) {
             state = new ListState(new ArrayList<>(current));
@@ -102,7 +99,7 @@ final class TelegramShareHook {
     }
 
     private static void apply(Object owner, String field, ListState state, List<Object> value) {
-        XposedHelpers.setObjectField(owner, field, value);
+        ModernHookBridge.setObjectField(owner, field, value);
         state.applied = value;
         state.snapshot = new ArrayList<>(value);
     }
@@ -128,7 +125,7 @@ final class TelegramShareHook {
             for (Object dialog : dialogs) {
                 java.util.Optional<DialogKey> key = TelegramObjectKey.fromDialog(0, dialog);
                 if (key.isPresent()) {
-                    XposedHelpers.callMethod(result, "k", dialog, key.get().dialogId());
+                    ModernHookBridge.callMethod(result, "k", dialog, key.get().dialogId());
                 }
             }
             return result;
@@ -141,17 +138,17 @@ final class TelegramShareHook {
             HiddenConfig config, boolean reveal) {
         Boolean previous = LAST_REVEAL.put(outer, reveal);
         if (previous == null || !previous || reveal) return;
-        Object selected = XposedHelpers.getObjectField(outer, "T");
+        Object selected = ModernHookBridge.getObjectField(outer, "T");
         Object replacement = dialogMap(selected, Collections.emptyList());
         for (Object dialog : dialogs) {
             java.util.Optional<DialogKey> key = TelegramObjectKey.fromDialog(account, dialog);
             if (!key.isPresent() || config.isHidden(key.get())) continue;
             long id = key.get().dialogId();
-            if (((Number) XposedHelpers.callMethod(selected, "h", id)).intValue() >= 0) {
-                XposedHelpers.callMethod(replacement, "k", dialog, id);
+            if (((Number) ModernHookBridge.callMethod(selected, "h", id)).intValue() >= 0) {
+                ModernHookBridge.callMethod(replacement, "k", dialog, id);
             }
         }
-        XposedHelpers.setObjectField(outer, "T", replacement);
+        ModernHookBridge.setObjectField(outer, "T", replacement);
     }
 
     private static void safely(StatusReporter status, Runnable action) {
@@ -161,7 +158,7 @@ final class TelegramShareHook {
             throw fatal;
         } catch (RuntimeException error) {
             status.report("runtime_error", error.getClass().getSimpleName());
-            XposedBridge.log("Royalty: share filtering failed open: " + error);
+            ModernHookBridge.log("Royalty: share filtering failed open: " + error);
         }
     }
 

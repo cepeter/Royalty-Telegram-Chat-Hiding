@@ -36,7 +36,7 @@ Royalty does not delete chats, modify messages, or change Telegram’s stored di
 | Requirement | Supported version |
 |---|---|
 | Android | 8.1 or newer |
-| Hook framework | [Vector 2.x](https://github.com/JingMatrix/Vector) or compatible LSPosed |
+| Hook framework | Vector/LSPosed with Modern Xposed API 101 support |
 | Telegram | Official app, version 12.10.4 |
 | Telegram package | `org.telegram.messenger` |
 
@@ -56,7 +56,7 @@ Notification suppression is optional and stays off until you enable it.
 
 ## Everyday use
 
-Configuration changes are picked up within one second. Switch Telegram folders or restart Telegram if the visible list has not redrawn yet.
+Configuration changes are synchronized through the framework's Modern Xposed remote-preferences service. Switch Telegram folders or restart Telegram if the visible list has not redrawn yet.
 
 To reveal hidden chats temporarily:
 
@@ -96,7 +96,7 @@ Hook failures fail open: Telegram keeps showing its normal, unfiltered content i
 - Dialog and notification filtering use copied inputs rather than mutating Telegram-owned collections.
 - Search surfaces remap visible adapter positions while preserving aligned names and metadata.
 - Share, group, and contact adapters receive replacement copies with fail-open handling for unknown Telegram rows.
-- Configuration uses XSharedPreferences safe-zone redirection.
+- Configuration uses Modern Xposed remote preferences; it never requests world-readable app files.
 - Catalog requests require a signature-level permission and return through an exact-component `PendingIntent`.
 - Every request uses an active 128-bit nonce.
 - Catalog responses contain only the account, dialog ID, and display title, capped at 1,024 entries per account and 256 UTF-16 code units per title.
@@ -108,7 +108,7 @@ See [SECURITY.md](SECURITY.md) for the threat model and reporting process.
 <details>
 <summary><strong>Build from source</strong></summary>
 
-You need JDK 17 and Android SDK 35.
+You need JDK 17 and Android SDK 36.
 
 ```bash
 ./gradlew testDebugUnitTest lintDebug assembleDebug
@@ -116,7 +116,7 @@ You need JDK 17 and Android SDK 35.
 
 Release builds use the four `TCH_*` signing variables configured in GitHub Actions. The tag workflow builds the APK twice, compares deterministic payload entries, verifies the RSA-PSS signature and Xposed metadata, and publishes checksum manifests.
 
-Dependencies are checksum-pinned in `gradle/verification-metadata.xml`. Xposed API 82 is compile-only and is not bundled in the APK.
+Dependencies are checksum-pinned in `gradle/verification-metadata.xml`. Modern Xposed API 101 is compile-only and is not bundled in the APK; its API-101 service client is packaged for framework-backed remote preferences.
 
 ### Project layout
 

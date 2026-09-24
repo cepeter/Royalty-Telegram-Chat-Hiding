@@ -15,14 +15,14 @@ val releaseSigningConfigured = listOf(
 
 android {
     namespace = "io.github.cepeter.royalty"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "io.github.cepeter.royalty"
         minSdk = 27
         targetSdk = 35
-        versionCode = 11
-        versionName = "2.2.1"
+        versionCode = 12
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }
@@ -81,6 +81,7 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 }
 
 dependencies {
-    compileOnly("de.robv.android.xposed:api:82")
+    compileOnly("io.github.libxposed:api:101.0.1")
+    implementation("io.github.libxposed:service:101.0.0")
     testImplementation("junit:junit:4.13.2")
 }

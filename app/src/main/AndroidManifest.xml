@@ -12,6 +12,7 @@
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:description="@string/xposed_description"
         android:fullBackupContent="false"
         android:icon="@drawable/ic_launcher"
         android:roundIcon="@drawable/ic_launcher"
@@ -30,11 +31,5 @@
         <receiver
             android:name=".catalog.CatalogResultReceiver"
             android:exported="false" />
-
-        <meta-data android:name="xposedmodule" android:value="true" />
-        <meta-data android:name="xposeddescription" android:value="@string/xposed_description" />
-        <meta-data android:name="xposedminversion" android:value="93" />
-        <meta-data android:name="xposedsharedprefs" android:value="true" />
-        <meta-data android:name="xposedscope" android:value="org.telegram.messenger" />
     </application>
 </manifest>

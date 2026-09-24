@@ -21,7 +21,7 @@ class SearchHookContractTests(unittest.TestCase):
         self.assertIn('getDeclaredMethod("h")', self.search)
         self.assertIn('getDeclaredMethod("J", int.class)', self.search)
         self.assertIn("DialogFilter.visiblePositions", self.search)
-        self.assertIn("XposedBridge.invokeOriginalMethod", self.search)
+        self.assertIn("ModernHookBridge.invokeOriginalMethod", self.search)
         self.assertNotIn("setObjectField", self.search)
         self.assertNotIn("getObjectField", self.search)
 

@@ -17,14 +17,14 @@ class ContactHookContractTests(unittest.TestCase):
         self.assertIn('Class.forName("we.g1"', self.contacts)
         self.assertIn("DialogFilter.filteredPairedCopy", self.contacts)
         self.assertIn("DialogFilter.filteredCopy", self.contacts)
-        self.assertIn("XposedHelpers.setObjectField", self.contacts)
+        self.assertIn("ModernHookBridge.setObjectField", self.contacts)
 
     def test_sectioned_contact_list_is_position_mapped_not_modified(self):
         self.assertIn('Class.forName("we.d"', self.contacts)
         for method in ('"M"', '"O"', '"N"', '"P"', '"V"', '"W"'):
             self.assertIn(method, self.contacts)
         self.assertIn("DialogFilter.visiblePositions", self.contacts)
-        self.assertIn("XposedBridge.invokeOriginalMethod", self.contacts)
+        self.assertIn("ModernHookBridge.invokeOriginalMethod", self.contacts)
         self.assertIn('isClass(p.thisObject, "org.telegram.ui.nt")', self.contacts)
 
     def test_unknown_picker_rows_fail_open_with_health_detail(self):

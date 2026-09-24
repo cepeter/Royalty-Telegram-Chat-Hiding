@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -37,6 +38,7 @@ import io.github.cepeter.royalty.catalog.CatalogProtocol;
 import io.github.cepeter.royalty.catalog.CatalogRepository;
 import io.github.cepeter.royalty.catalog.CatalogRequestClient;
 import io.github.cepeter.royalty.config.ConfigStore;
+import io.github.cepeter.royalty.config.XposedPreferenceService;
 import io.github.cepeter.royalty.core.CatalogEntry;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
@@ -54,6 +56,11 @@ public final class MainActivity extends Activity {
     private long requestExpiresAt;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final XposedPreferenceService.Listener preferenceListener = current ->
+            mainHandler.post(() -> {
+                preferences = current;
+                renderCached();
+            });
     private final Runnable catalogTimeout = () -> {
         if (requestExpiresAt != 0 && SystemClock.elapsedRealtime() >= requestExpiresAt) {
             catalogRequestTimedOut = true;
@@ -72,6 +79,7 @@ public final class MainActivity extends Activity {
     };
 
     private CatalogRepository catalogRepository;
+    private SharedPreferences preferences;
     private TextView statusView;
     private ListView dialogList;
     private ArrayAdapter<String> dialogAdapter;
@@ -83,6 +91,13 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         catalogRepository = new CatalogRepository(this);
         setContentView(buildContentView());
+        XposedPreferenceService.subscribe(preferenceListener);
+    }
+
+    @Override
+    protected void onDestroy() {
+        XposedPreferenceService.unsubscribe(preferenceListener);
+        super.onDestroy();
     }
 
     @Override
@@ -253,11 +268,13 @@ public final class MainActivity extends Activity {
 
     private void renderCached() {
         HiddenConfig config = HiddenConfig.empty();
-        preferencesAvailable = true;
-        try {
-            config = ConfigStore.load(this);
-        } catch (SecurityException error) {
-            preferencesAvailable = false;
+        preferencesAvailable = preferences != null;
+        if (preferencesAvailable) {
+            try {
+                config = ConfigStore.load(preferences);
+            } catch (RuntimeException error) {
+                preferencesAvailable = false;
+            }
         }
 
         catalog.clear();
@@ -302,13 +319,13 @@ public final class MainActivity extends Activity {
 
         try {
             boolean saved = ConfigStore.save(
-                    this, selected, notificationSwitch.isChecked());
+                    preferences, selected, notificationSwitch.isChecked());
             if (!saved) {
                 showError(getString(R.string.save_failed));
                 return;
             }
             Toast.makeText(this, "Changes saved", Toast.LENGTH_SHORT).show();
-        } catch (SecurityException error) {
+        } catch (RuntimeException error) {
             preferencesAvailable = false;
             saveButton.setEnabled(false);
             showError(getString(R.string.framework_inactive));

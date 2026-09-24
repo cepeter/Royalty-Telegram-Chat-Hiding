@@ -43,7 +43,7 @@ class CiReleaseContractTests(unittest.TestCase):
         self.assertIn("scripts/verify-reproducible-build.sh", self.workflow)
         self.assertIn("environment: production", self.workflow)
         verifier = (ROOT / "scripts/verify-release-apk.sh").read_text()
-        self.assertIn("versionCode='11' versionName='2.2.1'", verifier)
+        self.assertIn("versionCode='12' versionName='3.0.0'", verifier)
         self.assertIn("contents: read", self.workflow)
         self.assertIn("contents: write", self.workflow)
 
@@ -73,7 +73,17 @@ class CiReleaseContractTests(unittest.TestCase):
 
     def test_release_verification_checks_signature_and_contents(self):
         verification = (ROOT / "scripts/verify-release-apk.sh").read_text()
-        for check in ("apksigner", "verify --verbose", "aapt", "dump badging", "assets/xposed_init", "de\\.robv\\.android\\.xposed", "sha256sum"):
+        for check in (
+            "apksigner",
+            "verify --verbose",
+            "aapt",
+            "dump badging",
+            "META-INF/xposed/java_init.list",
+            "META-INF/xposed/scope.list",
+            "META-INF/xposed/module.prop",
+            "io\\.github\\.libxposed\\.api",
+            "sha256sum",
+        ):
             self.assertIn(check, verification)
 
     def test_release_keeps_only_current_release_and_tag(self):

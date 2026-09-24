@@ -1,7 +1,6 @@
 package io.github.cepeter.royalty.config;
 
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.content.SharedPreferences;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
@@ -15,14 +14,7 @@ public final class ConfigStore {
 
     private ConfigStore() {}
 
-    @SuppressWarnings("deprecation")
-    @SuppressLint("WorldReadableFiles")
-    public static SharedPreferences open(Context context) {
-        return context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_WORLD_READABLE);
-    }
-
-    public static HiddenConfig load(Context context) {
-        SharedPreferences preferences = open(context);
+    public static HiddenConfig load(SharedPreferences preferences) {
         Set<String> stored = preferences.getStringSet(HIDDEN_DIALOGS, java.util.Collections.emptySet());
         Set<String> snapshot = stored == null ? java.util.Collections.emptySet() : new HashSet<>(stored);
         return HiddenConfig.fromStrings(
@@ -32,13 +24,14 @@ public final class ConfigStore {
 
     @SuppressLint("ApplySharedPref")
     public static boolean save(
-            Context context, Set<DialogKey> hiddenDialogs, boolean suppressNotifications) {
+            SharedPreferences preferences,
+            Set<DialogKey> hiddenDialogs,
+            boolean suppressNotifications) {
         Set<String> encoded = new HashSet<>();
         for (DialogKey key : hiddenDialogs) {
             encoded.add(key.toString());
         }
-        return open(context)
-                .edit()
+        return preferences.edit()
                 .putStringSet(HIDDEN_DIALOGS, encoded)
                 .putBoolean(SUPPRESS_NOTIFICATIONS, suppressNotifications)
                 .commit();

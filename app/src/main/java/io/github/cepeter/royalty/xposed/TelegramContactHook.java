@@ -1,8 +1,5 @@
 package io.github.cepeter.royalty.xposed;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
 import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
@@ -50,8 +47,8 @@ final class TelegramContactHook {
         Class<?> base = Class.forName("we.d", false, loader);
         Method count = base.getDeclaredMethod("M", int.class);
         Method item = base.getDeclaredMethod("O", int.class, int.class);
-        XposedBridge.hookMethod(count, new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
+            @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 if (!isClass(p.thisObject, "org.telegram.ui.nt")) return;
                 safely(status, () -> buildSection(p, item, config.get(), revealed.getAsBoolean()));
             }
@@ -63,18 +60,18 @@ final class TelegramContactHook {
             }
         }
         Class<?> concrete = Class.forName("org.telegram.ui.nt", false, loader);
-        XposedBridge.hookAllMethods(concrete, "l", new XC_MethodHook() {
-            @Override protected void beforeHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookAllMethods(concrete, "l", new ModernHookBridge.MethodHook() {
+            @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 SECTIONS.remove(p.thisObject);
             }
         });
     }
 
-    private static void buildSection(XC_MethodHook.MethodHookParam p, Method item,
+    private static void buildSection(ModernHookBridge.MethodHookParam p, Method item,
             HiddenConfig config, boolean reveal) {
         int section = ((Number) p.args[0]).intValue();
         int count = ((Number) p.getResult()).intValue();
-        int account = XposedHelpers.getIntField(p.thisObject, "r");
+        int account = ModernHookBridge.getIntField(p.thisObject, "r");
         int[] positions = DialogFilter.visiblePositions(count,
                 row -> invokeItem(item, p.thisObject, section, row),
                 value -> TelegramObjectKey.fromPickerResult(account, value), config, reveal);
@@ -84,8 +81,8 @@ final class TelegramContactHook {
 
     private static void hookSectionPosition(Method method, BooleanSupplier revealed,
             StatusReporter status) {
-        XposedBridge.hookMethod(method, new XC_MethodHook() {
-            @Override protected void beforeHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookMethod(method, new ModernHookBridge.MethodHook() {
+            @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 if (!isClass(p.thisObject, "org.telegram.ui.nt") || revealed.getAsBoolean()) return;
                 safely(status, () -> {
                     int section = ((Number) p.args[0]).intValue();
@@ -101,23 +98,23 @@ final class TelegramContactHook {
 
     private static void applyGroup(Object adapter, HiddenConfig config, boolean reveal,
             StatusReporter status) {
-        Object outer = XposedHelpers.getObjectField(adapter, "H");
-        int account = XposedHelpers.getIntField(outer, "currentAccount");
+        Object outer = ModernHookBridge.getObjectField(adapter, "H");
+        int account = ModernHookBridge.getIntField(outer, "currentAccount");
         filterPaired(adapter, "d", "e", account, config, reveal, status);
         filterField(adapter, "r", value -> TelegramObjectKey.fromPickerResult(account, value),
                 config, reveal, status);
-        Object helper = XposedHelpers.getObjectField(adapter, "f");
+        Object helper = ModernHookBridge.getObjectField(adapter, "f");
         filterHelper(helper, account, config, reveal, status);
     }
 
     private static void applySearch(Object adapter, HiddenConfig config, boolean reveal,
             StatusReporter status) {
-        Object outer = XposedHelpers.getObjectField(adapter, "J");
-        int account = XposedHelpers.getIntField(outer, "currentAccount");
+        Object outer = ModernHookBridge.getObjectField(adapter, "J");
+        int account = ModernHookBridge.getIntField(outer, "currentAccount");
         filterPaired(adapter, "d", "e", account, config, reveal, status);
         filterField(adapter, "G", value -> TelegramObjectKey.fromPickerResult(account, value),
                 config, reveal, status);
-        filterHelper(XposedHelpers.getObjectField(adapter, "f"),
+        filterHelper(ModernHookBridge.getObjectField(adapter, "f"),
                 account, config, reveal, status);
     }
 
@@ -156,7 +153,7 @@ final class TelegramContactHook {
     }
 
     private static ListState capture(Object owner, String field) {
-        List<?> current = (List<?>) XposedHelpers.getObjectField(owner, field);
+        List<?> current = (List<?>) ModernHookBridge.getObjectField(owner, field);
         Map<String, ListState> fields = LISTS.computeIfAbsent(owner, ignored -> new HashMap<>());
         ListState state = fields.get(field);
         if (state == null || current != state.applied || !current.equals(state.snapshot)) {
@@ -168,14 +165,14 @@ final class TelegramContactHook {
 
     private static void apply(Object owner, String field, ListState state, List<?> value) {
         ArrayList<Object> copy = new ArrayList<>(value);
-        XposedHelpers.setObjectField(owner, field, copy);
+        ModernHookBridge.setObjectField(owner, field, copy);
         state.applied = copy;
         state.snapshot = new ArrayList<>(copy);
     }
 
     private static Object invokeItem(Method method, Object owner, int section, int row) {
         try {
-            return XposedBridge.invokeOriginalMethod(method, owner, new Object[] {section, row});
+            return ModernHookBridge.invokeOriginalMethod(method, owner, new Object[] {section, row});
         } catch (VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable ignored) {
@@ -184,16 +181,16 @@ final class TelegramContactHook {
     }
 
     private static void hookBefore(Method method, HookAction action, StatusReporter status) {
-        XposedBridge.hookMethod(method, new XC_MethodHook() {
-            @Override protected void beforeHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookMethod(method, new ModernHookBridge.MethodHook() {
+            @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> action.run(p));
             }
         });
     }
 
     private static void hookAfter(Method method, HookAction action, StatusReporter status) {
-        XposedBridge.hookMethod(method, new XC_MethodHook() {
-            @Override protected void afterHookedMethod(MethodHookParam p) {
+        ModernHookBridge.hookMethod(method, new ModernHookBridge.MethodHook() {
+            @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> action.run(p));
             }
         });
@@ -206,7 +203,7 @@ final class TelegramContactHook {
             throw fatal;
         } catch (RuntimeException error) {
             status.report("runtime_error", error.getClass().getSimpleName());
-            XposedBridge.log("Royalty: contact filtering failed open: " + error);
+            ModernHookBridge.log("Royalty: contact filtering failed open: " + error);
         }
     }
 
@@ -218,7 +215,7 @@ final class TelegramContactHook {
         return Collections.synchronizedMap(new WeakHashMap<>());
     }
 
-    private interface HookAction { void run(XC_MethodHook.MethodHookParam param); }
+    private interface HookAction { void run(ModernHookBridge.MethodHookParam param); }
 
     private static final class ListState {
         final List<Object> raw;

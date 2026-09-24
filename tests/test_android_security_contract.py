@@ -21,9 +21,10 @@ class CatalogSecurityContractTests(unittest.TestCase):
         self.assertEqual("false", receiver.attrib[ANDROID_NS + "exported"])
         self.assertFalse(application.findall("service"))
 
-    def test_config_uses_framework_redirected_shared_preferences(self):
+    def test_config_uses_framework_remote_preferences_without_world_readable_files(self):
         source = (ROOT / "app/src/main/java/io/github/cepeter/royalty/config/ConfigStore.java").read_text()
-        self.assertIn("Context.MODE_WORLD_READABLE", source)
+        self.assertNotIn("MODE_WORLD_READABLE", source)
+        self.assertIn("SharedPreferences preferences", source)
         self.assertIn("putStringSet", source)
         self.assertIn("commit()", source)
 
@@ -35,7 +36,7 @@ class CatalogSecurityContractTests(unittest.TestCase):
         config_store = (ROOT / "app/src/main/java/io/github/cepeter/royalty/config/ConfigStore.java").read_text()
         xposed_store = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/XposedConfigRepository.java").read_text()
         self.assertIn("getBoolean(SUPPRESS_NOTIFICATIONS, false)", config_store)
-        self.assertIn("getBoolean(ConfigStore.SUPPRESS_NOTIFICATIONS, false)", xposed_store)
+        self.assertIn("return ConfigStore.load(preferences)", xposed_store)
 
     def test_callback_surface_is_bounded(self):
         protocol = (ROOT / "app/src/main/java/io/github/cepeter/royalty/catalog/CatalogProtocol.java").read_text()

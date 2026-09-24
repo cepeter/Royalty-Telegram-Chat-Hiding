@@ -18,7 +18,7 @@ class ConfigurationUiContractTests(unittest.TestCase):
     def test_ui_saves_hidden_keys_and_notification_setting(self):
         self.assertIn("ConfigStore.save", self.source)
         self.assertIn("setSuppressNotifications", self.source)
-        self.assertIn("SecurityException", self.source)
+        self.assertIn("RuntimeException", self.source)
         self.assertIn("Changes saved", self.source)
 
     def test_ui_explains_supported_scope_and_refresh(self):

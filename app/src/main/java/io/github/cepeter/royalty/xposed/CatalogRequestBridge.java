@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
-import de.robv.android.xposed.XposedBridge;
 import io.github.cepeter.royalty.catalog.CatalogProtocol;
 import java.util.Map;
 
@@ -49,7 +48,7 @@ public final class CatalogRequestBridge {
             Context context, CatalogSnapshotStore store, Intent request) {
         PendingIntent callback = getCallback(request);
         if (callback == null) {
-            XposedBridge.log("TelegramChatHider: rejected malformed catalog request");
+            ModernHookBridge.log("TelegramChatHider: rejected malformed catalog request");
             return;
         }
 
@@ -70,7 +69,7 @@ public final class CatalogRequestBridge {
                     Activity.RESULT_OK,
                     result(CatalogProtocol.TYPE_COMPLETE));
         } catch (PendingIntent.CanceledException | RuntimeException error) {
-            XposedBridge.log("TelegramChatHider: catalog response failed: "
+            ModernHookBridge.log("TelegramChatHider: catalog response failed: "
                     + error.getClass().getSimpleName());
         }
     }

@@ -1,2 +1,3 @@
-# The framework loads this class by name from assets/xposed_init.
--keep class io.github.cepeter.royalty.xposed.TelegramHook { *; }
+-dontwarn io.github.libxposed.annotation.**
+-adaptresourcefilecontents META-INF/xposed/java_init.list
+-keep,allowoptimization public class io.github.cepeter.royalty.xposed.TelegramHook extends io.github.libxposed.api.XposedModule { public <init>(); }

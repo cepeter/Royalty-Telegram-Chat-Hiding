@@ -4,6 +4,19 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-09-25
+
+### Changed
+
+- Migrated the module entrypoint, package lifecycle, hooks, logging, reflection bridge, and metadata to Modern Xposed API 101.
+- Replaced world-readable/XSharedPreferences configuration with API-101 framework remote preferences.
+- Upgraded the build to compile SDK 36, Android Gradle Plugin 8.10.1, and Gradle 8.11.1 as required by the API-101 service client.
+
+### Security
+
+- Removed legacy Xposed manifest metadata, `assets/xposed_init`, and all `de.robv.android.xposed` APIs.
+- Release verification now requires exact `META-INF/xposed` resources and rejects bundled Modern Xposed API classes.
+
 ## [2.2.1] - 2026-09-24
 
 ### Fixed
@@ -97,7 +110,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v2.2.1...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.0
 [2.2.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.2.1
 [2.2.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.2.0
 [2.1.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.1.1

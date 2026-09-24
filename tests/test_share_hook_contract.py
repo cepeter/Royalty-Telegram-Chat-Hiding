@@ -20,7 +20,7 @@ class ShareHookContractTests(unittest.TestCase):
 
     def test_share_lists_are_replaced_with_filtered_copies_and_rebuilt_map(self):
         self.assertIn("DialogFilter.filteredCopy", self.share)
-        self.assertIn("XposedHelpers.setObjectField", self.share)
+        self.assertIn("ModernHookBridge.setObjectField", self.share)
         self.assertIn('callMethod(result, "k"', self.share)
         self.assertNotIn(".clear(", self.share)
         self.assertNotIn(".remove(", self.share)
