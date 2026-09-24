@@ -21,8 +21,8 @@ android {
         applicationId = "io.github.cepeter.royalty"
         minSdk = 27
         targetSdk = 35
-        versionCode = 12
-        versionName = "3.0.0"
+        versionCode = 13
+        versionName = "3.0.1"
 
         testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }

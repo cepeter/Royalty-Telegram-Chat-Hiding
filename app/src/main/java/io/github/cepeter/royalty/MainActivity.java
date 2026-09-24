@@ -21,6 +21,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -29,8 +32,10 @@ import android.view.WindowInsets;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckedTextView;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -45,11 +50,14 @@ import io.github.cepeter.royalty.core.HiddenConfig;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 public final class MainActivity extends Activity {
     private final List<CatalogEntry> catalog = new ArrayList<>();
+    private final List<CatalogEntry> visibleCatalog = new ArrayList<>();
+    private final Set<DialogKey> selectedDialogs = new HashSet<>();
     private boolean preferencesAvailable;
     private boolean catalogUpdatesRegistered;
     private boolean catalogRequestTimedOut;
@@ -80,7 +88,11 @@ public final class MainActivity extends Activity {
 
     private CatalogRepository catalogRepository;
     private SharedPreferences preferences;
-    private TextView statusView;
+    private TextView frameworkStatusDot;
+    private TextView frameworkStatusText;
+    private TextView telegramStatusDot;
+    private TextView telegramStatusText;
+    private EditText searchInput;
     private ListView dialogList;
     private ArrayAdapter<String> dialogAdapter;
     private Switch notificationSwitch;
@@ -121,10 +133,13 @@ public final class MainActivity extends Activity {
     private View buildContentView() {
         configureSystemBars();
 
+        ScrollView scrollView = new ScrollView(this);
+        scrollView.setFillViewport(true);
+        scrollView.setBackgroundColor(getColor(R.color.royalty_background));
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(16), dp(20), dp(16));
-        root.setBackgroundColor(getColor(R.color.royalty_background));
         applySystemInsets(root);
 
         LinearLayout header = new LinearLayout(this);
@@ -167,18 +182,26 @@ public final class MainActivity extends Activity {
 
         root.addView(createSectionLabel(R.string.status_section), withTopMargin(matchWrap(), 20));
 
-        LinearLayout statusCard = createCard(LinearLayout.VERTICAL);
-        statusView = createText(0, 14, R.color.royalty_text, Typeface.NORMAL);
-        statusView.setTextIsSelectable(true);
-        statusView.setLineSpacing(dp(2), 1.05f);
-        statusCard.addView(statusView, matchWrap());
+        LinearLayout statusCard = createCard(LinearLayout.HORIZONTAL);
+        statusCard.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout statusRows = new LinearLayout(this);
+        statusRows.setOrientation(LinearLayout.VERTICAL);
+        frameworkStatusDot = createStatusDot();
+        frameworkStatusText = createText(0, 14, R.color.royalty_text, Typeface.BOLD);
+        statusRows.addView(createConnectionRow(
+                frameworkStatusDot, frameworkStatusText), matchWrap());
+        telegramStatusDot = createStatusDot();
+        telegramStatusText = createText(0, 14, R.color.royalty_text, Typeface.BOLD);
+        statusRows.addView(createConnectionRow(
+                telegramStatusDot, telegramStatusText), withTopMargin(matchWrap(), 6));
+        statusCard.addView(statusRows, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
         Button refreshButton = createSecondaryButton(R.string.refresh);
         refreshButton.setOnClickListener(view -> requestCatalog());
-        LinearLayout.LayoutParams refreshParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        refreshParams.topMargin = dp(12);
-        statusCard.addView(refreshButton, refreshParams);
+        statusCard.addView(refreshButton, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(statusCard, withTopMargin(matchWrap(), 8));
 
         LinearLayout notificationCard = createCard(LinearLayout.HORIZONTAL);
@@ -206,6 +229,25 @@ public final class MainActivity extends Activity {
                 R.string.hidden_chats_subtitle, 13, R.color.royalty_text_muted, Typeface.NORMAL);
         root.addView(chatsSubtitle, withTopMargin(matchWrap(), 3));
 
+        searchInput = new EditText(this);
+        searchInput.setHint(R.string.search_chats_hint);
+        searchInput.setSingleLine(true);
+        searchInput.setInputType(InputType.TYPE_CLASS_TEXT);
+        searchInput.setTextColor(getColor(R.color.royalty_text));
+        searchInput.setHintTextColor(getColor(R.color.royalty_text_muted));
+        searchInput.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        searchInput.setPadding(dp(16), 0, dp(16), 0);
+        searchInput.setMinimumHeight(dp(48));
+        searchInput.setBackground(roundedDrawable(R.color.royalty_surface, 16, 1));
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence text, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence text, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable text) {
+                applyCatalogFilter(text.toString());
+            }
+        });
+        root.addView(searchInput, withTopMargin(matchWrap(), 10));
+
         dialogList = new ListView(this);
         dialogList.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
         dialogList.setBackground(roundedDrawable(R.color.royalty_surface, 18, 1));
@@ -214,10 +256,19 @@ public final class MainActivity extends Activity {
         dialogList.setClipToOutline(true);
         dialogList.setPadding(0, dp(4), 0, dp(4));
         dialogList.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+        dialogList.setNestedScrollingEnabled(true);
         dialogAdapter = createDialogAdapter();
         dialogList.setAdapter(dialogAdapter);
+        dialogList.setOnItemClickListener((parent, view, position, id) -> {
+            DialogKey key = visibleCatalog.get(position).key();
+            if (dialogList.isItemChecked(position)) {
+                selectedDialogs.add(key);
+            } else {
+                selectedDialogs.remove(key);
+            }
+        });
         LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1);
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(360));
         listParams.topMargin = dp(8);
         root.addView(dialogList, listParams);
 
@@ -229,7 +280,9 @@ public final class MainActivity extends Activity {
                 R.string.refresh_hint, 12, R.color.royalty_text_muted, Typeface.NORMAL);
         hint.setGravity(Gravity.CENTER_HORIZONTAL);
         root.addView(hint, withTopMargin(matchWrap(), 8));
-        return root;
+        scrollView.addView(root, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return scrollView;
     }
 
     private void registerCatalogUpdates() {
@@ -282,19 +335,13 @@ public final class MainActivity extends Activity {
         addMissingSelections(config.hiddenDialogs());
         java.util.Collections.sort(catalog);
 
-        dialogAdapter.clear();
-        for (CatalogEntry entry : catalog) {
-            dialogAdapter.add(formatEntry(entry));
-        }
-        dialogAdapter.notifyDataSetChanged();
-        dialogList.clearChoices();
-        for (int index = 0; index < catalog.size(); index++) {
-            dialogList.setItemChecked(index, config.isHidden(catalog.get(index).key()));
-        }
+        selectedDialogs.clear();
+        selectedDialogs.addAll(config.hiddenDialogs());
+        applyCatalogFilter(searchInput.getText().toString());
 
         setSuppressNotifications(config.suppressNotifications());
         saveButton.setEnabled(preferencesAvailable);
-        statusView.setText(formatStatus(catalogRepository.loadHookStatuses()));
+        updateConnectionStatus(catalogRepository.loadHookStatuses());
     }
 
     private void addMissingSelections(Set<DialogKey> selected) {
@@ -310,16 +357,9 @@ public final class MainActivity extends Activity {
     }
 
     private void saveConfiguration() {
-        Set<DialogKey> selected = new HashSet<>();
-        for (int index = 0; index < catalog.size(); index++) {
-            if (dialogList.isItemChecked(index)) {
-                selected.add(catalog.get(index).key());
-            }
-        }
-
         try {
             boolean saved = ConfigStore.save(
-                    preferences, selected, notificationSwitch.isChecked());
+                    preferences, new HashSet<>(selectedDialogs), notificationSwitch.isChecked());
             if (!saved) {
                 showError(getString(R.string.save_failed));
                 return;
@@ -337,28 +377,56 @@ public final class MainActivity extends Activity {
     }
 
     private String formatEntry(CatalogEntry entry) {
-        return entry.title()
-                + "\nAccount " + (entry.key().account() + 1)
-                + " • ID " + entry.key().dialogId();
+        return entry.title() + "\nID " + entry.key().dialogId();
     }
 
-    private String formatStatus(Map<String, String> statuses) {
-        StringBuilder text = new StringBuilder();
-        if (!preferencesAvailable) {
-            text.append(getString(R.string.framework_inactive)).append("\n\n");
+    private void applyCatalogFilter(String rawQuery) {
+        String query = rawQuery.trim().toLowerCase(Locale.ROOT);
+        visibleCatalog.clear();
+        dialogAdapter.clear();
+        for (CatalogEntry entry : catalog) {
+            String title = entry.title().toLowerCase(Locale.ROOT);
+            String dialogId = Long.toString(entry.key().dialogId());
+            if (!query.isEmpty() && !title.contains(query) && !dialogId.contains(query)) {
+                continue;
+            }
+            visibleCatalog.add(entry);
+            dialogAdapter.add(formatEntry(entry));
         }
-        text.append(getString(R.string.hook_status)).append('\n');
-        if (statuses.isEmpty()) {
-            text.append(getString(R.string.open_telegram_first));
-        } else {
-            for (Map.Entry<String, String> status : statuses.entrySet()) {
-                text.append(status.getKey()).append(": ").append(status.getValue()).append('\n');
+        dialogAdapter.notifyDataSetChanged();
+        dialogList.clearChoices();
+        for (int index = 0; index < visibleCatalog.size(); index++) {
+            dialogList.setItemChecked(index, selectedDialogs.contains(visibleCatalog.get(index).key()));
+        }
+    }
+
+    private void updateConnectionStatus(Map<String, String> statuses) {
+        boolean telegramWorking = !catalogRequestTimedOut && !statuses.isEmpty();
+        for (String status : statuses.values()) {
+            if (!"installed".equals(status)) {
+                telegramWorking = false;
+                break;
             }
         }
-        if (catalogRequestTimedOut) {
-            text.append('\n').append(getString(R.string.catalog_refresh_timeout));
-        }
-        return text.toString().trim();
+        setConnectionStatus(
+                frameworkStatusDot,
+                frameworkStatusText,
+                R.string.framework_connection,
+                preferencesAvailable);
+        setConnectionStatus(
+                telegramStatusDot,
+                telegramStatusText,
+                R.string.telegram_connection,
+                telegramWorking);
+    }
+
+    private void setConnectionStatus(
+            TextView dot, TextView label, int labelResource, boolean working) {
+        dot.setTextColor(getColor(
+                working ? R.color.royalty_success : R.color.royalty_error));
+        label.setText(getString(labelResource)
+                + " · "
+                + getString(working ? R.string.connection_working : R.string.connection_not_working));
     }
 
     private void showError(String message) {
@@ -412,6 +480,23 @@ public final class MainActivity extends Activity {
         TextView label = createText(stringResource, 13, R.color.royalty_text, Typeface.BOLD);
         label.setLetterSpacing(0.04f);
         return label;
+    }
+
+    private TextView createStatusDot() {
+        TextView dot = createText(0, 18, R.color.royalty_error, Typeface.BOLD);
+        dot.setText("●");
+        dot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return dot;
+    }
+
+    private LinearLayout createConnectionRow(TextView dot, TextView label) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(dot, new LinearLayout.LayoutParams(dp(22), ViewGroup.LayoutParams.WRAP_CONTENT));
+        row.addView(label, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        return row;
     }
 
     private LinearLayout createCard(int orientation) {

@@ -56,7 +56,7 @@ Notification suppression is optional and stays off until you enable it.
 
 ## Everyday use
 
-Configuration changes are synchronized through the framework's Modern Xposed remote-preferences service. Switch Telegram folders or restart Telegram if the visible list has not redrawn yet.
+Configuration changes are synchronized through the framework's Modern Xposed remote-preferences service. Use the search field to filter the chat picker by title or dialog ID. Switch Telegram folders or restart Telegram if the visible list has not redrawn yet.
 
 To reveal hidden chats temporarily:
 

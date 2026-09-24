@@ -3,8 +3,13 @@
     <string name="dashboard_eyebrow">Private Telegram controls</string>
     <string name="dashboard_subtitle">Choose what stays out of sight.</string>
     <string name="status_section">Connection</string>
+    <string name="framework_connection">Framework</string>
+    <string name="telegram_connection">Telegram</string>
+    <string name="connection_working">Working</string>
+    <string name="connection_not_working">Not working</string>
     <string name="hidden_chats_section">Hidden chats</string>
     <string name="hidden_chats_subtitle">Select chats to conceal across supported Telegram surfaces.</string>
+    <string name="search_chats_hint">Search chats</string>
     <string name="notifications_title">Quiet notifications</string>
     <string name="notifications_subtitle">Suppress new-message alerts from hidden chats.</string>
     <string name="xposed_description">Hide selected Telegram chats from lists, search, sharing, and people pickers.</string>
@@ -14,7 +19,7 @@
     <string name="refresh">Refresh</string>
     <string name="save">Save</string>
     <string name="suppress_notifications">Suppress new-message notifications for hidden dialogs</string>
-    <string name="refresh_hint">Open Telegram to refresh the catalog. Configuration reloads within one second; switch folders or restart Telegram to redraw the list.</string>
+    <string name="refresh_hint">Open Telegram to refresh the catalog. Switch folders or restart Telegram to redraw the list after saving.</string>
     <string name="catalog_refresh_timeout">No response from Telegram. Open Telegram, then refresh.</string>
     <string name="framework_inactive">Vector or LSPosed is not active for this module. Enable the module, scope Telegram, and restart both apps.</string>
     <string name="save_failed">Configuration could not be saved.</string>

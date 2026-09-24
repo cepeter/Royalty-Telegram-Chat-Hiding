@@ -43,7 +43,7 @@ class CiReleaseContractTests(unittest.TestCase):
         self.assertIn("scripts/verify-reproducible-build.sh", self.workflow)
         self.assertIn("environment: production", self.workflow)
         verifier = (ROOT / "scripts/verify-release-apk.sh").read_text()
-        self.assertIn("versionCode='12' versionName='3.0.0'", verifier)
+        self.assertIn("versionCode='13' versionName='3.0.1'", verifier)
         self.assertIn("contents: read", self.workflow)
         self.assertIn("contents: write", self.workflow)
 

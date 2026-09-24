@@ -9,11 +9,24 @@ class ConfigurationUiContractTests(unittest.TestCase):
     def setUp(self):
         self.source = ACTIVITY.read_text()
 
-    def test_ui_shows_hook_status_and_multiple_choice_catalog(self):
+    def test_ui_shows_compact_connection_and_multiple_choice_catalog(self):
         self.assertIn("loadHookStatuses", self.source)
         self.assertIn("CHOICE_MODE_MULTIPLE", self.source)
         self.assertIn("loadCatalog", self.source)
-        self.assertIn("Account ", self.source)
+        self.assertIn("frameworkStatusDot", self.source)
+        self.assertIn("telegramStatusDot", self.source)
+        self.assertIn("R.color.royalty_success", self.source)
+        self.assertIn("R.color.royalty_error", self.source)
+        self.assertNotIn('"Account "', self.source)
+
+    def test_dashboard_scrolls_and_chat_picker_has_search_and_useful_height(self):
+        strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
+        self.assertIn("new ScrollView(this)", self.source)
+        self.assertIn("new EditText(this)", self.source)
+        self.assertIn("addTextChangedListener", self.source)
+        self.assertIn("applyCatalogFilter", self.source)
+        self.assertIn("dp(360)", self.source)
+        self.assertIn("Search chats", strings)
 
     def test_ui_saves_hidden_keys_and_notification_setting(self):
         self.assertIn("ConfigStore.save", self.source)

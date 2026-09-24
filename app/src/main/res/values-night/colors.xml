@@ -9,5 +9,6 @@
     <color name="royalty_text_muted">#CBC3D0</color>
     <color name="royalty_outline">#4B4452</color>
     <color name="royalty_success">#75DC99</color>
+    <color name="royalty_error">#FFB4AB</color>
     <color name="royalty_ripple">#33FFFFFF</color>
 </resources>

@@ -4,6 +4,15 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-09-25
+
+### Fixed
+
+- Made the dashboard vertically scrollable and expanded the hidden-chat picker to a stable 360dp height.
+- Added chat filtering by title or dialog ID while preserving hidden selections across filter changes.
+- Removed the redundant account label from chat rows.
+- Replaced the multiline hook dump with compact Framework and Telegram connection rows using accessible working/not-working text and green/red indicators.
+
 ## [3.0.0] - 2026-09-25
 
 ### Changed
@@ -110,7 +119,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.1
 [3.0.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.0
 [2.2.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.2.1
 [2.2.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.2.0
