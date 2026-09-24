@@ -1,6 +1,6 @@
 # Implementation Plan: Multi-Surface Hidden Chats
 
-Status: **Proposed — human approval required before implementation**
+Status: **Approved on 2026-09-24 — implementation may proceed through the planned PR sequence**
 
 ## Overview
 

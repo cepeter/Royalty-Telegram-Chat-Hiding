@@ -1,6 +1,6 @@
 # Multi-Surface Hidden Chats — Task Checklist
 
-Status: **Proposed; implementation blocked until plan approval**
+Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ## PR 1 — Compatibility foundation
 
