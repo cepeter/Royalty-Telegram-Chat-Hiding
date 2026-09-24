@@ -40,9 +40,9 @@ Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ## PR 4 — New-group and contact invite
 
-- [ ] 4.1 Map every contact/group/add-member/invite entry point on Telegram 12.10.4.
-- [ ] 4.2 Filter normal user/contact/member adapter copies.
-- [ ] 4.3 Filter local/global contact search without globally removing Telegram users.
+- [x] 4.1 Map every contact/group/add-member/invite entry point on Telegram 12.10.4.
+- [x] 4.2 Filter normal user/contact/member adapter copies.
+- [x] 4.3 Filter local/global contact search without globally removing Telegram users.
 
 ### Checkpoint D
 

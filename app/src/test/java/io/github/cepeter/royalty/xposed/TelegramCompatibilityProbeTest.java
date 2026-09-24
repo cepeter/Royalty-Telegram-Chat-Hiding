@@ -80,10 +80,20 @@ public final class TelegramCompatibilityProbeTest {
         List<Object> e;
         Object f;
         List<Object> G;
+        Object J;
+        int h() { return 0; }
+        Object E(int position) { return null; }
+        void G(String query) {}
     }
 
     private static final class ContactList {
         List<Object> y;
+        int r;
+        int M(int section) { return 0; }
+        Object O(int section, int row) { return null; }
+        int N(int section, int row) { return 0; }
+        int P(int section, int row) { return 0; }
+        void l() {}
     }
 
     private static final class GroupActivity {
@@ -95,7 +105,10 @@ public final class TelegramCompatibilityProbeTest {
         List<Object> e;
         Object f;
         List<Object> r;
+        Object H;
         void L(String query) {}
+        int h() { return 0; }
+        int j(int position) { return 0; }
     }
 
     @Test

@@ -74,6 +74,7 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn('install("compatibility"', self.source)
         self.assertIn('install("search"', self.source)
         self.assertIn('install("share"', self.source)
+        self.assertIn('install("contacts"', self.source)
         self.assertIn('install("dialogs"', self.source)
         self.assertIn('install("notifications"', self.source)
         self.assertIn('install("reveal"', self.source)

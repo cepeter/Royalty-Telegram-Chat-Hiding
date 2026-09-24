@@ -43,6 +43,14 @@ public final class TelegramObjectKeyTest {
         }
     }
 
+    private static final class Contact {
+        private final long user_id;
+
+        Contact(long userId) {
+            this.user_id = userId;
+        }
+    }
+
     private static final class RecentBySourceName {
         private final long did;
 
@@ -114,6 +122,10 @@ public final class TelegramObjectKeyTest {
         assertEquals(
                 DialogKey.of(0, 35),
                 TelegramObjectKey.fromSearchResult(0, new RecentByAlias(35)).get());
+        assertEquals(
+                DialogKey.of(2, 36),
+                TelegramObjectKey.fromPickerResult(2, new Contact(36)).get());
+        assertFalse(TelegramObjectKey.fromPickerResult(0, new Contact(0)).isPresent());
         assertFalse(TelegramObjectKey.fromSearchResult(0, new Object()).isPresent());
     }
 

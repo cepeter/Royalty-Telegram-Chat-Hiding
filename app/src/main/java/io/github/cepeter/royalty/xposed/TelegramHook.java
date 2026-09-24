@@ -99,6 +99,11 @@ public final class TelegramHook implements IXposedHookLoadPackage {
                 CONFIG::current,
                 REVEALED::get,
                 (status, detail) -> reportStatus("share", status, detail)));
+        install("contacts", () -> TelegramContactHook.install(
+                classLoader,
+                CONFIG::current,
+                REVEALED::get,
+                (status, detail) -> reportStatus("contacts", status, detail)));
         install("dialogs", () -> installDialogHook(classLoader));
         install("notifications", () -> installNotificationHook(classLoader));
         install("reveal", () -> installRevealHook(classLoader));

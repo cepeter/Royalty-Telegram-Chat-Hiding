@@ -53,6 +53,16 @@ public final class TelegramObjectKey {
         return Optional.empty();
     }
 
+    public static Optional<DialogKey> fromContact(int account, Object contact) {
+        Long id = readLongField(contact, "user_id", "userId");
+        return id != null && id > 0 ? fromSignedId(account, id) : Optional.empty();
+    }
+
+    public static Optional<DialogKey> fromPickerResult(int account, Object result) {
+        Optional<DialogKey> key = fromSearchResult(account, result);
+        return key.isPresent() ? key : fromContact(account, result);
+    }
+
     public static Optional<DialogKey> fromShareSearch(int account, Object result) {
         Object dialog = readObjectField(result, "dialog", "a");
         Optional<DialogKey> dialogKey = fromDialog(account, dialog);
