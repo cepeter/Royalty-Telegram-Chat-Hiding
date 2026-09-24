@@ -1,9 +1,12 @@
 package io.github.cepeter.royalty.core;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 
 public final class DialogFilter {
     private DialogFilter() {}
@@ -34,6 +37,42 @@ public final class DialogFilter {
             }
         }
         return result;
+    }
+
+    public static <T> int[] visiblePositions(
+            int sourceCount,
+            IntFunction<T> itemProvider,
+            Function<T, Optional<DialogKey>> keyExtractor,
+            HiddenConfig config,
+            boolean reveal) {
+        if (sourceCount < 0) {
+            throw new IllegalArgumentException("sourceCount must be non-negative");
+        }
+        Objects.requireNonNull(itemProvider, "itemProvider");
+        Objects.requireNonNull(keyExtractor, "keyExtractor");
+        Objects.requireNonNull(config, "config");
+
+        int[] positions = new int[sourceCount];
+        if (reveal || config.hiddenDialogs().isEmpty()) {
+            for (int index = 0; index < sourceCount; index++) {
+                positions[index] = index;
+            }
+            return positions;
+        }
+
+        int visibleCount = 0;
+        for (int index = 0; index < sourceCount; index++) {
+            try {
+                Optional<DialogKey> key = keyExtractor.apply(itemProvider.apply(index));
+                if (key != null && key.isPresent() && config.isHidden(key.get())) {
+                    continue;
+                }
+            } catch (RuntimeException unknownTelegramObject) {
+                // Unknown Telegram rows stay visible rather than risking data loss.
+            }
+            positions[visibleCount++] = index;
+        }
+        return Arrays.copyOf(positions, visibleCount);
     }
 
     public static <T, M> PairedCopy<T, M> filteredPairedCopy(

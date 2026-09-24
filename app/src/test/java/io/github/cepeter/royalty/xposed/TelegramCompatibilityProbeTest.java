@@ -22,9 +22,14 @@ public final class TelegramCompatibilityProbeTest {
         int h() { return 0; }
     }
 
+    private static final class DialogSearchView {
+        void l() {}
+    }
+
     private static final class Recent {
-        long a;
-        Object b;
+        Object a;
+        int b;
+        long c;
     }
 
     private static final class SearchHelper {
@@ -97,6 +102,7 @@ public final class TelegramCompatibilityProbeTest {
     public void verifiesAllMappedTelegram12104Surfaces() throws Exception {
         Map<String, Class<?>> classes = new HashMap<>();
         classes.put("we.b0", DialogSearch.class);
+        classes.put("org.telegram.ui.Components.eo0", DialogSearchView.class);
         classes.put("we.a0", Recent.class);
         classes.put("we.n1", SearchHelper.class);
         classes.put("org.telegram.ui.Components.wq0", ShareAlert.class);

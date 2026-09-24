@@ -11,13 +11,18 @@ public final class TelegramCompatibilityProbe {
     }
 
     static void verify(ClassLookup classes) throws ReflectiveOperationException {
+        Class<?> dialogsSearchView = requireClass(
+                classes, "org.telegram.ui.Components.eo0");
+        requireMethod(dialogsSearchView, "l");
+
         Class<?> dialogsSearch = requireClass(classes, "we.b0");
         requireFields(dialogsSearch, "r0", "s", "F", "s0", "t0", "u0", "w0");
         requireMethod(dialogsSearch, "U", int.class, String.class);
         requireMethod(dialogsSearch, "J", int.class);
         requireMethod(dialogsSearch, "h");
 
-        requireFields(requireClass(classes, "we.a0"), "a", "b");
+        Class<?> recent = requireClass(classes, "we.a0");
+        requireFields(recent, "a", "b", "c");
         requireFields(
                 requireClass(classes, "we.n1"),
                 "m", "d", "e", "f", "g", "h", "i", "j", "k", "l");

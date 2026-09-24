@@ -19,11 +19,11 @@ Evidence was produced from the APK manifest, signing certificate, DEX descriptor
 
 | Source role | Runtime identity | Relevant members |
 |---|---|---|
-| `DialogsSearchAdapter` | `we.b0` extends `org.telegram.ui.Components.bm0` | account `r0:int`; primary search entry `U(int,String)`; `getItem(int)` → `J`; count → `h` |
+| `DialogsSearchAdapter` | `we.b0` extends `org.telegram.ui.Components.bm0`; live subclass `org.telegram.ui.Components.eo0` | account `r0:int`; primary search entry `U(int,String)`; refresh `eo0.l()`; `getItem(int)` → `J`; count → `h` |
 | Search result + aligned names | fields `s:ArrayList`, `F:ArrayList` | local peer rows and display metadata |
 | Message/forum/public rows | `x`, `G`, `H`, `I`, `J` | public posts, forum messages, messages, hashtags, sponsored peers |
 | Recent rows | `s0`, `t0`, `u0`, `w0` | recent, filtered recent copies, and ID map |
-| `RecentSearchObject` | `we.a0` | dialog ID `a:long`; peer `b:TLObject` |
+| `RecentSearchObject` | `we.a0` | peer `a:TLObject`; date `b:int`; dialog ID `c:long` |
 | `SearchAdapterHelper` | `we.n1` | account `m:int`; query methods `g` and `h` |
 | Helper result collections | `d`, `e`, `g`, `j`, `k`, `l` | local-server, global, group, phone, local-search, local-recent |
 | Helper result maps | `f`, `h`, `i` | global, group, and phone ID maps |

@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotSame;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import org.junit.Test;
 
 public final class DialogFilterTest {
@@ -131,5 +132,50 @@ public final class DialogFilterTest {
         assertNotSame(names, result.metadata());
         assertEquals(items, result.items());
         assertEquals(names, result.metadata());
+    }
+
+    @Test
+    public void visiblePositionsPreserveHeadersUnknownRowsAndOrder() {
+        List<Item> rows = Arrays.asList(null, new Item(1), new Item(2), new Item(0), new Item(3));
+        HiddenConfig config = HiddenConfig.fromStrings(
+                java.util.Collections.singleton("0:2"), false);
+
+        int[] positions = DialogFilter.visiblePositions(
+                rows.size(),
+                rows::get,
+                item -> {
+                    if (item == null) return Optional.empty();
+                    if (item.id == 0) throw new IllegalStateException("unknown row");
+                    return Optional.of(DialogKey.of(0, item.id));
+                },
+                config,
+                false);
+
+        assertEquals(Arrays.asList(0, 1, 3, 4), boxed(positions));
+    }
+
+    @Test
+    public void visiblePositionsRevealReturnsIdentityWithoutReadingRows() {
+        HiddenConfig config = HiddenConfig.fromStrings(
+                java.util.Collections.singleton("0:2"), false);
+
+        int[] positions = DialogFilter.visiblePositions(
+                3,
+                index -> {
+                    throw new AssertionError("reveal should bypass extraction");
+                },
+                item -> Optional.empty(),
+                config,
+                true);
+
+        assertEquals(Arrays.asList(0, 1, 2), boxed(positions));
+    }
+
+    private static List<Integer> boxed(int[] values) {
+        List<Integer> result = new ArrayList<>(values.length);
+        for (int value : values) {
+            result.add(value);
+        }
+        return result;
     }
 }

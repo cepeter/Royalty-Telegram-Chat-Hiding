@@ -89,6 +89,11 @@ public final class TelegramHook implements IXposedHookLoadPackage {
             XposedBridge.log("TelegramChatHider: bridge startup failed: " + error);
         }
         install("compatibility", () -> TelegramCompatibilityProbe.verify(classLoader));
+        install("search", () -> TelegramSearchHook.install(
+                classLoader,
+                CONFIG::current,
+                REVEALED::get,
+                (status, detail) -> reportStatus("search", status, detail)));
         install("dialogs", () -> installDialogHook(classLoader));
         install("notifications", () -> installNotificationHook(classLoader));
         install("reveal", () -> installRevealHook(classLoader));

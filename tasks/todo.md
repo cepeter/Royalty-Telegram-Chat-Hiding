@@ -17,9 +17,9 @@ Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ## PR 2 — Search and global search
 
-- [ ] 2.1 Filter recent/local/global/local-server/phone/group peer results.
-- [ ] 2.2 Filter message/forum/public-post results with aligned metadata.
-- [ ] 2.3 Apply conservative hints/category policy and degraded health reporting.
+- [x] 2.1 Filter recent/local/global/local-server/phone/group peer results.
+- [x] 2.2 Filter message/forum/public-post results with aligned metadata.
+- [x] 2.3 Apply conservative hints/category policy and degraded health reporting.
 
 ### Checkpoint B
 

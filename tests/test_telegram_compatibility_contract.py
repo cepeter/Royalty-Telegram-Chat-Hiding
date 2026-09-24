@@ -57,6 +57,7 @@ class TelegramCompatibilityContractTests(unittest.TestCase):
         hook = HOOK.read_text()
         for identity in (
             '"we.b0"',
+            '"org.telegram.ui.Components.eo0"',
             '"we.a0"',
             '"we.n1"',
             '"org.telegram.ui.Components.wq0"',

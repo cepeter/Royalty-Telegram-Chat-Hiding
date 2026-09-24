@@ -52,10 +52,11 @@ public final class TelegramObjectKeyTest {
     }
 
     private static final class RecentByAlias {
-        private final long a;
+        private final Object a = new Object();
+        private final long c;
 
         RecentByAlias(long dialogId) {
-            this.a = dialogId;
+            this.c = dialogId;
         }
     }
 
@@ -94,6 +95,26 @@ public final class TelegramObjectKeyTest {
         assertEquals(
                 DialogKey.of(1, -25),
                 TelegramObjectKey.fromShareSearch(1, new ShareResult(null, new Chat(25))).get());
+    }
+
+    @Test
+    public void classifiesMixedSearchRowsWithoutGuessingUnknownTypes() {
+        assertEquals(
+                DialogKey.of(0, 31),
+                TelegramObjectKey.fromSearchResult(0, new User(31)).get());
+        assertEquals(
+                DialogKey.of(0, -32),
+                TelegramObjectKey.fromSearchResult(0, new Chat(32)).get());
+        assertEquals(
+                DialogKey.of(0, -33),
+                TelegramObjectKey.fromSearchResult(0, new Dialog(-33)).get());
+        assertEquals(
+                DialogKey.of(0, 34),
+                TelegramObjectKey.fromSearchResult(0, new Message(34)).get());
+        assertEquals(
+                DialogKey.of(0, 35),
+                TelegramObjectKey.fromSearchResult(0, new RecentByAlias(35)).get());
+        assertFalse(TelegramObjectKey.fromSearchResult(0, new Object()).isPresent());
     }
 
     @Test

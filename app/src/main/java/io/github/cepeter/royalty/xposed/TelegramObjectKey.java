@@ -30,7 +30,27 @@ public final class TelegramObjectKey {
     }
 
     public static Optional<DialogKey> fromRecent(int account, Object recent) {
-        return fromSignedId(account, readLongField(recent, "did", "a"));
+        return fromSignedId(account, readLongField(recent, "did", "c", "a"));
+    }
+
+    public static Optional<DialogKey> fromSearchResult(int account, Object result) {
+        if (hasTypeInHierarchy(result, "MessageObject")
+                || hasNoArgMethod(result, "getDialogId")) {
+            return fromMessage(account, result);
+        }
+        if (hasTypeInHierarchy(result, "Dialog")) {
+            return fromDialog(account, result);
+        }
+        if (hasTypeInHierarchy(result, "User")) {
+            return fromUser(account, result);
+        }
+        if (hasTypeInHierarchy(result, "Chat")) {
+            return fromChat(account, result);
+        }
+        if (hasClassName(result, "we.a0") || hasSimpleNameContaining(result, "Recent")) {
+            return fromRecent(account, result);
+        }
+        return Optional.empty();
     }
 
     public static Optional<DialogKey> fromShareSearch(int account, Object result) {
@@ -62,8 +82,13 @@ public final class TelegramObjectKey {
     }
 
     private static Long readLongField(Object target, String... names) {
-        Object value = readObjectField(target, names);
-        return value instanceof Number ? ((Number) value).longValue() : null;
+        for (String name : names) {
+            Object value = readObjectField(target, name);
+            if (value instanceof Number) {
+                return ((Number) value).longValue();
+            }
+        }
+        return null;
     }
 
     private static Object readObjectField(Object target, String... names) {
@@ -103,6 +128,39 @@ public final class TelegramObjectKey {
             }
         }
         return null;
+    }
+
+    private static boolean hasNoArgMethod(Object target, String name) {
+        if (target == null) {
+            return false;
+        }
+        for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
+            try {
+                type.getDeclaredMethod(name);
+                return true;
+            } catch (NoSuchMethodException missingMethod) {
+                // Try the same method name on the superclass.
+            } catch (RuntimeException unreadableMethod) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasClassName(Object target, String className) {
+        return target != null && className.equals(target.getClass().getName());
+    }
+
+    private static boolean hasSimpleNameContaining(Object target, String token) {
+        if (target == null) {
+            return false;
+        }
+        for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
+            if (type.getSimpleName().contains(token)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean hasTypeInHierarchy(Object target, String simpleName) {

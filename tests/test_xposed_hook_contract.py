@@ -72,6 +72,7 @@ class XposedHookContractTests(unittest.TestCase):
 
     def test_each_hook_reports_install_status(self):
         self.assertIn('install("compatibility"', self.source)
+        self.assertIn('install("search"', self.source)
         self.assertIn('install("dialogs"', self.source)
         self.assertIn('install("notifications"', self.source)
         self.assertIn('install("reveal"', self.source)
