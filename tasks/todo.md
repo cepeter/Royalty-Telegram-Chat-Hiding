@@ -10,10 +10,10 @@ Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ### Checkpoint A
 
-- [ ] Repository contracts pass.
-- [ ] JVM tests and GitHub Android CI pass.
+- [x] Repository contracts pass.
+- [x] JVM tests and GitHub Android CI pass.
 - [ ] Exact-device reflection probe passes.
-- [ ] Human approves compatibility map.
+- [x] Human approves compatibility map.
 
 ## PR 2 — Search and global search
 
