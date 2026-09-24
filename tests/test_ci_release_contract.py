@@ -54,6 +54,14 @@ class CiReleaseContractTests(unittest.TestCase):
         for check in ("apksigner", "verify --verbose", "aapt", "dump badging", "assets/xposed_init", "de\\.robv\\.android\\.xposed", "sha256sum"):
             self.assertIn(check, verification)
 
+    def test_release_keeps_only_current_release_and_tag(self):
+        publish = self.workflow.index("Publish GitHub release")
+        cleanup = self.workflow.index("Keep only current release and tag")
+        self.assertLess(publish, cleanup)
+        self.assertIn("gh release delete", self.workflow)
+        self.assertIn("git/matching-refs/tags/", self.workflow)
+        self.assertIn("git/refs/tags/$tag", self.workflow)
+
     def test_dependabot_is_disabled(self):
         self.assertFalse((ROOT / ".github/dependabot.yml").exists())
         self.assertFalse((ROOT / ".github/dependabot.yaml").exists())

@@ -117,3 +117,24 @@ jobs:
           files: release-apk/*
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+      - name: Keep only current release and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$GITHUB_REF_NAME"
+
+          while IFS= read -r tag; do
+            if [[ -n "$tag" && "$tag" != "$current" ]]; then
+              gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes
+            fi
+          done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name')
+
+          while IFS= read -r ref; do
+            tag="${ref#refs/tags/}"
+            if [[ -n "$tag" && "$tag" != "$current" ]]; then
+              gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag"
+            fi
+          done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/" --jq '.[].ref')

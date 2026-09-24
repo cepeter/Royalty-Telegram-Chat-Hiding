@@ -4,11 +4,15 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-24
+
 ### Changed
 
-- The Android application ID and Java namespace are now `io.github.cepeter.royalty`; this is a new app identity, so legacy selections do not migrate automatically.
+- Renamed the Android application ID and Java namespace to `io.github.cepeter.royalty`. Android treats this as a new app, so legacy selections do not migrate automatically.
+- Repository contracts now run through pinned `uv` before Java and Android setup, providing faster failure feedback in CI.
+- Dependabot version updates are disabled; dependency updates are managed manually.
 
-## [2.0.0] - 2026-09-24
+## 2.0.0 - 2026-09-24
 
 ### Added
 
@@ -47,9 +51,9 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 - Version 1.x is unsupported because its native hook engine was not ABI-safe and its module lifecycle prevented reliable activation.
 
-## [v1.3.1] — 2026-09-23
+## 1.3.1 — 2026-09-23
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/telegram-apatch-chat-hider/compare/v1.3.1...HEAD
-[v1.3.1]: https://github.com/cepeter/telegram-apatch-chat-hider/releases/tag/v1.3.1
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.1.0
