@@ -1,86 +1,134 @@
-# Royalty – Telegram Chat Hiding
+<div align="center">
 
-[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
-![Tested Telegram: 12.8.3](https://img.shields.io/badge/Telegram-12.8.3-26A5E4.svg)
+# Royalty
 
-just because https://github.com/Xposed-Modules-Repo/ru.mike.loyalty stopped working for me, so I build it myself.
-**Royalty** is an Android Xposed module that hides selected dialogs from Telegram’s main dialog lists and suppresses their new-message notifications.
+**Hide selected Telegram chats without changing or deleting them.**
 
-> It requires [Vector](https://github.com/JingMatrix/Vector) , its requirement or a compatible LSPosed installation.
-> The current hook mappings are tested against official Telegram **12.8.3** (`org.telegram.messenger`). Other Telegram versions are not guaranteed to work.
+[![Latest release](https://img.shields.io/github/v/release/cepeter/Royalty-Telegram-Chat-Hiding?display_name=tag&style=flat-square)](https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/latest)
+![Android 8.1+](https://img.shields.io/badge/Android-8.1%2B-3DDC84?style=flat-square&logo=android&logoColor=white)
+![Telegram 12.8.3](https://img.shields.io/badge/Telegram-12.8.3-26A5E4?style=flat-square&logo=telegram&logoColor=white)
+[![GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
 
-## Requirements
+An Xposed module for the official Telegram Android app.
 
-- Android 8.1 or newer
-- Vector 2.x or compatible LSPosed
-- Official Telegram **12.8.3**, package `org.telegram.messenger`
+[Download](https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/latest) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+
+</div>
+
+Royalty started as a personal replacement for [Loyalty](https://github.com/Xposed-Modules-Repo/ru.mike.loyalty) after it stopped working on my setup. It now does one focused job: keep chosen dialogs out of Telegram’s main chat lists, with optional notification suppression.
+
+> [!IMPORTANT]
+> Royalty is tested with official Telegram **12.8.3** (`org.telegram.messenger`). Telegram changes internal classes often, so other versions may not work.
+
+## What it does
+
+- Hides selected chats from the main dialog list and folders.
+- Can suppress new-message notifications for hidden chats.
+- Lets you reveal hidden chats temporarily with a three-second press and hold.
+- Shows hook health in the app, so failures are visible instead of silent.
+
+Royalty does not delete chats, modify messages, or change Telegram’s stored dialog list.
+
+## Before you install
+
+| Requirement | Supported version |
+|---|---|
+| Android | 8.1 or newer |
+| Hook framework | [Vector 2.x](https://github.com/JingMatrix/Vector) or compatible LSPosed |
+| Telegram | Official app, version 12.8.3 |
+| Telegram package | `org.telegram.messenger` |
+
+> [!WARNING]
+> Version 2.1.0 uses the new package name `io.github.cepeter.royalty`. It installs separately from older builds using `io.github.cepeter.telegramhider`, and saved selections cannot migrate automatically. Disable and uninstall the old package first to avoid loading two copies of the hook.
 
 ## Install
 
-> **Package migration:** `io.github.cepeter.royalty` is a new Android app identity. It installs separately from `io.github.cepeter.telegramhider`, and existing selections do not migrate. Disable and uninstall the old package before enabling this build so Telegram never receives duplicate hooks.
+1. Download the latest APK from [GitHub Releases](https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/latest).
+2. Install the APK, then enable **Royalty** in Vector or LSPosed.
+3. Scope the module to `org.telegram.messenger`.
+4. Restart your device so the hook framework can activate Royalty inside Telegram.
+5. Open Telegram and leave it running for a few seconds.
+6. Open Royalty, tap **Refresh**, choose the chats to hide, and tap **Save**.
 
-1. Disable and uninstall any Royalty build using package `io.github.cepeter.telegramhider`.
-2. Install the Royalty release APK.
-3. Enable **Royalty** in Vector or LSPosed.
-4. Scope it to `org.telegram.messenger`.
-5. Restart the device so Vector or LSPosed can activate the module in Telegram.
-6. Open Telegram and leave its main process running so it can prepare the bounded catalog snapshot.
-7. Open Royalty, tap Refresh, select dialogs, optionally enable notification suppression, and save.
+Notification suppression is optional and stays off until you enable it.
 
-Notification suppression is off by default.
+## Everyday use
 
-Configuration reloads within one second. Switch Telegram folders or restart Telegram to redraw the list.
+Configuration changes are picked up within one second. Switch Telegram folders or restart Telegram if the visible list has not redrawn yet.
 
-## Supported behavior
+To reveal hidden chats temporarily:
 
-| Surface | Status |
-|---|---|
-| Main dialog list and Telegram folders | Supported |
-| New-message notifications | Supported |
-| Search and global search | Not supported |
-| Share/contact picker | Not supported |
-| New-group/contact invite | Not supported |
+1. Open Telegram’s main chat list.
+2. Press and hold the top ActionBar for three seconds.
+3. Release when the reveal message appears.
 
-Press and hold Telegram’s main dialog-list ActionBar for three seconds, then release, to toggle temporary reveal mode. Reveal resets when Telegram restarts and does not disable notification suppression.
+Repeat the gesture to conceal them again. Reveal mode resets when Telegram restarts and does not turn notification suppression off.
 
-## Safety model
+## Support matrix
 
-- Vector/LSPosed supplies the ART hook engine; this project does not patch ART structures.
-- `getDialogs(int)` returns a filtered copy. Telegram’s internal list is never mutated.
+| Telegram surface | Status |
+|---|:---:|
+| Main dialog list | ✅ Supported |
+| Chat folders | ✅ Supported |
+| New-message notifications | ✅ Supported |
+| Search and global search | ❌ Not supported |
+| Share/contact picker | ❌ Not supported |
+| New-group/contact invite | ❌ Not supported |
+
+## If something is not working
+
+1. Confirm that Royalty is enabled and scoped only to `org.telegram.messenger`.
+2. Confirm that Telegram is version **12.8.3**.
+3. Restart the device after enabling or updating the module.
+4. Open Telegram before tapping **Refresh** in Royalty.
+5. Check the hook-status cards for `missing` or `runtime_error`.
+
+Hook failures fail open: Telegram keeps showing its normal, unfiltered content instead of crashing or hiding the wrong chats.
+
+<details>
+<summary><strong>Safety and privacy details</strong></summary>
+
+- Vector or LSPosed supplies the ART hook engine; Royalty does not patch ART structures itself.
+- Dialog filtering returns a copy and never mutates Telegram’s internal list.
 - Notification filtering replaces only the incoming `processNewMessages` list and preserves countdown handling.
 - Configuration uses XSharedPreferences safe-zone redirection.
-- Catalog refresh is initiated by the module app through a signature-permission-protected request and returned through an exact-component `PendingIntent`; the module accepts only active 128-bit request nonces.
-- Catalog responses contain only account, dialog ID, and a display title, with at most 1,024 entries per account and 256 UTF-16 code units per title.
-- Hook failures fail open and appear in the module app as `missing` or `runtime_error`.
+- Catalog requests require a signature-level permission and return through an exact-component `PendingIntent`.
+- Every request uses an active 128-bit nonce.
+- Catalog responses contain only the account, dialog ID, and display title, capped at 1,024 entries per account and 256 UTF-16 code units per title.
 
-See [SECURITY.md](SECURITY.md) for reporting and threat-model details.
+See [SECURITY.md](SECURITY.md) for the threat model and reporting process.
 
-## Build
+</details>
 
-Requirements: JDK 17 and Android SDK 35.
+<details>
+<summary><strong>Build from source</strong></summary>
+
+You need JDK 17 and Android SDK 35.
 
 ```bash
 ./gradlew testDebugUnitTest lintDebug assembleDebug
 ```
 
-Release builds require the four `TCH_*` signing variables used by GitHub Actions. The tag workflow builds twice, compares deterministic APK payload entries, verifies the RSA-PSS-signed APK and Xposed metadata, and publishes checksum manifests.
+Release builds use the four `TCH_*` signing variables configured in GitHub Actions. The tag workflow builds the APK twice, compares deterministic payload entries, verifies the RSA-PSS signature and Xposed metadata, and publishes checksum manifests.
 
-Dependencies are checksum-pinned through `gradle/verification-metadata.xml`. Xposed API 82 is compile-only and is not bundled into the APK.
+Dependencies are checksum-pinned in `gradle/verification-metadata.xml`. Xposed API 82 is compile-only and is not bundled in the APK.
 
-## Project layout
+### Project layout
 
 ```text
-app/src/main/java/.../core/      Pure filtering and validation logic
+app/src/main/java/.../core/      Filtering and validation logic
 app/src/main/java/.../xposed/    Vector/LSPosed hooks and request bridge
 app/src/main/java/.../catalog/   Nonce-validated callback transport and private storage
 app/src/main/java/.../config/    Safe preference writer
 app/src/test/                    JVM contract tests
 ```
 
-## Compatibility
+</details>
 
-The current Telegram hook contract is validated against Telegram source commit `9552e5541e1274b9557c9832b204dbfcaf44b3dc` and Telegram 12.8.3. Telegram updates can rename internal methods; check the hook-status panel after every Telegram upgrade.
+## Compatibility notes
+
+The current hook contract is checked against Telegram source commit [`9552e554`](https://github.com/DrKLO/Telegram/commit/9552e5541e1274b9557c9832b204dbfcaf44b3dc) and the Telegram 12.8.3 APK. Check Royalty’s hook-status panel after every Telegram update.
 
 ## License
 
-GPL-3.0. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
+Royalty is licensed under [GPL-3.0](LICENSE). Third-party notices are listed in [NOTICE.md](NOTICE.md).
