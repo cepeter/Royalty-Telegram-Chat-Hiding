@@ -10,7 +10,7 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ### Changed
 
-- Pull-request CI now retains the debug APK for three days so physical-device acceptance can use the exact reviewed build.
+- Pull-request CI now retains the debug APK for three days, and manual workflow runs produce a verified release-signed acceptance APK that can update an installed Royalty build without publishing a release.
 
 ## [2.1.0] - 2026-09-24
 

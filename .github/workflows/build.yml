@@ -56,7 +56,7 @@ jobs:
           retention-days: 3
 
       - name: Restore release signing key
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
         env:
           TCH_KEYSTORE_B64: ${{ secrets.TCH_KEYSTORE_B64 }}
           TCH_STORE_PASSWORD: ${{ secrets.TCH_STORE_PASSWORD }}
@@ -71,7 +71,7 @@ jobs:
           echo "TCH_KEYSTORE_FILE=$RUNNER_TEMP/release.p12" >> "$GITHUB_ENV"
 
       - name: Test, lint, and build signed release APK
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
         env:
           TCH_STORE_PASSWORD: ${{ secrets.TCH_STORE_PASSWORD }}
           TCH_KEY_ALIAS: ${{ secrets.TCH_KEY_ALIAS }}
@@ -79,7 +79,7 @@ jobs:
         run: ./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease
 
       - name: Verify reproducibility, signature, and APK contents
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' }}
         env:
           TCH_STORE_PASSWORD: ${{ secrets.TCH_STORE_PASSWORD }}
           TCH_KEY_ALIAS: ${{ secrets.TCH_KEY_ALIAS }}
@@ -87,6 +87,15 @@ jobs:
         run: |
           ./scripts/verify-reproducible-build.sh
           ./scripts/verify-release-apk.sh
+
+      - name: Upload signed acceptance APK
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: acceptance-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 3
 
       - name: Stage release APK
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
