@@ -6,7 +6,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/cepeter/Royalty-Telegram-Chat-Hiding?display_name=tag&style=flat-square)](https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/latest)
 ![Android 8.1+](https://img.shields.io/badge/Android-8.1%2B-3DDC84?style=flat-square&logo=android&logoColor=white)
-![Telegram 12.8.3](https://img.shields.io/badge/Telegram-12.8.3-26A5E4?style=flat-square&logo=telegram&logoColor=white)
+![Telegram 12.10.4](https://img.shields.io/badge/Telegram-12.10.4-26A5E4?style=flat-square&logo=telegram&logoColor=white)
 [![GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
 
 An Xposed module for the official Telegram Android app.
@@ -18,7 +18,7 @@ An Xposed module for the official Telegram Android app.
 Royalty started as a personal replacement for [Loyalty](https://github.com/Xposed-Modules-Repo/ru.mike.loyalty) after it stopped working on my setup. It now does one focused job: keep chosen dialogs out of Telegram’s main chat lists, with optional notification suppression.
 
 > [!IMPORTANT]
-> Royalty is tested with official Telegram **12.8.3** (`org.telegram.messenger`). Telegram changes internal classes often, so other versions may not work.
+> Royalty is tested with official Telegram **12.10.4** (`org.telegram.messenger`). Telegram changes internal classes often, so other versions may not work.
 
 ## What it does
 
@@ -35,7 +35,7 @@ Royalty does not delete chats, modify messages, or change Telegram’s stored di
 |---|---|
 | Android | 8.1 or newer |
 | Hook framework | [Vector 2.x](https://github.com/JingMatrix/Vector) or compatible LSPosed |
-| Telegram | Official app, version 12.8.3 |
+| Telegram | Official app, version 12.10.4 |
 | Telegram package | `org.telegram.messenger` |
 
 > [!WARNING]
@@ -78,7 +78,7 @@ Repeat the gesture to conceal them again. Reveal mode resets when Telegram resta
 ## If something is not working
 
 1. Confirm that Royalty is enabled and scoped only to `org.telegram.messenger`.
-2. Confirm that Telegram is version **12.8.3**.
+2. Confirm that Telegram is version **12.10.4**.
 3. Restart the device after enabling or updating the module.
 4. Open Telegram before tapping **Refresh** in Royalty.
 5. Check the hook-status cards for `missing` or `runtime_error`.
@@ -127,7 +127,7 @@ app/src/test/                    JVM contract tests
 
 ## Compatibility notes
 
-The current hook contract is checked against Telegram source commit [`9552e554`](https://github.com/DrKLO/Telegram/commit/9552e5541e1274b9557c9832b204dbfcaf44b3dc) and the Telegram 12.8.3 APK. Check Royalty’s hook-status panel after every Telegram update.
+The runtime aliases are checked directly against the official Telegram **12.10.4** APK (`versionCode 70992`, SHA-256 `146ec03c20ce4c73ccfa12399f143c0db5992a3419d30ec0f17ef547b3eaba8d`). Telegram source commit [`9552e554`](https://github.com/DrKLO/Telegram/commit/9552e5541e1274b9557c9832b204dbfcaf44b3dc) is used only as a readable reference. Check Royalty’s hook-status panel after every Telegram update.
 
 ## License
 

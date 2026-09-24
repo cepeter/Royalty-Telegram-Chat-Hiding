@@ -39,6 +39,13 @@ class AndroidPackageContractTests(unittest.TestCase):
             if path.is_file():
                 self.assertNotIn(legacy, path.read_text(), path)
 
+    def test_readme_targets_verified_telegram_12_10_4(self):
+        readme = (ROOT / "README.md").read_text()
+        self.assertIn("Telegram **12.10.4**", readme)
+        self.assertIn("versionCode 70992", readme)
+        self.assertIn("146ec03c20ce4c73ccfa12399f143c0db5992a3419d30ec0f17ef547b3eaba8d", readme)
+        self.assertNotIn("12.8.3", readme)
+
     def test_app_label_is_royalty(self):
         strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
         self.assertIn('<string name="app_name">Royalty</string>', strings)
