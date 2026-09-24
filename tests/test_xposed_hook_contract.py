@@ -2,7 +2,7 @@ import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-HOOK = ROOT / "app/src/main/java/io/github/cepeter/telegramhider/xposed/TelegramHook.java"
+HOOK = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramHook.java"
 
 
 class XposedHookContractTests(unittest.TestCase):
@@ -32,8 +32,8 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertNotIn('"android.view.View"', self.source)
 
     def test_xposed_preferences_reload_and_catalog_uses_callback_bridge(self):
-        repository = (ROOT / "app/src/main/java/io/github/cepeter/telegramhider/xposed/XposedConfigRepository.java").read_text()
-        bridge = (ROOT / "app/src/main/java/io/github/cepeter/telegramhider/xposed/CatalogRequestBridge.java").read_text()
+        repository = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/XposedConfigRepository.java").read_text()
+        bridge = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogRequestBridge.java").read_text()
         self.assertIn("new XSharedPreferences", repository)
         self.assertIn("preferences.reload()", repository)
         self.assertIn("CatalogRequestBridge.register", self.source)
@@ -42,7 +42,7 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("CatalogSubmission.MAX_ENTRIES", self.source)
 
     def test_old_binding_bridge_is_removed(self):
-        publisher = ROOT / "app/src/main/java/io/github/cepeter/telegramhider/xposed/CatalogPublisher.java"
+        publisher = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogPublisher.java"
         self.assertFalse(publisher.exists())
 
     def test_telegram_classes_are_resolved_after_application_on_create(self):

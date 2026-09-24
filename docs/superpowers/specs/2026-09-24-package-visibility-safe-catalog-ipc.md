@@ -5,7 +5,7 @@
 
 ## Problem
 
-The injected Telegram process currently binds to an exported service in `io.github.cepeter.telegramhider`. On Android 11 and newer, package-visibility filtering can make that component undiscoverable to Telegram even when the service is exported. Android then returns `false` from `bindService` and reports the component as not found.
+The injected Telegram process currently binds to an exported service in `io.github.cepeter.royalty`. On Android 11 and newer, package-visibility filtering can make that component undiscoverable to Telegram even when the service is exported. Android then returns `false` from `bindService` and reports the component as not found.
 
 The production design must work without changing Telegram's manifest, requiring privacy-tool exceptions, restoring root-owned files/sockets, or weakening catalog validation.
 

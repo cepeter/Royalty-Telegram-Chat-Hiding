@@ -17,6 +17,28 @@ class AndroidPackageContractTests(unittest.TestCase):
         self.assertIn('versionName = "2.0.0"', app_gradle)
         self.assertIn("versionCode = 7", app_gradle)
 
+    def test_android_identity_is_royalty(self):
+        app_gradle = (ROOT / "app/build.gradle.kts").read_text()
+        self.assertIn('namespace = "io.github.cepeter.royalty"', app_gradle)
+        self.assertIn('applicationId = "io.github.cepeter.royalty"', app_gradle)
+        self.assertNotIn("io.github.cepeter.telegramhider", app_gradle)
+
+    def test_legacy_identity_is_absent_from_build_inputs(self):
+        roots = (
+            ROOT / "app/src/main",
+            ROOT / "app/src/test",
+            ROOT / "app/build.gradle.kts",
+            ROOT / "app/proguard-rules.pro",
+            ROOT / "scripts/verify-release-apk.sh",
+        )
+        files = []
+        for root in roots:
+            files.extend(root.rglob("*") if root.is_dir() else (root,))
+        legacy = "io.github.cepeter.telegramhider"
+        for path in files:
+            if path.is_file():
+                self.assertNotIn(legacy, path.read_text(), path)
+
     def test_app_label_is_royalty(self):
         strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
         self.assertIn('<string name="app_name">Royalty</string>', strings)
@@ -44,7 +66,7 @@ class AndroidPackageContractTests(unittest.TestCase):
     def test_entrypoint_asset_is_exact(self):
         entrypoint = (ROOT / "app/src/main/assets/xposed_init").read_text()
         self.assertEqual(
-            "io.github.cepeter.telegramhider.xposed.TelegramHook\n",
+            "io.github.cepeter.royalty.xposed.TelegramHook\n",
             entrypoint,
         )
 
@@ -52,9 +74,9 @@ class AndroidPackageContractTests(unittest.TestCase):
         app_gradle = (ROOT / "app/build.gradle.kts").read_text()
         self.assertNotIn("aidl = true", app_gradle)
         obsolete = (
-            ROOT / "app/src/main/aidl/io/github/cepeter/telegramhider/ICatalogService.aidl",
-            ROOT / "app/src/main/java/io/github/cepeter/telegramhider/catalog/CatalogService.java",
-            ROOT / "app/src/main/java/io/github/cepeter/telegramhider/xposed/CatalogPublisher.java",
+            ROOT / "app/src/main/aidl/io/github/cepeter/royalty/ICatalogService.aidl",
+            ROOT / "app/src/main/java/io/github/cepeter/royalty/catalog/CatalogService.java",
+            ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogPublisher.java",
         )
         for path in obsolete:
             self.assertFalse(path.exists(), path)

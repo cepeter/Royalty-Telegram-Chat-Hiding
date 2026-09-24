@@ -68,7 +68,7 @@ Run:
 
 ```bash
 python3 -m unittest tests.test_android_security_contract tests.test_xposed_hook_contract -v
-./gradlew --no-daemon testDebugUnitTest --tests io.github.cepeter.telegramhider.core.CatalogSubmissionTest
+./gradlew --no-daemon testDebugUnitTest --tests io.github.cepeter.royalty.core.CatalogSubmissionTest
 ```
 
 Expected: PASS after the already-applied fixes; any failure must be corrected before proceeding.
@@ -121,7 +121,7 @@ assertEquals(1L, first.accounts().get(0).ids()[0]);
 - [ ] **Step 2: Run the new test and verify RED**
 
 ```bash
-./gradlew --no-daemon testDebugUnitTest --tests io.github.cepeter.telegramhider.xposed.CatalogSnapshotStoreTest
+./gradlew --no-daemon testDebugUnitTest --tests io.github.cepeter.royalty.xposed.CatalogSnapshotStoreTest
 ```
 
 Expected: FAIL because `CatalogSnapshotStore` does not exist.
@@ -132,9 +132,9 @@ Use synchronized replacement and deep copies. Define exact protocol constants:
 
 ```java
 public static final String ACTION_REQUEST =
-        "io.github.cepeter.telegramhider.action.REQUEST_CATALOG";
+        "io.github.cepeter.royalty.action.REQUEST_CATALOG";
 public static final String ACTION_RESULT =
-        "io.github.cepeter.telegramhider.action.CATALOG_RESULT";
+        "io.github.cepeter.royalty.action.CATALOG_RESULT";
 public static final String EXTRA_CALLBACK = "callback";
 public static final String EXTRA_NONCE = "nonce";
 public static final String EXTRA_TYPE = "type";
@@ -215,7 +215,7 @@ Cover unique 128-bit nonces, active-before-expiry, rejected-after-expiry, accept
 - [ ] **Step 2: Run the nonce tests and verify RED**
 
 ```bash
-./gradlew --no-daemon testDebugUnitTest --tests io.github.cepeter.telegramhider.catalog.PendingRequestStoreTest
+./gradlew --no-daemon testDebugUnitTest --tests io.github.cepeter.royalty.catalog.PendingRequestStoreTest
 ```
 
 Expected: FAIL because `PendingRequestStore` does not exist.

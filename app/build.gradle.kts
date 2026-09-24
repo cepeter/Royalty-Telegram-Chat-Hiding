@@ -14,11 +14,11 @@ val releaseSigningConfigured = listOf(
 ).all { !it.isNullOrBlank() }
 
 android {
-    namespace = "io.github.cepeter.telegramhider"
+    namespace = "io.github.cepeter.royalty"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.github.cepeter.telegramhider"
+        applicationId = "io.github.cepeter.royalty"
         minSdk = 27
         targetSdk = 35
         versionCode = 7

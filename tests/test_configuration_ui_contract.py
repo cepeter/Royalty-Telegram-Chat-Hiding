@@ -2,7 +2,7 @@ import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-ACTIVITY = ROOT / "app/src/main/java/io/github/cepeter/telegramhider/MainActivity.java"
+ACTIVITY = ROOT / "app/src/main/java/io/github/cepeter/royalty/MainActivity.java"
 
 
 class ConfigurationUiContractTests(unittest.TestCase):

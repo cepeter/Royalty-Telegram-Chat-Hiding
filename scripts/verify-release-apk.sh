@@ -7,8 +7,8 @@ apksigner="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
 apkanalyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
 "$apksigner" verify --verbose "$apk"
-"$aapt" dump badging "$apk" | grep -F "package: name='io.github.cepeter.telegramhider' versionCode='7' versionName='2.0.0'"
-[[ "$(python3 -c 'import sys, zipfile; print(zipfile.ZipFile(sys.argv[1]).read("assets/xposed_init").decode().strip())' "$apk")" == "io.github.cepeter.telegramhider.xposed.TelegramHook" ]]
+"$aapt" dump badging "$apk" | grep -F "package: name='io.github.cepeter.royalty' versionCode='7' versionName='2.0.0'"
+[[ "$(python3 -c 'import sys, zipfile; print(zipfile.ZipFile(sys.argv[1]).read("assets/xposed_init").decode().strip())' "$apk")" == "io.github.cepeter.royalty.xposed.TelegramHook" ]]
 manifest=$("$aapt" dump xmltree "$apk" AndroidManifest.xml)
 grep -Fq 'xposedmodule' <<<"$manifest"
 grep -Fq 'xposedminversion' <<<"$manifest"

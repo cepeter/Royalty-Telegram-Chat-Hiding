@@ -2,7 +2,7 @@ import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-BRIDGE = ROOT / "app/src/main/java/io/github/cepeter/telegramhider/xposed/CatalogRequestBridge.java"
+BRIDGE = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogRequestBridge.java"
 MANIFEST = ROOT / "app/src/main/AndroidManifest.xml"
 
 
@@ -12,7 +12,7 @@ class CatalogRequestBridgeContractTests(unittest.TestCase):
 
     def test_signature_permission_authenticates_requests(self):
         manifest = MANIFEST.read_text()
-        permission = 'android:name="io.github.cepeter.telegramhider.permission.CATALOG_REQUEST"'
+        permission = 'android:name="io.github.cepeter.royalty.permission.CATALOG_REQUEST"'
         self.assertEqual(2, manifest.count(permission))
         self.assertIn('android:protectionLevel="signature"', manifest)
         self.assertIn("CatalogProtocol.REQUEST_PERMISSION", self.source)

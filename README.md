@@ -17,12 +17,15 @@ just because https://github.com/Xposed-Modules-Repo/ru.mike.loyalty stopped work
 
 ## Install
 
-1. Install the Royalty release APK.
-2. Enable **Royalty** in Vector or LSPosed.
-3. Scope it to `org.telegram.messenger`.
-4. Restart the device so Vector or LSPosed can activate the module in Telegram.
-5. Open Telegram and leave its main process running so it can prepare the bounded catalog snapshot.
-6. Open Royalty, tap Refresh, select dialogs, optionally enable notification suppression, and save.
+> **Package migration:** `io.github.cepeter.royalty` is a new Android app identity. It installs separately from `io.github.cepeter.telegramhider`, and existing selections do not migrate. Disable and uninstall the old package before enabling this build so Telegram never receives duplicate hooks.
+
+1. Disable and uninstall any Royalty build using package `io.github.cepeter.telegramhider`.
+2. Install the Royalty release APK.
+3. Enable **Royalty** in Vector or LSPosed.
+4. Scope it to `org.telegram.messenger`.
+5. Restart the device so Vector or LSPosed can activate the module in Telegram.
+6. Open Telegram and leave its main process running so it can prepare the bounded catalog snapshot.
+7. Open Royalty, tap Refresh, select dialogs, optionally enable notification suppression, and save.
 
 Notification suppression is off by default.
 

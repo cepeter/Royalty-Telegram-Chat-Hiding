@@ -8,7 +8,7 @@ ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 
 class CatalogResultContractTests(unittest.TestCase):
     def setUp(self):
-        catalog = ROOT / "app/src/main/java/io/github/cepeter/telegramhider/catalog"
+        catalog = ROOT / "app/src/main/java/io/github/cepeter/royalty/catalog"
         self.client = (catalog / "CatalogRequestClient.java").read_text()
         self.receiver = (catalog / "CatalogResultReceiver.java").read_text()
 
