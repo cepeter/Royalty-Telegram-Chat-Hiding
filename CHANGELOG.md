@@ -4,6 +4,12 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-09-24
+
+### Fixed
+
+- Updated the dashboard scope text and Xposed-manager description to include search, share targets, group/member flows, and contact pickers added in 2.2.0.
+
 ## [2.2.0] - 2026-09-24
 
 ### Added
@@ -91,6 +97,7 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.2.1
 [2.2.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.2.0
 [2.1.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.1.1

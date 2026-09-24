@@ -4,11 +4,11 @@
     <string name="dashboard_subtitle">Choose what stays out of sight.</string>
     <string name="status_section">Connection</string>
     <string name="hidden_chats_section">Hidden chats</string>
-    <string name="hidden_chats_subtitle">Select chats to conceal from the main list.</string>
+    <string name="hidden_chats_subtitle">Select chats to conceal across supported Telegram surfaces.</string>
     <string name="notifications_title">Quiet notifications</string>
     <string name="notifications_subtitle">Suppress new-message alerts from hidden chats.</string>
-    <string name="xposed_description">Hide selected Telegram dialogs with Vector or LSPosed.</string>
-    <string name="supported_scope">Main dialog list and new-message notifications are supported. Search, share picker, and new-group screens are not hidden.</string>
+    <string name="xposed_description">Hide selected Telegram chats from lists, search, sharing, and people pickers.</string>
+    <string name="supported_scope">Main lists, notifications, search, share targets, and group/contact pickers are supported on Telegram 12.10.4.</string>
     <string name="hook_status">Hook status</string>
     <string name="open_telegram_first">Open Telegram once, then return here and refresh.</string>
     <string name="refresh">Refresh</string>

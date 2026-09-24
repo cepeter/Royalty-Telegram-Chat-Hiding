@@ -23,9 +23,9 @@ class ConfigurationUiContractTests(unittest.TestCase):
 
     def test_ui_explains_supported_scope_and_refresh(self):
         strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
-        self.assertIn("Main dialog list", strings)
-        self.assertIn("new-message notifications", strings)
-        self.assertIn("Search, share picker, and new-group screens are not hidden", strings)
+        self.assertIn("Main lists, notifications, search, share targets", strings)
+        self.assertIn("group/contact pickers are supported on Telegram 12.10.4", strings)
+        self.assertNotIn("are not hidden", strings)
         self.assertIn("Open Telegram", strings)
 
     def test_modern_dashboard_uses_themed_cards_and_accessible_controls(self):
