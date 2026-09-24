@@ -125,7 +125,7 @@ public final class TelegramCompatibilityProbeTest {
     @Test
     public void rejectsPartialMappings() {
         assertThrows(
-                NoSuchFieldException.class,
+                ReflectiveOperationException.class,
                 () -> TelegramCompatibilityProbe.verify(name -> Object.class));
     }
 }
