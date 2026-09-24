@@ -29,8 +29,8 @@ Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ## PR 3 — Share and contact picker
 
-- [ ] 3.1 Filter share dialog grid, recent targets, and rebuilt ID map.
-- [ ] 3.2 Filter share search and add reveal-aware stale-selection guard.
+- [x] 3.1 Filter share dialog grid, recent targets, and rebuilt ID map.
+- [x] 3.2 Filter share search and add reveal-aware stale-selection guard.
 
 ### Checkpoint C
 
