@@ -4,6 +4,32 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-24
+
+### Added
+
+- Search filtering for recent, local, global, local-server, phone, group, message, forum, sponsored-peer, and public-post result surfaces.
+- Share-sheet filtering for the main dialog grid, recent targets, and local/global search results.
+- New-group, add-member, contact-invite, and contact-search filtering with account-aware user and chat keys.
+- An APK-bound Telegram 12.10.4 compatibility map and install-time reflection probe for every supported runtime surface.
+
+### Changed
+
+- Search rows are hidden through adapter position remapping, preserving Telegram-owned collections and aligned metadata.
+- Share, group, and contact adapters receive replacement copies instead of in-place list mutations.
+- Reveal mode restores captured adapter data; re-concealing drops stale hidden share selections.
+- Manual signed acceptance builds are restricted to the protected `main` branch.
+
+### Security
+
+- Reveal gesture state now detaches with its ActionBar view, preventing temporary view-tree retention.
+- Removed obsolete AIDL ProGuard rules left from the pre-2.0 catalog bridge.
+
+### Verification
+
+- Repository contracts, JVM tests, Android lint, debug APK assembly, exact Telegram 12.10.4 DEX surface checks, and the signed release workflow are required to pass.
+- The two-account physical-device matrix was not executed before publication because neither configured ADB host had a connected device; this limitation is recorded in `docs/device-acceptance-2.2.0.md`.
+
 ## [2.1.1] - 2026-09-24
 
 ### Fixed
@@ -65,5 +91,6 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v2.1.1...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.2.0
 [2.1.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.1.1

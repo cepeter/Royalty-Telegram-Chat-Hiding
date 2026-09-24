@@ -4,10 +4,10 @@
 
 | Version | Supported |
 |---|---|
-| 2.0.x | Yes, after stable release |
-| 1.x | No |
+| 2.2.x | Yes |
+| 2.1.x and older | No — upgrade to the latest release |
 
-Version 1.x is unsupported because its custom ART entry-point hook was not ABI-safe.
+Version 1.x is additionally unsafe because its custom ART entry-point hook was not ABI-safe.
 
 ## Reporting
 

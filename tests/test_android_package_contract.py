@@ -14,8 +14,8 @@ class AndroidPackageContractTests(unittest.TestCase):
         self.assertIn("compileSdk = 35", app_gradle)
         self.assertIn("minSdk = 27", app_gradle)
         self.assertIn("targetSdk = 35", app_gradle)
-        self.assertIn('versionName = "2.1.1"', app_gradle)
-        self.assertIn("versionCode = 9", app_gradle)
+        self.assertIn('versionName = "2.2.0"', app_gradle)
+        self.assertIn("versionCode = 10", app_gradle)
 
     def test_android_identity_is_royalty(self):
         app_gradle = (ROOT / "app/build.gradle.kts").read_text()
@@ -45,6 +45,19 @@ class AndroidPackageContractTests(unittest.TestCase):
         self.assertIn("versionCode 70992", readme)
         self.assertIn("146ec03c20ce4c73ccfa12399f143c0db5992a3419d30ec0f17ef547b3eaba8d", readme)
         self.assertNotIn("12.8.3", readme)
+
+    def test_release_220_documents_multi_surface_scope_honestly(self):
+        readme = (ROOT / "README.md").read_text()
+        changelog = (ROOT / "CHANGELOG.md").read_text()
+        security = (ROOT / "SECURITY.md").read_text()
+        acceptance = (ROOT / "docs/device-acceptance-2.2.0.md").read_text()
+
+        self.assertIn("## [2.2.0] - 2026-09-24", changelog)
+        self.assertIn("| 2.2.x | Yes |", security)
+        for surface in ("Search and global search", "Share and contact pickers", "New group, add member, and contact invite"):
+            self.assertIn(surface, readme)
+        self.assertIn("Not executed before publication", acceptance)
+        self.assertIn("empty device list", acceptance)
 
     def test_app_label_is_royalty(self):
         strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()

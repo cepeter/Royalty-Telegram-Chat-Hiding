@@ -15,7 +15,7 @@ An Xposed module for the official Telegram Android app.
 
 </div>
 
-Royalty started as a personal replacement for [Loyalty](https://github.com/Xposed-Modules-Repo/ru.mike.loyalty) after it stopped working on my setup. It now does one focused job: keep chosen dialogs out of Telegram’s main chat lists, with optional notification suppression.
+Royalty started as a personal replacement for [Loyalty](https://github.com/Xposed-Modules-Repo/ru.mike.loyalty) after it stopped working on my setup. It keeps chosen chats out of Telegram’s dialog lists, search results, share targets, and people pickers, with optional notification suppression.
 
 > [!IMPORTANT]
 > Royalty is tested with official Telegram **12.10.4** (`org.telegram.messenger`). Telegram changes internal classes often, so other versions may not work.
@@ -23,9 +23,11 @@ Royalty started as a personal replacement for [Loyalty](https://github.com/Xpose
 ## What it does
 
 - Hides selected chats from the main dialog list and folders.
+- Removes them from local/global search, recent results, messages, forums, and public-post results.
+- Removes them from share targets, contact pickers, new-group, add-member, and invite flows.
 - Can suppress new-message notifications for hidden chats.
 - Lets you reveal hidden chats temporarily with a three-second press and hold.
-- Shows hook health in the app, so failures are visible instead of silent.
+- Shows per-surface hook health in the app, so failures are visible instead of silent.
 
 Royalty does not delete chats, modify messages, or change Telegram’s stored dialog list.
 
@@ -71,9 +73,11 @@ Repeat the gesture to conceal them again. Reveal mode resets when Telegram resta
 | Main dialog list | ✅ Supported |
 | Chat folders | ✅ Supported |
 | New-message notifications | ✅ Supported |
-| Search and global search | ❌ Not supported |
-| Share/contact picker | ❌ Not supported |
-| New-group/contact invite | ❌ Not supported |
+| Search and global search | ✅ Telegram 12.10.4 |
+| Share and contact pickers | ✅ Telegram 12.10.4 |
+| New group, add member, and contact invite | ✅ Telegram 12.10.4 |
+
+The 2.2.0 surfaces above passed repository, JVM, lint, APK-build, and exact-DEX compatibility checks. The two-account physical-device matrix could not run before publication because neither configured ADB host had a connected device; see [`docs/device-acceptance-2.2.0.md`](docs/device-acceptance-2.2.0.md).
 
 ## If something is not working
 
@@ -89,8 +93,9 @@ Hook failures fail open: Telegram keeps showing its normal, unfiltered content i
 <summary><strong>Safety and privacy details</strong></summary>
 
 - Vector or LSPosed supplies the ART hook engine; Royalty does not patch ART structures itself.
-- Dialog filtering returns a copy and never mutates Telegram’s internal list.
-- Notification filtering replaces only the incoming `processNewMessages` list and preserves countdown handling.
+- Dialog and notification filtering use copied inputs rather than mutating Telegram-owned collections.
+- Search surfaces remap visible adapter positions while preserving aligned names and metadata.
+- Share, group, and contact adapters receive replacement copies with fail-open handling for unknown Telegram rows.
 - Configuration uses XSharedPreferences safe-zone redirection.
 - Catalog requests require a signature-level permission and return through an exact-component `PendingIntent`.
 - Every request uses an active 128-bit nonce.
