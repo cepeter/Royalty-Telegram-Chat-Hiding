@@ -58,7 +58,7 @@ Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ### Final checkpoint
 
-- [ ] All repository/JVM/lint/build checks pass in GitHub Actions.
+- [x] All repository/JVM/lint/build checks pass in GitHub Actions.
 - [ ] Exact signed APK passes full physical-device acceptance.
 - [x] Per-surface status is honest (`installed`, `missing`, `runtime_error`, or degraded detail).
 - [x] No Telegram-owned collection is mutated in place.
