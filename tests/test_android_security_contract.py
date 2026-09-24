@@ -27,6 +27,10 @@ class CatalogSecurityContractTests(unittest.TestCase):
         self.assertIn("putStringSet", source)
         self.assertIn("commit()", source)
 
+    def test_stale_catalog_aidl_keep_rules_are_absent(self):
+        rules = (ROOT / "app/proguard-rules.pro").read_text()
+        self.assertNotIn("ICatalogService", rules)
+
     def test_notification_suppression_is_opt_in(self):
         config_store = (ROOT / "app/src/main/java/io/github/cepeter/royalty/config/ConfigStore.java").read_text()
         xposed_store = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/XposedConfigRepository.java").read_text()

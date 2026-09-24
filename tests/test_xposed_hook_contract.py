@@ -31,6 +31,9 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("REVEAL_HOLD_DURATION_MS = 3000", self.source)
         self.assertIn("postDelayed", self.source)
         self.assertIn("onDeadline", self.source)
+        self.assertIn("View.OnAttachStateChangeListener", self.source)
+        self.assertIn("addOnAttachStateChangeListener", self.source)
+        self.assertIn("removeOnAttachStateChangeListener", self.source)
         self.assertIn("baseFragmentClass.isAssignableFrom(field.getType())", self.source)
         self.assertNotIn("REVEAL_GESTURE.onUp", self.source)
         self.assertNotIn('"onInterceptTouchEvent"', self.source)
@@ -68,6 +71,7 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("compareAndSet(false, true)", self.source)
 
     def test_each_hook_reports_install_status(self):
+        self.assertIn('install("compatibility"', self.source)
         self.assertIn('install("dialogs"', self.source)
         self.assertIn('install("notifications"', self.source)
         self.assertIn('install("reveal"', self.source)

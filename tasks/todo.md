@@ -4,9 +4,9 @@ Status: **Approved on 2026-09-24; implementation may begin with PR 1**
 
 ## PR 1 — Compatibility foundation
 
-- [ ] 1.1 Map exact official Telegram 12.10.4 APK classes, aliases, fields, signatures, ownership, and APK SHA-256.
-- [ ] 1.2 Add paired item/metadata filtered-copy behavior with JVM tests.
-- [ ] 1.3 Add explicit-account runtime object-to-`DialogKey` extraction and reflection probe.
+- [x] 1.1 Map exact official Telegram 12.10.4 APK classes, aliases, fields, signatures, ownership, and APK SHA-256.
+- [x] 1.2 Add paired item/metadata filtered-copy behavior with JVM tests.
+- [x] 1.3 Add explicit-account runtime object-to-`DialogKey` extraction and reflection probe.
 
 ### Checkpoint A
 

@@ -49,6 +49,7 @@ public final class TelegramHook implements IXposedHookLoadPackage {
 
     private static View pendingRevealView;
     private static Runnable pendingRevealTask;
+    private static View.OnAttachStateChangeListener pendingRevealDetachListener;
     private static long revealGestureGeneration;
 
     private static ClassLoader telegramClassLoader;
@@ -87,6 +88,7 @@ public final class TelegramHook implements IXposedHookLoadPackage {
         } catch (RuntimeException error) {
             XposedBridge.log("TelegramChatHider: bridge startup failed: " + error);
         }
+        install("compatibility", () -> TelegramCompatibilityProbe.verify(classLoader));
         install("dialogs", () -> installDialogHook(classLoader));
         install("notifications", () -> installNotificationHook(classLoader));
         install("reveal", () -> installRevealHook(classLoader));
@@ -218,8 +220,19 @@ public final class TelegramHook implements IXposedHookLoadPackage {
         long generation = ++revealGestureGeneration;
         Runnable task = () -> completeRevealGesture(
                 generation, actionBar, fragment, classLoader);
+        View.OnAttachStateChangeListener detachListener = new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {}
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                cancelRevealGesture();
+            }
+        };
         pendingRevealView = actionBar;
         pendingRevealTask = task;
+        pendingRevealDetachListener = detachListener;
+        actionBar.addOnAttachStateChangeListener(detachListener);
         if (!actionBar.postDelayed(task, REVEAL_HOLD_DURATION_MS)) {
             cancelRevealGesture();
         }
@@ -227,11 +240,18 @@ public final class TelegramHook implements IXposedHookLoadPackage {
 
     private static synchronized void cancelRevealGesture() {
         revealGestureGeneration++;
-        if (pendingRevealView != null && pendingRevealTask != null) {
-            pendingRevealView.removeCallbacks(pendingRevealTask);
+        if (pendingRevealView != null) {
+            if (pendingRevealTask != null) {
+                pendingRevealView.removeCallbacks(pendingRevealTask);
+            }
+            if (pendingRevealDetachListener != null) {
+                pendingRevealView.removeOnAttachStateChangeListener(
+                        pendingRevealDetachListener);
+            }
         }
         pendingRevealView = null;
         pendingRevealTask = null;
+        pendingRevealDetachListener = null;
         REVEAL_GESTURE.cancel();
     }
 
@@ -242,8 +262,13 @@ public final class TelegramHook implements IXposedHookLoadPackage {
                     || !REVEAL_GESTURE.onDeadline(android.os.SystemClock.uptimeMillis())) {
                 return;
             }
+            if (pendingRevealView != null && pendingRevealDetachListener != null) {
+                pendingRevealView.removeOnAttachStateChangeListener(
+                        pendingRevealDetachListener);
+            }
             pendingRevealView = null;
             pendingRevealTask = null;
+            pendingRevealDetachListener = null;
         }
 
         try {

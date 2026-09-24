@@ -62,4 +62,74 @@ public final class DialogFilterTest {
         assertEquals(1, result.size());
         assertEquals(1, result.get(0).id);
     }
+
+    @Test
+    public void pairedCopyRemovesHiddenItemsAndAlignedMetadata() {
+        Item visible = new Item(1);
+        Item hidden = new Item(2);
+        List<Item> items = new ArrayList<>(Arrays.asList(visible, hidden, visible));
+        List<String> names = new ArrayList<>(Arrays.asList("first", "hidden", "duplicate"));
+        HiddenConfig config = HiddenConfig.fromStrings(
+                java.util.Collections.singleton("0:2"), false);
+
+        DialogFilter.PairedCopy<Item, String> result = DialogFilter.filteredPairedCopy(
+                items, names, item -> DialogKey.of(0, item.id), config, false);
+
+        assertNotSame(items, result.items());
+        assertNotSame(names, result.metadata());
+        assertEquals(Arrays.asList(visible, visible), result.items());
+        assertEquals(Arrays.asList("first", "duplicate"), result.metadata());
+        assertEquals(3, items.size());
+        assertEquals(3, names.size());
+    }
+
+    @Test
+    public void pairedCopyMismatchFailsOpenWithUntouchedCopies() {
+        List<Item> items = Arrays.asList(new Item(1), new Item(2));
+        List<String> names = java.util.Collections.singletonList("first");
+        HiddenConfig config = HiddenConfig.fromStrings(
+                java.util.Collections.singleton("0:2"), false);
+
+        DialogFilter.PairedCopy<Item, String> result = DialogFilter.filteredPairedCopy(
+                items, names, item -> DialogKey.of(0, item.id), config, false);
+
+        assertNotSame(items, result.items());
+        assertNotSame(names, result.metadata());
+        assertEquals(items, result.items());
+        assertEquals(names, result.metadata());
+    }
+
+    @Test
+    public void pairedCopyUsesExplicitAccountAndKeepsUnknownRows() {
+        List<Item> items = Arrays.asList(new Item(2), new Item(0));
+        List<String> names = Arrays.asList("other account", "synthetic");
+        HiddenConfig config = HiddenConfig.fromStrings(
+                java.util.Collections.singleton("0:2"), false);
+
+        DialogFilter.PairedCopy<Item, String> result = DialogFilter.filteredPairedCopy(
+                items,
+                names,
+                item -> item.id == 0 ? null : DialogKey.of(1, item.id),
+                config,
+                false);
+
+        assertEquals(items, result.items());
+        assertEquals(names, result.metadata());
+    }
+
+    @Test
+    public void pairedCopyRevealReturnsEquivalentCopies() {
+        List<Item> items = Arrays.asList(new Item(1), new Item(2));
+        List<String> names = Arrays.asList("visible", "hidden");
+        HiddenConfig config = HiddenConfig.fromStrings(
+                java.util.Collections.singleton("0:2"), false);
+
+        DialogFilter.PairedCopy<Item, String> result = DialogFilter.filteredPairedCopy(
+                items, names, item -> DialogKey.of(0, item.id), config, true);
+
+        assertNotSame(items, result.items());
+        assertNotSame(names, result.metadata());
+        assertEquals(items, result.items());
+        assertEquals(names, result.metadata());
+    }
 }
