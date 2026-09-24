@@ -7,7 +7,7 @@ apksigner="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
 apkanalyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
 "$apksigner" verify --verbose "$apk"
-"$aapt" dump badging "$apk" | grep -F "package: name='io.github.cepeter.royalty' versionCode='8' versionName='2.1.0'"
+"$aapt" dump badging "$apk" | grep -F "package: name='io.github.cepeter.royalty' versionCode='9' versionName='2.1.1'"
 [[ "$(python3 -c 'import sys, zipfile; print(zipfile.ZipFile(sys.argv[1]).read("assets/xposed_init").decode().strip())' "$apk")" == "io.github.cepeter.royalty.xposed.TelegramHook" ]]
 manifest=$("$aapt" dump xmltree "$apk" AndroidManifest.xml)
 grep -Fq 'xposedmodule' <<<"$manifest"

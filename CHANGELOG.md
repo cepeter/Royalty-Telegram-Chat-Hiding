@@ -4,6 +4,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-09-24
+
 ### Fixed
 
 - The three-second reveal gesture now fires when its hold deadline is reached instead of requiring a later `ACTION_UP`, and resolves Telegram 12.10.4’s owning dialog fragment directly from the touched ActionBar.
@@ -12,7 +14,7 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 - Pull-request CI now retains the debug APK for three days, and manual workflow runs produce a verified release-signed acceptance APK that can update an installed Royalty build without publishing a release.
 
-## [2.1.0] - 2026-09-24
+## 2.1.0 - 2026-09-24
 
 ### Changed
 
@@ -63,5 +65,5 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v2.1.0...HEAD
-[2.1.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.1.0
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.1.1
