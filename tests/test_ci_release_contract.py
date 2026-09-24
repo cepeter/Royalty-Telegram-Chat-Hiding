@@ -54,10 +54,9 @@ class CiReleaseContractTests(unittest.TestCase):
         for check in ("apksigner", "verify --verbose", "aapt", "dump badging", "assets/xposed_init", "de\\.robv\\.android\\.xposed", "sha256sum"):
             self.assertIn(check, verification)
 
-    def test_dependabot_tracks_gradle_and_actions(self):
-        dependabot = (ROOT / ".github/dependabot.yml").read_text()
-        self.assertIn('package-ecosystem: "gradle"', dependabot)
-        self.assertIn('package-ecosystem: "github-actions"', dependabot)
+    def test_dependabot_is_disabled(self):
+        self.assertFalse((ROOT / ".github/dependabot.yml").exists())
+        self.assertFalse((ROOT / ".github/dependabot.yaml").exists())
 
     def test_release_uses_secret_backed_signing(self):
         workflow_secrets = ("TCH_KEYSTORE_B64", "TCH_STORE_PASSWORD", "TCH_KEY_ALIAS", "TCH_KEY_PASSWORD")
