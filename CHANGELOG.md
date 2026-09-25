@@ -4,6 +4,16 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.0.3] - 2026-09-26
+
+### Added
+
+- Added an accessible one-tap × action that clears the Hidden Chats search and restores the full catalog without changing selections.
+
+### Changed
+
+- Removed completed and obsolete implementation plans from the development repository.
+
 ## [3.0.2] - 2026-09-25
 
 ### Fixed
@@ -133,7 +143,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.2...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.3...HEAD
+[3.0.3]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.3
 [3.0.2]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.2
 [3.0.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.1
 [3.0.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.0
