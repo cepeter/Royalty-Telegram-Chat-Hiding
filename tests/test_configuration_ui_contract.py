@@ -28,6 +28,13 @@ class ConfigurationUiContractTests(unittest.TestCase):
         self.assertIn("dp(360)", self.source)
         self.assertIn("Search chats", strings)
 
+    def test_chat_search_has_one_tap_clear_action(self):
+        strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
+        self.assertIn("clearSearchButton", self.source)
+        self.assertIn('searchInput.setText("")', self.source)
+        self.assertIn("text.length() == 0 ? View.GONE : View.VISIBLE", self.source)
+        self.assertIn("Clear search", strings)
+
     def test_ui_saves_hidden_keys_and_notification_setting(self):
         self.assertIn("ConfigStore.save", self.source)
         self.assertIn("setSuppressNotifications", self.source)

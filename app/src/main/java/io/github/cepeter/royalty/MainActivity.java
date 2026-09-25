@@ -239,14 +239,31 @@ public final class MainActivity extends Activity {
         searchInput.setPadding(dp(16), 0, dp(16), 0);
         searchInput.setMinimumHeight(dp(48));
         searchInput.setBackground(roundedDrawable(R.color.royalty_surface, 16, 1));
+
+        Button clearSearchButton = createSecondaryButton(R.string.clear_search_symbol);
+        clearSearchButton.setContentDescription(getString(R.string.clear_search));
+        clearSearchButton.setMinimumWidth(dp(48));
+        clearSearchButton.setPadding(0, 0, 0, 0);
+        clearSearchButton.setVisibility(View.GONE);
+        clearSearchButton.setOnClickListener(view -> searchInput.setText(""));
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence text, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence text, int start, int before, int count) {}
             @Override public void afterTextChanged(Editable text) {
                 applyCatalogFilter(text.toString());
+                clearSearchButton.setVisibility(
+                        text.length() == 0 ? View.GONE : View.VISIBLE);
             }
         });
-        root.addView(searchInput, withTopMargin(matchWrap(), 10));
+        LinearLayout searchRow = new LinearLayout(this);
+        searchRow.setOrientation(LinearLayout.HORIZONTAL);
+        searchRow.setGravity(Gravity.CENTER_VERTICAL);
+        searchRow.addView(searchInput, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        LinearLayout.LayoutParams clearSearchParams = new LinearLayout.LayoutParams(dp(48), dp(48));
+        clearSearchParams.setMarginStart(dp(8));
+        searchRow.addView(clearSearchButton, clearSearchParams);
+        root.addView(searchRow, withTopMargin(matchWrap(), 10));
 
         dialogList = new ListView(this);
         dialogList.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);

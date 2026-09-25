@@ -11,6 +11,8 @@
     <string name="hidden_chats_section">Hidden chats</string>
     <string name="hidden_chats_subtitle">Select chats to conceal across supported Telegram surfaces.</string>
     <string name="search_chats_hint">Search chats</string>
+    <string name="clear_search">Clear search</string>
+    <string name="clear_search_symbol">×</string>
     <string name="notifications_title">Quiet notifications</string>
     <string name="notifications_subtitle">Suppress new-message alerts from hidden chats.</string>
     <string name="xposed_description">Hide selected Telegram chats from lists, search, sharing, and people pickers.</string>
