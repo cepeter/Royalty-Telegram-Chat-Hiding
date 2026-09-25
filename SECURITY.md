@@ -18,6 +18,8 @@ Include the module version, Vector/LSPosed version, Android version, Telegram ve
 ## Security boundaries
 
 - Hook failures fail open so Telegram remains usable.
+- Royalty refuses to install filtering hooks unless Telegram reports exactly version 12.10.4 (`versionCode 70992`); unsupported versions are surfaced separately from missing aliases.
+- Dialog and notification boundaries return filtered copies. Telegram 12.10.4 contact/share adapters instead require filtered copies to be assigned to private fields; the share dialog map is filtered in place to preserve its Telegram-owned identity.
 - Configuration is stored in the hook framework's Modern Xposed remote-preferences database. The app writes through the API-101 service, while Telegram receives a read-only `SharedPreferences` view; no world-readable app file is requested.
 - Catalog requests use an exported runtime receiver inside Telegram guarded by the module app's signature-level request permission. This authenticates the sender independently of Android package visibility; malformed requests without a callback are rejected.
 - The callback targets a non-exported module receiver. Each result must carry an active 128-bit nonce that expires after 15 seconds and is invalidated on completion.

@@ -74,6 +74,30 @@ class TelegramCompatibilityContractTests(unittest.TestCase):
         self.assertIn('install("compatibility"', hook)
         self.assertIn("TelegramCompatibilityProbe.verify(classLoader)", hook)
 
+    def test_runtime_rejects_unsupported_telegram_version_explicitly(self):
+        hook = HOOK.read_text()
+        guard = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramVersionGuard.java").read_text()
+        activity = (ROOT / "app/src/main/java/io/github/cepeter/royalty/MainActivity.java").read_text()
+        self.assertIn("TelegramVersionGuard.read(context)", hook)
+        self.assertIn('reportStatus(hook, "unsupported_version"', hook)
+        self.assertIn('SUPPORTED_VERSION_NAME = "12.10.4"', guard)
+        self.assertIn("SUPPORTED_VERSION_CODE = 70992L", guard)
+        self.assertIn("R.string.telegram_unsupported", activity)
+
+    def test_key_extractor_uses_verified_runtime_types_without_simple_name_guessing(self):
+        source = EXTRACTOR.read_text()
+        self.assertNotIn("getSimpleName", source)
+        self.assertNotIn("hasSimpleNameContaining", source)
+        for identity in (
+            '"org.telegram.messenger.MessageObject"',
+            '"org.telegram.tgnet.TLRPC$Dialog"',
+            '"org.telegram.tgnet.TLRPC$User"',
+            '"org.telegram.tgnet.TLRPC$Chat"',
+            '"org.telegram.ui.Components.kq0"',
+            '"we.a0"',
+        ):
+            self.assertIn(identity, source)
+
 
 if __name__ == "__main__":
     unittest.main()

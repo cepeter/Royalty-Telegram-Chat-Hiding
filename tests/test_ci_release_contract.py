@@ -43,7 +43,7 @@ class CiReleaseContractTests(unittest.TestCase):
         self.assertIn("scripts/verify-reproducible-build.sh", self.workflow)
         self.assertIn("environment: production", self.workflow)
         verifier = (ROOT / "scripts/verify-release-apk.sh").read_text()
-        self.assertIn("versionCode='13' versionName='3.0.1'", verifier)
+        self.assertIn("versionCode='14' versionName='3.0.2'", verifier)
         self.assertIn("contents: read", self.workflow)
         self.assertIn("contents: write", self.workflow)
 
@@ -66,6 +66,19 @@ class CiReleaseContractTests(unittest.TestCase):
             "startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'",
             self.workflow,
         )
+
+    def test_signing_secrets_are_gated_by_production_environment(self):
+        build_job = self.workflow[
+            self.workflow.index("  build:") : self.workflow.index("  sign:")
+        ]
+        sign_job = self.workflow[
+            self.workflow.index("  sign:") : self.workflow.index("  release:")
+        ]
+        self.assertNotIn("TCH_KEYSTORE_B64", build_job)
+        self.assertIn("environment: production", sign_job)
+        self.assertIn("TCH_KEYSTORE_B64", sign_job)
+        self.assertIn("needs: build", sign_job)
+        self.assertIn("needs: sign", self.workflow)
 
     def test_release_assets_use_royalty_brand(self):
         self.assertIn('"release-apk/royalty-${GITHUB_REF_NAME}.apk"', self.workflow)

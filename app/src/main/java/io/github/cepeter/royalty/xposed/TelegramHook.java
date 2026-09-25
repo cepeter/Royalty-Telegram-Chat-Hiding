@@ -95,6 +95,18 @@ public final class TelegramHook extends XposedModule {
         } catch (RuntimeException error) {
             ModernHookBridge.log("TelegramChatHider: bridge startup failed: " + error);
         }
+        TelegramVersionGuard.Version version;
+        try {
+            version = TelegramVersionGuard.read(context);
+        } catch (RuntimeException error) {
+            reportStatus("compatibility", "version_read_error", error.getClass().getSimpleName());
+            ModernHookBridge.log("TelegramChatHider: Telegram version unavailable: " + error);
+            return;
+        }
+        if (!TelegramVersionGuard.isSupported(version)) {
+            reportUnsupportedVersion(version);
+            return;
+        }
         install("compatibility", () -> TelegramCompatibilityProbe.verify(classLoader));
         install("search", () -> TelegramSearchHook.install(
                 classLoader,
@@ -549,6 +561,19 @@ public final class TelegramHook extends XposedModule {
             reportStatus(hook, "missing", error.getClass().getSimpleName());
             ModernHookBridge.log("TelegramChatHider: " + hook + " hook unavailable: " + error);
         }
+    }
+
+    private static void reportUnsupportedVersion(TelegramVersionGuard.Version version) {
+        String detail = version.describe() + "; requires "
+                + TelegramVersionGuard.SUPPORTED_VERSION_NAME + " ("
+                + TelegramVersionGuard.SUPPORTED_VERSION_CODE + ")";
+        String[] hooks = {
+            "compatibility", "search", "share", "contacts", "dialogs", "notifications", "reveal"
+        };
+        for (String hook : hooks) {
+            reportStatus(hook, "unsupported_version", detail);
+        }
+        ModernHookBridge.log("TelegramChatHider: unsupported Telegram " + detail);
     }
 
     private static void reportRuntimeError(String hook, Throwable error) {

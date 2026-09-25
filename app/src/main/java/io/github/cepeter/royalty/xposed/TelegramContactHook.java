@@ -15,7 +15,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 final class TelegramContactHook {
-    private static final Map<Object, Map<String, ListState>> LISTS = weakMap();
+    private static final Map<Object, Map<String, FilteredListState>> LISTS = weakMap();
     private static final Map<Object, Map<Integer, int[]>> SECTIONS = weakMap();
 
     private TelegramContactHook() {}
@@ -128,10 +128,10 @@ final class TelegramContactHook {
 
     private static void filterPaired(Object owner, String itemsField, String namesField,
             int account, HiddenConfig config, boolean reveal, StatusReporter status) {
-        ListState items = capture(owner, itemsField);
-        ListState names = capture(owner, namesField);
+        FilteredListState items = capture(owner, itemsField);
+        FilteredListState names = capture(owner, namesField);
         DialogFilter.PairedCopy<Object, Object> result = DialogFilter.filteredPairedCopy(
-                items.raw, names.raw,
+                items.raw(), names.raw(),
                 value -> TelegramObjectKey.fromPickerResult(account, value).orElse(null),
                 config, reveal);
         apply(owner, itemsField, items, result.items());
@@ -141,9 +141,9 @@ final class TelegramContactHook {
     private static void filterField(Object owner, String field,
             Function<Object, java.util.Optional<DialogKey>> extractor,
             HiddenConfig config, boolean reveal, StatusReporter status) {
-        ListState state = capture(owner, field);
+        FilteredListState state = capture(owner, field);
         boolean[] unknown = {false};
-        List<Object> result = DialogFilter.filteredCopy(state.raw, value -> {
+        List<Object> result = DialogFilter.filteredCopy(state.raw(), value -> {
             java.util.Optional<DialogKey> key = extractor.apply(value);
             if (value != null && !key.isPresent()) unknown[0] = true;
             return key.orElse(null);
@@ -152,22 +152,25 @@ final class TelegramContactHook {
         apply(owner, field, state, result);
     }
 
-    private static ListState capture(Object owner, String field) {
+    private static FilteredListState capture(Object owner, String field) {
         List<?> current = (List<?>) ModernHookBridge.getObjectField(owner, field);
-        Map<String, ListState> fields = LISTS.computeIfAbsent(owner, ignored -> new HashMap<>());
-        ListState state = fields.get(field);
-        if (state == null || current != state.applied || !current.equals(state.snapshot)) {
-            state = new ListState(new ArrayList<>(current));
+        synchronized (LISTS) {
+            Map<String, FilteredListState> fields = LISTS.get(owner);
+            if (fields == null) {
+                fields = new HashMap<>();
+                LISTS.put(owner, fields);
+            }
+            FilteredListState state = FilteredListState.capture(current, fields.get(field));
             fields.put(field, state);
+            return state;
         }
-        return state;
     }
 
-    private static void apply(Object owner, String field, ListState state, List<?> value) {
+    private static void apply(
+            Object owner, String field, FilteredListState state, List<?> value) {
         ArrayList<Object> copy = new ArrayList<>(value);
         ModernHookBridge.setObjectField(owner, field, copy);
-        state.applied = copy;
-        state.snapshot = new ArrayList<>(copy);
+        state.markApplied(copy);
     }
 
     private static Object invokeItem(Method method, Object owner, int section, int row) {
@@ -216,11 +219,4 @@ final class TelegramContactHook {
     }
 
     private interface HookAction { void run(ModernHookBridge.MethodHookParam param); }
-
-    private static final class ListState {
-        final List<Object> raw;
-        List<?> applied;
-        List<?> snapshot;
-        ListState(List<Object> raw) { this.raw = raw; }
-    }
 }

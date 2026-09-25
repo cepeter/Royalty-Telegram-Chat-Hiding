@@ -18,19 +18,24 @@ class ShareHookContractTests(unittest.TestCase):
         for field in ('"d", SEARCH', '"d", HELPER', '"D0", RECENT'):
             self.assertIn(field, self.share)
 
-    def test_share_lists_are_replaced_with_filtered_copies_and_rebuilt_map(self):
+    def test_share_lists_use_filtered_copies_and_maps_keep_identity(self):
         self.assertIn("DialogFilter.filteredCopy", self.share)
         self.assertIn("ModernHookBridge.setObjectField", self.share)
-        self.assertIn('callMethod(result, "k"', self.share)
-        self.assertNotIn(".clear(", self.share)
-        self.assertNotIn(".remove(", self.share)
+        self.assertIn('callMethod(target, "b")', self.share)
+        self.assertIn('target, "k"', self.share)
+        self.assertNotIn("getDeclaredConstructor", self.share)
+        self.assertNotIn('setObjectField(adapter, "e"', self.share)
+        self.assertNotIn('setObjectField(outer, "T"', self.share)
+        self.assertIn("rollbackDialogs", self.share)
+        self.assertIn("error.addSuppressed(rollbackError)", self.share)
 
     def test_reveal_restore_and_stale_selection_guard_are_present(self):
-        self.assertIn("state.raw", self.share)
+        self.assertIn("FilteredListState.capture", self.share)
+        self.assertNotIn("private static final class ListState", self.share)
         self.assertIn("LAST_REVEAL", self.share)
         self.assertIn("guardSelection", self.share)
         self.assertIn("config.isHidden", self.share)
-        self.assertIn('setObjectField(outer, "T"', self.share)
+        self.assertIn("replaceMapContents(selected", self.share)
         self.assertIn('status.report("runtime_error"', self.share)
 
 

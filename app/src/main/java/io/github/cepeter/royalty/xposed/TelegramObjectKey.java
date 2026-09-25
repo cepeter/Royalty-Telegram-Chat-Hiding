@@ -6,6 +6,13 @@ import java.lang.reflect.Method;
 import java.util.Optional;
 
 public final class TelegramObjectKey {
+    private static final String MESSAGE_OBJECT = "org.telegram.messenger.MessageObject";
+    private static final String TLRPC_DIALOG = "org.telegram.tgnet.TLRPC$Dialog";
+    private static final String TLRPC_USER = "org.telegram.tgnet.TLRPC$User";
+    private static final String TLRPC_CHAT = "org.telegram.tgnet.TLRPC$Chat";
+    private static final String RECENT_SEARCH_OBJECT = "we.a0";
+    private static final String SHARE_SEARCH_ROW = "org.telegram.ui.Components.kq0";
+
     private TelegramObjectKey() {}
 
     public static Optional<DialogKey> fromDialog(int account, Object dialog) {
@@ -30,24 +37,26 @@ public final class TelegramObjectKey {
     }
 
     public static Optional<DialogKey> fromRecent(int account, Object recent) {
-        return fromSignedId(account, readLongField(recent, "did", "c", "a"));
+        if (!hasClassName(recent, RECENT_SEARCH_OBJECT)) {
+            return Optional.empty();
+        }
+        return fromSignedId(account, readLongField(recent, "c"));
     }
 
     public static Optional<DialogKey> fromSearchResult(int account, Object result) {
-        if (hasTypeInHierarchy(result, "MessageObject")
-                || hasNoArgMethod(result, "getDialogId")) {
+        if (hasTypeInHierarchy(result, MESSAGE_OBJECT)) {
             return fromMessage(account, result);
         }
-        if (hasTypeInHierarchy(result, "Dialog")) {
+        if (hasTypeInHierarchy(result, TLRPC_DIALOG)) {
             return fromDialog(account, result);
         }
-        if (hasTypeInHierarchy(result, "User")) {
+        if (hasTypeInHierarchy(result, TLRPC_USER)) {
             return fromUser(account, result);
         }
-        if (hasTypeInHierarchy(result, "Chat")) {
+        if (hasTypeInHierarchy(result, TLRPC_CHAT)) {
             return fromChat(account, result);
         }
-        if (hasClassName(result, "we.a0") || hasSimpleNameContaining(result, "Recent")) {
+        if (hasClassName(result, RECENT_SEARCH_OBJECT)) {
             return fromRecent(account, result);
         }
         return Optional.empty();
@@ -64,17 +73,20 @@ public final class TelegramObjectKey {
     }
 
     public static Optional<DialogKey> fromShareSearch(int account, Object result) {
-        Object dialog = readObjectField(result, "dialog", "a");
+        if (!hasClassName(result, SHARE_SEARCH_ROW)) {
+            return Optional.empty();
+        }
+        Object dialog = readObjectField(result, "a");
         Optional<DialogKey> dialogKey = fromDialog(account, dialog);
         if (dialogKey.isPresent()) {
             return dialogKey;
         }
 
-        Object peer = readObjectField(result, "object", "b");
-        if (hasTypeInHierarchy(peer, "User")) {
+        Object peer = readObjectField(result, "b");
+        if (hasTypeInHierarchy(peer, TLRPC_USER)) {
             return fromUser(account, peer);
         }
-        if (hasTypeInHierarchy(peer, "Chat")) {
+        if (hasTypeInHierarchy(peer, TLRPC_CHAT)) {
             return fromChat(account, peer);
         }
         return Optional.empty();
@@ -140,45 +152,16 @@ public final class TelegramObjectKey {
         return null;
     }
 
-    private static boolean hasNoArgMethod(Object target, String name) {
-        if (target == null) {
-            return false;
-        }
-        for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
-            try {
-                type.getDeclaredMethod(name);
-                return true;
-            } catch (NoSuchMethodException missingMethod) {
-                // Try the same method name on the superclass.
-            } catch (RuntimeException unreadableMethod) {
-                return false;
-            }
-        }
-        return false;
-    }
-
     private static boolean hasClassName(Object target, String className) {
         return target != null && className.equals(target.getClass().getName());
     }
 
-    private static boolean hasSimpleNameContaining(Object target, String token) {
+    private static boolean hasTypeInHierarchy(Object target, String className) {
         if (target == null) {
             return false;
         }
         for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
-            if (type.getSimpleName().contains(token)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean hasTypeInHierarchy(Object target, String simpleName) {
-        if (target == null) {
-            return false;
-        }
-        for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
-            if (simpleName.equals(type.getSimpleName())) {
+            if (className.equals(type.getName())) {
                 return true;
             }
         }

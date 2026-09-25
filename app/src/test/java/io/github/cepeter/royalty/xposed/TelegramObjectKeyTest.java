@@ -9,73 +9,28 @@ import org.junit.Test;
 public final class TelegramObjectKeyTest {
     private static final class Dialog {
         private final long id;
-
-        Dialog(long id) {
-            this.id = id;
-        }
+        Dialog(long id) { this.id = id; }
     }
 
     private static final class Message {
         private final long dialogId;
-
-        Message(long dialogId) {
-            this.dialogId = dialogId;
-        }
-
-        private long getDialogId() {
-            return dialogId;
-        }
+        Message(long dialogId) { this.dialogId = dialogId; }
+        private long getDialogId() { return dialogId; }
     }
 
     private static final class User {
         private final long id;
-
-        User(long id) {
-            this.id = id;
-        }
+        User(long id) { this.id = id; }
     }
 
     private static final class Chat {
         private final long id;
-
-        Chat(long id) {
-            this.id = id;
-        }
+        Chat(long id) { this.id = id; }
     }
 
     private static final class Contact {
         private final long user_id;
-
-        Contact(long userId) {
-            this.user_id = userId;
-        }
-    }
-
-    private static final class RecentBySourceName {
-        private final long did;
-
-        RecentBySourceName(long did) {
-            this.did = did;
-        }
-    }
-
-    private static final class RecentByAlias {
-        private final Object a = new Object();
-        private final long c;
-
-        RecentByAlias(long dialogId) {
-            this.c = dialogId;
-        }
-    }
-
-    private static final class ShareResult {
-        private final Dialog a;
-        private final Object b;
-
-        ShareResult(Dialog dialog, Object peer) {
-            this.a = dialog;
-            this.b = peer;
-        }
+        Contact(long userId) { this.user_id = userId; }
     }
 
     @Test
@@ -87,55 +42,65 @@ public final class TelegramObjectKeyTest {
     }
 
     @Test
-    public void extractsRecentAndShareWrappersFromSourceAndRuntimeFields() {
-        assertEquals(
-                DialogKey.of(1, 21),
-                TelegramObjectKey.fromRecent(1, new RecentBySourceName(21)).get());
-        assertEquals(
-                DialogKey.of(2, -22),
-                TelegramObjectKey.fromRecent(2, new RecentByAlias(-22)).get());
+    public void extractsOnlyVerifiedRecentAndShareWrapperTypes() {
+        assertEquals(DialogKey.of(2, -22), TelegramObjectKey.fromRecent(2, new we.a0(-22)).get());
         assertEquals(
                 DialogKey.of(0, -23),
-                TelegramObjectKey.fromShareSearch(0, new ShareResult(new Dialog(-23), null)).get());
+                TelegramObjectKey.fromShareSearch(
+                        0,
+                        new org.telegram.ui.Components.kq0(
+                                new org.telegram.tgnet.TLRPC.Dialog(-23), null)).get());
         assertEquals(
                 DialogKey.of(1, 24),
-                TelegramObjectKey.fromShareSearch(1, new ShareResult(null, new User(24))).get());
+                TelegramObjectKey.fromShareSearch(
+                        1,
+                        new org.telegram.ui.Components.kq0(
+                                null, new org.telegram.tgnet.TLRPC.User(24))).get());
         assertEquals(
                 DialogKey.of(1, -25),
-                TelegramObjectKey.fromShareSearch(1, new ShareResult(null, new Chat(25))).get());
+                TelegramObjectKey.fromShareSearch(
+                        1,
+                        new org.telegram.ui.Components.kq0(
+                                null, new org.telegram.tgnet.TLRPC.Chat(25))).get());
     }
 
     @Test
-    public void classifiesMixedSearchRowsWithoutGuessingUnknownTypes() {
+    public void classifiesMixedSearchRowsByVerifiedFullyQualifiedType() {
         assertEquals(
                 DialogKey.of(0, 31),
-                TelegramObjectKey.fromSearchResult(0, new User(31)).get());
+                TelegramObjectKey.fromSearchResult(
+                        0, new org.telegram.tgnet.TLRPC.User(31)).get());
         assertEquals(
                 DialogKey.of(0, -32),
-                TelegramObjectKey.fromSearchResult(0, new Chat(32)).get());
+                TelegramObjectKey.fromSearchResult(
+                        0, new org.telegram.tgnet.TLRPC.Chat(32)).get());
         assertEquals(
                 DialogKey.of(0, -33),
-                TelegramObjectKey.fromSearchResult(0, new Dialog(-33)).get());
+                TelegramObjectKey.fromSearchResult(
+                        0, new org.telegram.tgnet.TLRPC.Dialog(-33)).get());
         assertEquals(
                 DialogKey.of(0, 34),
-                TelegramObjectKey.fromSearchResult(0, new Message(34)).get());
+                TelegramObjectKey.fromSearchResult(
+                        0, new org.telegram.messenger.MessageObject(34)).get());
         assertEquals(
                 DialogKey.of(0, 35),
-                TelegramObjectKey.fromSearchResult(0, new RecentByAlias(35)).get());
+                TelegramObjectKey.fromSearchResult(0, new we.a0(35)).get());
         assertEquals(
                 DialogKey.of(2, 36),
                 TelegramObjectKey.fromPickerResult(2, new Contact(36)).get());
-        assertFalse(TelegramObjectKey.fromPickerResult(0, new Contact(0)).isPresent());
-        assertFalse(TelegramObjectKey.fromSearchResult(0, new Object()).isPresent());
     }
 
     @Test
-    public void invalidAndUnknownObjectsFailOpen() {
+    public void lookalikeTypesAndInvalidObjectsFailOpen() {
+        assertFalse(TelegramObjectKey.fromSearchResult(0, new User(31)).isPresent());
+        assertFalse(TelegramObjectKey.fromSearchResult(0, new Chat(32)).isPresent());
+        assertFalse(TelegramObjectKey.fromSearchResult(0, new Dialog(-33)).isPresent());
+        assertFalse(TelegramObjectKey.fromSearchResult(0, new Message(34)).isPresent());
+        assertFalse(TelegramObjectKey.fromRecent(0, new Object()).isPresent());
+        assertFalse(TelegramObjectKey.fromShareSearch(0, new Object()).isPresent());
+        assertFalse(TelegramObjectKey.fromPickerResult(0, new Contact(0)).isPresent());
         assertFalse(TelegramObjectKey.fromDialog(0, new Object()).isPresent());
-        assertFalse(TelegramObjectKey.fromMessage(0, new Object()).isPresent());
         assertFalse(TelegramObjectKey.fromUser(0, new User(0)).isPresent());
         assertFalse(TelegramObjectKey.fromChat(0, new Chat(Long.MIN_VALUE)).isPresent());
-        assertFalse(TelegramObjectKey.fromRecent(16, new RecentByAlias(1)).isPresent());
-        assertFalse(TelegramObjectKey.fromShareSearch(0, null).isPresent());
     }
 }

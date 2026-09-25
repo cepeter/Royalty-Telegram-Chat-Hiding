@@ -408,6 +408,7 @@ public final class MainActivity extends Activity {
                 break;
             }
         }
+        boolean unsupportedVersion = statuses.containsValue("unsupported_version");
         setConnectionStatus(
                 frameworkStatusDot,
                 frameworkStatusText,
@@ -416,7 +417,7 @@ public final class MainActivity extends Activity {
         setConnectionStatus(
                 telegramStatusDot,
                 telegramStatusText,
-                R.string.telegram_connection,
+                unsupportedVersion ? R.string.telegram_unsupported : R.string.telegram_connection,
                 telegramWorking);
     }
 

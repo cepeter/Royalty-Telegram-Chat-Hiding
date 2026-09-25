@@ -18,6 +18,8 @@ class ContactHookContractTests(unittest.TestCase):
         self.assertIn("DialogFilter.filteredPairedCopy", self.contacts)
         self.assertIn("DialogFilter.filteredCopy", self.contacts)
         self.assertIn("ModernHookBridge.setObjectField", self.contacts)
+        self.assertIn("FilteredListState.capture", self.contacts)
+        self.assertNotIn("private static final class ListState", self.contacts)
 
     def test_sectioned_contact_list_is_position_mapped_not_modified(self):
         self.assertIn('Class.forName("we.d"', self.contacts)

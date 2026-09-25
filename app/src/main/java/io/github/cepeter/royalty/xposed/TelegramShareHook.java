@@ -3,7 +3,6 @@ package io.github.cepeter.royalty.xposed;
 import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
-import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,10 +13,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 final class TelegramShareHook {
-    private static final Map<Object, ListState> MAIN = weakMap();
-    private static final Map<Object, ListState> SEARCH = weakMap();
-    private static final Map<Object, ListState> HELPER = weakMap();
-    private static final Map<Object, ListState> RECENT = weakMap();
+    private static final Map<Object, FilteredListState> MAIN = weakMap();
+    private static final Map<Object, FilteredListState> SEARCH = weakMap();
+    private static final Map<Object, FilteredListState> HELPER = weakMap();
+    private static final Map<Object, FilteredListState> RECENT = weakMap();
     private static final Map<Object, Boolean> LAST_REVEAL = weakMap();
 
     private TelegramShareHook() {}
@@ -56,14 +55,19 @@ final class TelegramShareHook {
         int account = ModernHookBridge.getIntField(outer, "currentAccount");
         HiddenConfig hidden = config.get();
         boolean reveal = revealed.getAsBoolean();
-        ListState state = capture(adapter, "d", MAIN);
-        List<Object> visible = filter(state.raw,
+        FilteredListState state = capture(adapter, "d", MAIN);
+        List<Object> visible = filter(state.raw(),
                 row -> TelegramObjectKey.fromDialog(account, row),
                 hidden, reveal, status);
         apply(adapter, "d", state, visible);
         Object oldMap = ModernHookBridge.getObjectField(adapter, "e");
-        ModernHookBridge.setObjectField(adapter, "e", dialogMap(oldMap, visible));
-        guardSelection(outer, state.raw, account, hidden, reveal);
+        try {
+            replaceMapContents(oldMap, visible, state.raw(), account);
+        } catch (RuntimeException error) {
+            apply(adapter, "d", state, new ArrayList<>(state.raw()));
+            throw error;
+        }
+        guardSelection(outer, state.raw(), account, hidden, reveal);
     }
 
     private static void applySearch(Object adapter, Supplier<HiddenConfig> config,
@@ -81,27 +85,25 @@ final class TelegramShareHook {
                 row -> TelegramObjectKey.fromRecent(account, row), hidden, reveal, status);
     }
 
-    private static void filterField(Object owner, String field, Map<Object, ListState> states,
+    private static void filterField(Object owner, String field, Map<Object, FilteredListState> states,
             Function<Object, java.util.Optional<DialogKey>> extractor,
             HiddenConfig config, boolean reveal, StatusReporter status) {
-        ListState state = capture(owner, field, states);
-        apply(owner, field, state, filter(state.raw, extractor, config, reveal, status));
+        FilteredListState state = capture(owner, field, states);
+        apply(owner, field, state, filter(state.raw(), extractor, config, reveal, status));
     }
 
-    private static ListState capture(Object owner, String field, Map<Object, ListState> states) {
+    private static FilteredListState capture(
+            Object owner, String field, Map<Object, FilteredListState> states) {
         List<?> current = (List<?>) ModernHookBridge.getObjectField(owner, field);
-        ListState state = states.get(owner);
-        if (state == null || current != state.applied || !current.equals(state.snapshot)) {
-            state = new ListState(new ArrayList<>(current));
-            states.put(owner, state);
-        }
+        FilteredListState state = FilteredListState.capture(current, states.get(owner));
+        states.put(owner, state);
         return state;
     }
 
-    private static void apply(Object owner, String field, ListState state, List<Object> value) {
+    private static void apply(
+            Object owner, String field, FilteredListState state, List<Object> value) {
         ModernHookBridge.setObjectField(owner, field, value);
-        state.applied = value;
-        state.snapshot = new ArrayList<>(value);
+        state.markApplied(value);
     }
 
     private static List<Object> filter(List<Object> source,
@@ -117,20 +119,45 @@ final class TelegramShareHook {
         return result;
     }
 
-    private static Object dialogMap(Object template, List<Object> dialogs) {
+    private static void replaceMapContents(
+            Object target, List<Object> dialogs, List<Object> rollbackDialogs, int account) {
+        List<Object> verifiedDialogs = new ArrayList<>();
+        List<Long> verifiedIds = new ArrayList<>();
+        collectMapEntries(dialogs, account, verifiedDialogs, verifiedIds);
+
+        List<Object> rollbackVerifiedDialogs = new ArrayList<>();
+        List<Long> rollbackVerifiedIds = new ArrayList<>();
+        collectMapEntries(
+                rollbackDialogs, account, rollbackVerifiedDialogs, rollbackVerifiedIds);
+
         try {
-            Constructor<?> constructor = template.getClass().getDeclaredConstructor();
-            constructor.setAccessible(true);
-            Object result = constructor.newInstance();
-            for (Object dialog : dialogs) {
-                java.util.Optional<DialogKey> key = TelegramObjectKey.fromDialog(0, dialog);
-                if (key.isPresent()) {
-                    ModernHookBridge.callMethod(result, "k", dialog, key.get().dialogId());
-                }
+            writeMapContents(target, verifiedDialogs, verifiedIds);
+        } catch (RuntimeException error) {
+            try {
+                writeMapContents(target, rollbackVerifiedDialogs, rollbackVerifiedIds);
+            } catch (RuntimeException rollbackError) {
+                error.addSuppressed(rollbackError);
             }
-            return result;
-        } catch (ReflectiveOperationException error) {
-            throw new IllegalStateException("cannot rebuild share dialog map", error);
+            throw error;
+        }
+    }
+
+    private static void collectMapEntries(
+            List<Object> dialogs, int account, List<Object> verifiedDialogs, List<Long> verifiedIds) {
+        for (Object dialog : dialogs) {
+            java.util.Optional<DialogKey> key = TelegramObjectKey.fromDialog(account, dialog);
+            if (key.isPresent()) {
+                verifiedDialogs.add(dialog);
+                verifiedIds.add(key.get().dialogId());
+            }
+        }
+    }
+
+    private static void writeMapContents(
+            Object target, List<Object> dialogs, List<Long> ids) {
+        ModernHookBridge.callMethod(target, "b");
+        for (int index = 0; index < dialogs.size(); index++) {
+            ModernHookBridge.callMethod(target, "k", dialogs.get(index), ids.get(index));
         }
     }
 
@@ -139,16 +166,20 @@ final class TelegramShareHook {
         Boolean previous = LAST_REVEAL.put(outer, reveal);
         if (previous == null || !previous || reveal) return;
         Object selected = ModernHookBridge.getObjectField(outer, "T");
-        Object replacement = dialogMap(selected, Collections.emptyList());
+        List<Object> originalSelected = new ArrayList<>();
+        List<Object> retained = new ArrayList<>();
         for (Object dialog : dialogs) {
             java.util.Optional<DialogKey> key = TelegramObjectKey.fromDialog(account, dialog);
-            if (!key.isPresent() || config.isHidden(key.get())) continue;
+            if (!key.isPresent()) continue;
             long id = key.get().dialogId();
             if (((Number) ModernHookBridge.callMethod(selected, "h", id)).intValue() >= 0) {
-                ModernHookBridge.callMethod(replacement, "k", dialog, id);
+                originalSelected.add(dialog);
+                if (!config.isHidden(key.get())) {
+                    retained.add(dialog);
+                }
             }
         }
-        ModernHookBridge.setObjectField(outer, "T", replacement);
+        replaceMapContents(selected, retained, originalSelected, account);
     }
 
     private static void safely(StatusReporter status, Runnable action) {
@@ -164,15 +195,5 @@ final class TelegramShareHook {
 
     private static <K, V> Map<K, V> weakMap() {
         return Collections.synchronizedMap(new WeakHashMap<>());
-    }
-
-    private static final class ListState {
-        final List<Object> raw;
-        List<?> applied;
-        List<?> snapshot;
-
-        ListState(List<Object> raw) {
-            this.raw = raw;
-        }
     }
 }

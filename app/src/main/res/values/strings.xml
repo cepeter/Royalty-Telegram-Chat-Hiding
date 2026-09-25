@@ -5,6 +5,7 @@
     <string name="status_section">Connection</string>
     <string name="framework_connection">Framework</string>
     <string name="telegram_connection">Telegram</string>
+    <string name="telegram_unsupported">Telegram 12.10.4 required</string>
     <string name="connection_working">Working</string>
     <string name="connection_not_working">Not working</string>
     <string name="hidden_chats_section">Hidden chats</string>

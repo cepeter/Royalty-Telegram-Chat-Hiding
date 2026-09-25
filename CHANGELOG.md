@@ -4,6 +4,20 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-09-25
+
+### Fixed
+
+- Added an exact Telegram version guard so unsupported builds report `unsupported_version` instead of silently degrading into missing hooks.
+- Tightened search/share row classification to verified fully-qualified runtime types and exact mapped fields.
+- Preserved Telegram share-map identity by filtering its verified map instance in place instead of reconstructing it through private reflection.
+- Retained full adapter baselines across in-place Telegram list updates so reveal mode does not permanently lose hidden rows.
+
+### Security
+
+- Moved release signing and all signing secrets into the approval-gated `production` environment job.
+- Documented the private-field replacement required by Telegram 12.10.4 contact/share adapters.
+
 ## [3.0.1] - 2026-09-25
 
 ### Fixed
@@ -119,7 +133,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.2...HEAD
+[3.0.2]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.2
 [3.0.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.1
 [3.0.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.0
 [2.2.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v2.2.1

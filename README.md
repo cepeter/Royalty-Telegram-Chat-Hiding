@@ -93,9 +93,10 @@ Hook failures fail open: Telegram keeps showing its normal, unfiltered content i
 <summary><strong>Safety and privacy details</strong></summary>
 
 - Vector or LSPosed supplies the ART hook engine; Royalty does not patch ART structures itself.
-- Dialog and notification filtering use copied inputs rather than mutating Telegram-owned collections.
+- Dialog and notification hooks return filtered copies rather than mutating their inputs.
 - Search surfaces remap visible adapter positions while preserving aligned names and metadata.
-- Share, group, and contact adapters receive replacement copies with fail-open handling for unknown Telegram rows.
+- Share, group, and contact adapters require private-field replacement because Telegram 12.10.4 exposes no return-value hook at those boundaries. Royalty assigns filtered list copies; it never mutates those list instances.
+- Share dialog maps are filtered in place through Telegram's verified map API so Telegram-owned references keep their identity.
 - Configuration uses Modern Xposed remote preferences; it never requests world-readable app files.
 - Catalog requests require a signature-level permission and return through an exact-component `PendingIntent`.
 - Every request uses an active 128-bit nonce.
