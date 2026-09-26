@@ -7,7 +7,7 @@ apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
 aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
 apkanalyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
 "$apksigner" verify --verbose "$apk"
-"$aapt" dump badging "$apk" | grep -F "package: name='io.github.cepeter.royalty' versionCode='15' versionName='3.0.3'"
+"$aapt" dump badging "$apk" | grep -F "package: name='io.github.cepeter.royalty' versionCode='16' versionName='3.0.4'"
 python3 - "$apk" <<'PY'
 import sys
 import zipfile

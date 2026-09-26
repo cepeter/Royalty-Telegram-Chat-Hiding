@@ -69,10 +69,16 @@ class TelegramCompatibilityContractTests(unittest.TestCase):
             '"org.telegram.ui.nt"',
             '"org.telegram.ui.s70"',
             '"org.telegram.ui.q70"',
+            '"z.f"',
         ):
             self.assertIn(identity, probe)
         self.assertIn('install("compatibility"', hook)
         self.assertIn("TelegramCompatibilityProbe.verify(classLoader)", hook)
+
+    def test_share_map_mutation_methods_are_probed(self):
+        probe = PROBE.read_text()
+        self.assertIn('requireMethod(dialogMap, "b")', probe)
+        self.assertIn('requireMethod(dialogMap, "k", Object.class, long.class)', probe)
 
     def test_runtime_rejects_unsupported_telegram_version_explicitly(self):
         hook = HOOK.read_text()

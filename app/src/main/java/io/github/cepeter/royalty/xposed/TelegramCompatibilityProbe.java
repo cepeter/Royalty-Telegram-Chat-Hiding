@@ -39,6 +39,9 @@ public final class TelegramCompatibilityProbe {
         requireFields(
                 requireClass(classes, "org.telegram.ui.Components.kq0"),
                 "a", "b", "c", "d");
+        Class<?> dialogMap = requireClass(classes, "z.f");
+        requireMethod(dialogMap, "b");
+        requireMethod(dialogMap, "k", Object.class, long.class);
 
         requireFields(requireClass(classes, "org.telegram.ui.ContactsActivity"), "r", "d");
         Class<?> contactSearch = requireClass(classes, "org.telegram.ui.mt");
