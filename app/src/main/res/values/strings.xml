@@ -15,8 +15,11 @@
     <string name="clear_search_symbol">×</string>
     <string name="notifications_title">Quiet notifications</string>
     <string name="notifications_subtitle">Suppress new-message alerts from hidden chats.</string>
+    <string name="premium_title">Local Premium</string>
+    <string name="premium_subtitle">Unlock client-side Premium UI only. Server-side limits remain unchanged.</string>
+    <string name="local_premium">Enable Local Premium</string>
     <string name="xposed_description">Hide selected Telegram chats from lists, search, sharing, and people pickers.</string>
-    <string name="supported_scope">Main lists, notifications, search, share targets, and group/contact pickers are supported on Telegram 12.10.4.</string>
+    <string name="supported_scope">Main lists, notifications, search, share targets, and group/contact pickers are supported on Telegram 12.10.4. Local Premium controls client-side UI only.</string>
     <string name="hook_status">Hook status</string>
     <string name="open_telegram_first">Open Telegram once, then return here and refresh.</string>
     <string name="refresh">Refresh</string>

@@ -30,5 +30,17 @@ public final class HiddenConfigTest {
 
         assertFalse(config.isHidden(DialogKey.of(0, 12)));
         assertFalse(config.suppressNotifications());
+        assertFalse(config.localPremium());
+    }
+
+    @Test
+    public void localPremiumIsExplicitAndDisabledByDefault() {
+        HiddenConfig enabled = HiddenConfig.fromStrings(
+                java.util.Collections.emptySet(), false, true);
+        HiddenConfig legacy = HiddenConfig.fromStrings(
+                java.util.Collections.emptySet(), false);
+
+        assertTrue(enabled.localPremium());
+        assertFalse(legacy.localPremium());
     }
 }
