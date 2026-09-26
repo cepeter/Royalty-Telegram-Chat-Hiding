@@ -4,6 +4,17 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.0.5] - 2026-09-26
+
+### Added
+
+- Added an opt-in Local Premium control that overrides Telegram's client-side Premium check while leaving server-side entitlements unchanged.
+
+### Changed
+
+- Added install and runtime status reporting for the Local Premium hook.
+- Added GPL-3.0 attribution for the TeleVip-LSPosed hook source.
+
 ## [3.0.4] - 2026-09-26
 
 ### Fixed
@@ -150,7 +161,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.4...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.5...HEAD
+[3.0.5]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.5
 [3.0.4]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.4
 [3.0.3]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.3
 [3.0.2]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.2
