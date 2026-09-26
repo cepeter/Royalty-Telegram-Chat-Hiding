@@ -36,6 +36,7 @@ Evidence was produced from the APK manifest, signing certificate, DEX descriptor
 |---|---|---|
 | `ShareAlert` | `org.telegram.ui.Components.wq0` | account inherited as `currentAccount`; selected-dialog map `T:z.f` |
 | `ShareDialogsAdapter` | `org.telegram.ui.Components.oq0` | dialog list `d:ArrayList`; ID map `e:z.f`; refresh `E()` |
+| Share dialog map | `z.f` | clear `b()`; insert `k(Object,long)` |
 | `ShareSearchAdapter` | `org.telegram.ui.Components.sq0` | search list `d:ArrayList`; helper `e:qq0`; search `E(String)` |
 | Share search row | `org.telegram.ui.Components.kq0` | dialog `a:TL_dialog`; peer `b:TLObject`; date `c:int`; name `d:CharSequence` |
 | Topic adapter | `org.telegram.ui.Components.tq0` | topic list `f:ArrayList` |
@@ -66,8 +67,9 @@ The retained activity constructs `mt` and `nt` directly in `createView`. Search/
 1. Resolve source names first, then only the aliases listed above.
 2. Validate required fields and method descriptors before installing a hook.
 3. Read the owning activity/adapter’s explicit account; never use `UserConfig.selectedAccount` for row keys.
-4. Replace collections with filtered copies and rebuild aligned metadata/maps.
-5. If any required member is missing, keep Telegram data visible and report the surface as `missing` or `runtime_error`.
+4. Replace lists with filtered copies and preserve share-map identity through its verified API.
+5. Reconcile Telegram-owned adapter rows by object identity (`==`), never value equality.
+6. If any required member is missing, keep Telegram data visible and report the surface as `missing` or `runtime_error`.
 
 ## Probe status
 

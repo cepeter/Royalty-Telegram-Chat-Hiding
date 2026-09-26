@@ -70,6 +70,11 @@ public final class TelegramCompatibilityProbeTest {
         CharSequence d;
     }
 
+    private static final class DialogMap {
+        void b() {}
+        void k(Object dialog, long id) {}
+    }
+
     private static final class Contacts {
         Object r;
         Object d;
@@ -122,6 +127,7 @@ public final class TelegramCompatibilityProbeTest {
         classes.put("org.telegram.ui.Components.oq0", ShareList.class);
         classes.put("org.telegram.ui.Components.sq0", ShareSearch.class);
         classes.put("org.telegram.ui.Components.kq0", ShareRow.class);
+        classes.put("z.f", DialogMap.class);
         classes.put("org.telegram.ui.ContactsActivity", Contacts.class);
         classes.put("org.telegram.ui.mt", ContactSearch.class);
         classes.put("org.telegram.ui.nt", ContactList.class);

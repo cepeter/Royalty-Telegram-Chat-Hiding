@@ -4,6 +4,13 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.0.4] - 2026-09-26
+
+### Fixed
+
+- Reworked adapter baseline reconciliation to use linear-time identity counts, avoiding quadratic scans and preserving distinct value-equal Telegram rows.
+- Added Telegram 12.10.4 share-map `b()` and `k(Object,long)` methods to the compatibility probe and mapping document.
+
 ## [3.0.3] - 2026-09-26
 
 ### Added
@@ -143,7 +150,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.3...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.4...HEAD
+[3.0.4]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.4
 [3.0.3]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.3
 [3.0.2]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.2
 [3.0.1]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.1
