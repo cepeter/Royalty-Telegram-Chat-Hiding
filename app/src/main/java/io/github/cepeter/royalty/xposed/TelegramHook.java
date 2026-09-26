@@ -125,6 +125,10 @@ public final class TelegramHook extends XposedModule {
                 (status, detail) -> reportStatus("contacts", status, detail)));
         install("dialogs", () -> installDialogHook(classLoader));
         install("notifications", () -> installNotificationHook(classLoader));
+        install("premium", () -> TelegramPremiumHook.install(
+                classLoader,
+                CONFIG::localPremiumEnabled,
+                (status, detail) -> reportStatus("premium", status, detail)));
         install("reveal", () -> installRevealHook(classLoader));
     }
 
@@ -568,7 +572,7 @@ public final class TelegramHook extends XposedModule {
                 + TelegramVersionGuard.SUPPORTED_VERSION_NAME + " ("
                 + TelegramVersionGuard.SUPPORTED_VERSION_CODE + ")";
         String[] hooks = {
-            "compatibility", "search", "share", "contacts", "dialogs", "notifications", "reveal"
+            "compatibility", "search", "share", "contacts", "dialogs", "notifications", "premium", "reveal"
         };
         for (String hook : hooks) {
             reportStatus(hook, "unsupported_version", detail);

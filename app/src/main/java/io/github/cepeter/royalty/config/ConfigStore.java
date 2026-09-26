@@ -11,6 +11,7 @@ public final class ConfigStore {
     public static final String PREFERENCES_NAME = "config";
     public static final String HIDDEN_DIALOGS = "hidden_dialogs";
     public static final String SUPPRESS_NOTIFICATIONS = "suppress_notifications";
+    public static final String LOCAL_PREMIUM = "local_premium";
 
     private ConfigStore() {}
 
@@ -19,14 +20,16 @@ public final class ConfigStore {
         Set<String> snapshot = stored == null ? java.util.Collections.emptySet() : new HashSet<>(stored);
         return HiddenConfig.fromStrings(
                 snapshot,
-                preferences.getBoolean(SUPPRESS_NOTIFICATIONS, false));
+                preferences.getBoolean(SUPPRESS_NOTIFICATIONS, false),
+                preferences.getBoolean(LOCAL_PREMIUM, false));
     }
 
     @SuppressLint("ApplySharedPref")
     public static boolean save(
             SharedPreferences preferences,
             Set<DialogKey> hiddenDialogs,
-            boolean suppressNotifications) {
+            boolean suppressNotifications,
+            boolean localPremium) {
         Set<String> encoded = new HashSet<>();
         for (DialogKey key : hiddenDialogs) {
             encoded.add(key.toString());
@@ -34,6 +37,7 @@ public final class ConfigStore {
         return preferences.edit()
                 .putStringSet(HIDDEN_DIALOGS, encoded)
                 .putBoolean(SUPPRESS_NOTIFICATIONS, suppressNotifications)
+                .putBoolean(LOCAL_PREMIUM, localPremium)
                 .commit();
     }
 }

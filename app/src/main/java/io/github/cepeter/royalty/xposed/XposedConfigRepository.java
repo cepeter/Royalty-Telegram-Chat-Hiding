@@ -14,4 +14,8 @@ public final class XposedConfigRepository {
     public HiddenConfig current() {
         return ConfigStore.load(preferences);
     }
+
+    public boolean localPremiumEnabled() {
+        return preferences.getBoolean(ConfigStore.LOCAL_PREMIUM, false);
+    }
 }

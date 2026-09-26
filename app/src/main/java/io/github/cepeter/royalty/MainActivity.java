@@ -96,6 +96,7 @@ public final class MainActivity extends Activity {
     private ListView dialogList;
     private ArrayAdapter<String> dialogAdapter;
     private Switch notificationSwitch;
+    private Switch premiumSwitch;
     private Button saveButton;
 
     @Override
@@ -223,6 +224,26 @@ public final class MainActivity extends Activity {
         notificationCard.addView(notificationSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(notificationCard, withTopMargin(matchWrap(), 12));
+
+        LinearLayout premiumCard = createCard(LinearLayout.HORIZONTAL);
+        premiumCard.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout premiumCopy = new LinearLayout(this);
+        premiumCopy.setOrientation(LinearLayout.VERTICAL);
+        premiumCopy.addView(createText(
+                R.string.premium_title, 16, R.color.royalty_text, Typeface.BOLD), matchWrap());
+        premiumCopy.addView(createText(
+                R.string.premium_subtitle, 13, R.color.royalty_text_muted, Typeface.NORMAL),
+                withTopMargin(matchWrap(), 3));
+        premiumCard.addView(premiumCopy, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        premiumSwitch = new Switch(this);
+        premiumSwitch.setContentDescription(getString(R.string.local_premium));
+        premiumSwitch.setShowText(false);
+        premiumSwitch.setMinimumHeight(dp(48));
+        premiumCard.addView(premiumSwitch, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(premiumCard, withTopMargin(matchWrap(), 12));
 
         root.addView(createSectionLabel(R.string.hidden_chats_section), withTopMargin(matchWrap(), 20));
         TextView chatsSubtitle = createText(
@@ -357,6 +378,7 @@ public final class MainActivity extends Activity {
         applyCatalogFilter(searchInput.getText().toString());
 
         setSuppressNotifications(config.suppressNotifications());
+        setLocalPremium(config.localPremium());
         saveButton.setEnabled(preferencesAvailable);
         updateConnectionStatus(catalogRepository.loadHookStatuses());
     }
@@ -376,7 +398,10 @@ public final class MainActivity extends Activity {
     private void saveConfiguration() {
         try {
             boolean saved = ConfigStore.save(
-                    preferences, new HashSet<>(selectedDialogs), notificationSwitch.isChecked());
+                    preferences,
+                    new HashSet<>(selectedDialogs),
+                    notificationSwitch.isChecked(),
+                    premiumSwitch.isChecked());
             if (!saved) {
                 showError(getString(R.string.save_failed));
                 return;
@@ -391,6 +416,10 @@ public final class MainActivity extends Activity {
 
     private void setSuppressNotifications(boolean enabled) {
         notificationSwitch.setChecked(enabled);
+    }
+
+    private void setLocalPremium(boolean enabled) {
+        premiumSwitch.setChecked(enabled);
     }
 
     private String formatEntry(CatalogEntry entry) {
