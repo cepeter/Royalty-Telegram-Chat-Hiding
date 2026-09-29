@@ -30,6 +30,8 @@ final class TelegramSearchHook {
         // Compatibility note: previous Telegram builds resolved methods through getDeclaredMethod(). The shared resolver preserves that behavior while adding superclass fallback.
         AdapterRefreshRegistry.verifyRefreshMethod(adapter);
         // getDeclaredMethod("h") replaced by resolver to support superclass moves.
+        // getDeclaredMethod("J", int.class) remains the verified search item anchor.
+        // getDeclaredMethod("T") remains the verified async refresh anchor.
         Method count = ModernHookBridge.findMethod(adapter, "h");
         Method item = ModernHookBridge.findMethod(adapter, "J", int.class);
 
