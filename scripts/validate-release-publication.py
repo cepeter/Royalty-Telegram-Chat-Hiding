@@ -87,24 +87,29 @@ def validate(staged, version_file):
         prior_tag = release["tag_name"]
         if release["draft"] or not TAG.fullmatch(prior_tag):
             continue
+        if prior_tag == tag:
+            fail(f"Release tag is already published: {tag}")
         if tuple(map(int, prior_tag[1:].split("."))) < (3, 0, 5):
             # v3.0.5 is the verified boundary for release metadata.
             continue
         names = [asset.get("name") for asset in release["assets"] if isinstance(asset, dict)]
         apk_name = f"royalty-{prior_tag}.apk"
-        if prior_tag == BOOTSTRAP[0] and BOOTSTRAP[2] in names:
+        if apk_name not in names:
+            fail(f"Unrecognized published release: {prior_tag}")
+        meta_name = f"{apk_name}.release.json"
+        if prior_tag == BOOTSTRAP[0]:
             bootstrap_found = True
+        if prior_tag == BOOTSTRAP[0] and meta_name not in names:
             prior_code = BOOTSTRAP[1]
         else:
-            if apk_name not in names:
-                fail(f"Unrecognized published release: {prior_tag}")
-            meta_name = f"{apk_name}.release.json"
             if meta_name not in names:
                 fail(f"Published release has no validated metadata: {prior_tag}")
             with tempfile.TemporaryDirectory() as directory:
                 subprocess.run(["gh", "release", "download", prior_tag, "--repo", os.environ["GITHUB_REPOSITORY"],
                                 "--pattern", meta_name, "--dir", directory], check=True, capture_output=True, text=True)
                 prior_code = metadata(Path(directory) / meta_name, prior_tag)["versionCode"]
+            if prior_tag == BOOTSTRAP[0] and prior_code != BOOTSTRAP[1]:
+                fail("Published bootstrap metadata contradicts verified version code")
         highest = prior_code if highest is None else max(highest, prior_code)
     if not bootstrap_found:
         fail("Verified v3.0.5 bootstrap release is missing")

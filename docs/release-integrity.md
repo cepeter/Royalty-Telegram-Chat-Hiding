@@ -18,6 +18,7 @@ rollback. The public v3.0.5 release is the verified legacy bootstrap; later
 releases carry `royalty-v<version>.apk.release.json` beside the APK and checksum.
 Older pre-bootstrap versions are retained, but their metadata is not used as
 the comparison baseline.
+An already-published tag cannot be reused, even with a higher version code.
 
 ## Production signer evidence
 

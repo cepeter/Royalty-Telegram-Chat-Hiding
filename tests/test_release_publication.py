@@ -51,10 +51,10 @@ class PublicationTests(unittest.TestCase):
     def set_releases(self, releases):
         self.releases.write_text(json.dumps(releases))
 
-    def run_validation(self, fail_lookup=False):
+    def run_validation(self, fail_lookup=False, tag="v3.1.0"):
         env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
                    GITHUB_REPOSITORY="cepeter/Royalty-Telegram-Chat-Hiding",
-                   GITHUB_REF_NAME="v3.1.0", RELEASE_FIXTURE=str(self.releases),
+                   GITHUB_REF_NAME=tag, RELEASE_FIXTURE=str(self.releases),
                    REMOTE_FIXTURE=str(self.remote), GH_FAIL="1" if fail_lookup else "0")
         return subprocess.run(["python3", str(ROOT / "scripts/validate-release-publication.py"),
                                str(self.staged), str(self.version)], cwd=ROOT, env=env,
@@ -78,6 +78,36 @@ class PublicationTests(unittest.TestCase):
         self.metadata("v3.2.0", 19, "a" * 64, prior / "royalty-v3.2.0.apk.release.json")
         self.set_releases([self.release("v3.0.5", ["royalty-v3.0.5.apk"]),
                            self.release("v3.2.0", ["royalty-v3.2.0.apk", "royalty-v3.2.0.apk.release.json"])])
+        self.assertNotEqual(0, self.run_validation().returncode)
+
+    def test_rejects_republishing_existing_tag_with_higher_code(self):
+        self.version.write_text("versionName=3.1.0\nversionCode=19\n")
+        self.metadata("v3.1.0", 19, self.sha, self.staged / "royalty-v3.1.0.apk.release.json")
+        prior = self.remote / "v3.1.0"
+        prior.mkdir()
+        self.metadata("v3.1.0", 18, "a" * 64, prior / "royalty-v3.1.0.apk.release.json")
+        self.set_releases([self.release("v3.0.5", ["royalty-v3.0.5.apk"]),
+                           self.release("v3.1.0", ["royalty-v3.1.0.apk", "royalty-v3.1.0.apk.release.json"])])
+        result = self.run_validation()
+        self.assertNotEqual(0, result.returncode, result.stdout)
+        self.assertIn("already published", result.stderr)
+
+    def test_rejects_republishing_bootstrap_tag_with_higher_code(self):
+        self.version.write_text("versionName=3.0.5\nversionCode=18\n")
+        self.apk.rename(self.staged / "royalty-v3.0.5.apk")
+        (self.staged / "royalty-v3.1.0.apk.sha256").rename(self.staged / "royalty-v3.0.5.apk.sha256")
+        (self.staged / "royalty-v3.0.5.apk.sha256").write_text(f"{self.sha}  royalty-v3.0.5.apk\n")
+        self.metadata("v3.0.5", 18, self.sha, self.staged / "royalty-v3.0.5.apk.release.json")
+        self.set_releases([self.release("v3.0.5", ["royalty-v3.0.5.apk"])])
+        result = self.run_validation(tag="v3.0.5")
+        self.assertNotEqual(0, result.returncode, result.stdout)
+        self.assertIn("already published", result.stderr)
+
+    def test_rejects_bootstrap_metadata_that_disagrees_with_verified_code(self):
+        prior = self.remote / "v3.0.5"
+        prior.mkdir()
+        self.metadata("v3.0.5", 19, "a" * 64, prior / "royalty-v3.0.5.apk.release.json")
+        self.set_releases([self.release("v3.0.5", ["royalty-v3.0.5.apk", "royalty-v3.0.5.apk.release.json"])])
         self.assertNotEqual(0, self.run_validation().returncode)
 
     def test_rejects_unrecognized_published_version(self):
