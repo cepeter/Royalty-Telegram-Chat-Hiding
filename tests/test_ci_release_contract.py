@@ -42,8 +42,7 @@ class CiReleaseContractTests(unittest.TestCase):
         self.assertIn("scripts/verify-release-apk.sh", self.workflow)
         self.assertIn("scripts/verify-reproducible-build.sh", self.workflow)
         self.assertIn("environment: production", self.workflow)
-        verifier = (ROOT / "scripts/verify-release-apk.sh").read_text()
-        self.assertIn("versionCode='17' versionName='3.0.5'", verifier)
+        self.assertEqual("versionName=3.0.5\nversionCode=17\n", (ROOT / "version.properties").read_text())
         self.assertIn("contents: read", self.workflow)
         self.assertIn("contents: write", self.workflow)
 
@@ -99,13 +98,25 @@ class CiReleaseContractTests(unittest.TestCase):
         ):
             self.assertIn(check, verification)
 
-    def test_release_keeps_only_current_release_and_tag(self):
-        publish = self.workflow.index("Publish GitHub release")
-        cleanup = self.workflow.index("Keep only current release and tag")
-        self.assertLess(publish, cleanup)
-        self.assertIn("gh release delete", self.workflow)
-        self.assertIn("git/matching-refs/tags/", self.workflow)
-        self.assertIn("git/refs/tags/$tag", self.workflow)
+    def test_release_serializes_validation_before_publication_and_retains_rollback(self):
+        release_job = self.workflow[self.workflow.index("  release:"):]
+        self.assertIn("group: royalty-publication", release_job)
+        self.assertIn("cancel-in-progress: false", release_job)
+        self.assertLess(release_job.index("Validate publication against latest release"),
+                        release_job.index("Publish GitHub release"))
+        self.assertIn("validate-release-publication.py", release_job)
+        self.assertNotIn("gh release delete", release_job)
+        self.assertNotIn("git/refs/tags/", release_job)
+
+    def test_manual_build_does_not_publish(self):
+        sign_job = self.workflow[self.workflow.index("  sign:"):self.workflow.index("  release:")]
+        release_job = self.workflow[self.workflow.index("  release:"):]
+        self.assertIn("Upload signed acceptance APK", sign_job)
+        self.assertIn("github.event_name == 'workflow_dispatch'", sign_job)
+        self.assertIn("if: ${{ startsWith(github.ref, 'refs/tags/v') }}", release_job)
+
+    def test_release_metadata_is_staged_with_apk(self):
+        self.assertIn('app-release.apk.release.json "release-apk/royalty-${GITHUB_REF_NAME}.apk.release.json"', self.workflow)
 
     def test_dependabot_is_disabled(self):
         self.assertFalse((ROOT / ".github/dependabot.yml").exists())

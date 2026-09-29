@@ -2,6 +2,12 @@ plugins {
     id("com.android.application")
 }
 
+val releaseVersion = java.util.Properties().apply {
+    rootProject.file("version.properties").inputStream().use { load(it) }
+}
+val releaseVersionName = requireNotNull(releaseVersion.getProperty("versionName"))
+val releaseVersionCode = requireNotNull(releaseVersion.getProperty("versionCode")).toInt()
+
 val releaseKeystore = System.getenv("TCH_KEYSTORE_FILE")
 val releaseStorePassword = System.getenv("TCH_STORE_PASSWORD")
 val releaseKeyAlias = System.getenv("TCH_KEY_ALIAS")
@@ -21,8 +27,8 @@ android {
         applicationId = "io.github.cepeter.royalty"
         minSdk = 27
         targetSdk = 35
-        versionCode = 17
-        versionName = "3.0.5"
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
 
         testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }
