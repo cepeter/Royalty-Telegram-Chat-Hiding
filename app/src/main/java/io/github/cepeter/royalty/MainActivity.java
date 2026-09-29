@@ -550,6 +550,7 @@ public final class MainActivity extends Activity {
             }
             Toast.makeText(this, "Changes saved", Toast.LENGTH_SHORT).show();
         } catch (RuntimeException error) {
+            draft.markSaved(false);
             preferencesAvailable = false;
             saveButton.setEnabled(false);
             showError(getString(R.string.framework_inactive));

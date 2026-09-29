@@ -60,20 +60,67 @@ public final class ConfigurationDraftTest {
         draft.loadSaved(HiddenConfig.fromStrings(new HashSet<>(Collections.singleton("0:10")), false));
         draft.setHidden(TWO, true);
         draft.setLocalPremium(true);
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
-            output.writeObject(draft.snapshot());
-        }
-        ConfigurationDraft.State state;
-        try (ObjectInputStream input = new ObjectInputStream(
-                new ByteArrayInputStream(bytes.toByteArray()))) {
-            state = (ConfigurationDraft.State) input.readObject();
-        }
-        ConfigurationDraft restored = ConfigurationDraft.restore(state);
+        ConfigurationDraft restored = ConfigurationDraft.restore(roundTrip(draft.snapshot()));
         assertTrue(restored.initialized());
         assertTrue(restored.dirty());
         assertTrue(restored.current().isHidden(TWO));
         assertTrue(restored.current().localPremium());
         assertFalse(restored.baseline().isHidden(TWO));
+    }
+
+    @Test public void rejectedSavedValueIsIgnoredAfterRestoration() throws Exception {
+        ConfigurationDraft draft = new ConfigurationDraft();
+        draft.loadSaved(HiddenConfig.fromStrings(Collections.singleton("0:10"), false));
+        draft.setHidden(TWO, true);
+        HiddenConfig rejected = draft.current();
+        assertFalse(draft.markSaved(false));
+
+        ConfigurationDraft restored = ConfigurationDraft.restore(roundTrip(draft.snapshot()));
+        restored.loadSaved(HiddenConfig.fromStrings(Collections.singleton("0:10"), false));
+        restored.loadSaved(rejected);
+        assertTrue(restored.dirty());
+        assertFalse(restored.baseline().isHidden(TWO));
+        restored.discard();
+        assertTrue(restored.current().isHidden(ONE));
+        assertFalse(restored.current().isHidden(TWO));
+    }
+
+    @Test public void twoFailedSavesCannotPromoteOlderCallbackAfterRecreationOrRetry() throws Exception {
+        ConfigurationDraft draft = new ConfigurationDraft();
+        draft.loadSaved(HiddenConfig.fromStrings(Collections.singleton("0:10"), false));
+        draft.setHidden(TWO, true);
+        HiddenConfig failedB = draft.current();
+        assertFalse(draft.markSaved(false));
+        draft.setSuppressNotifications(true);
+        HiddenConfig failedC = draft.current();
+        assertFalse(draft.markSaved(false));
+
+        ConfigurationDraft recreated = ConfigurationDraft.restore(roundTrip(draft.snapshot()));
+        recreated.loadSaved(failedB);
+        recreated.loadSaved(failedC);
+        assertTrue(recreated.dirty());
+        assertFalse(recreated.baseline().isHidden(TWO));
+        recreated.discard();
+        assertTrue(recreated.current().isHidden(ONE));
+        assertFalse(recreated.current().isHidden(TWO));
+
+        recreated.setHidden(TWO, true);
+        recreated.setSuppressNotifications(true);
+        assertTrue(recreated.markSaved(true));
+        assertFalse(recreated.dirty());
+        recreated.loadSaved(failedB);
+        assertTrue(recreated.baseline().isHidden(TWO));
+        assertTrue(recreated.baseline().suppressNotifications());
+    }
+
+    private static ConfigurationDraft.State roundTrip(ConfigurationDraft.State state) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(state);
+        }
+        try (ObjectInputStream input = new ObjectInputStream(
+                new ByteArrayInputStream(bytes.toByteArray()))) {
+            return (ConfigurationDraft.State) input.readObject();
+        }
     }
 }

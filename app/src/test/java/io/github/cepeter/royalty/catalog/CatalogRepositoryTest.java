@@ -26,7 +26,13 @@ public final class CatalogRepositoryTest {
         assertTrue(second.status("two", new String[0], new String[0], new String[0], "session-2", 2000));
         memory.failCommit = true;
         assertFalse(repository.replaceSnapshot(second.complete("two").get()));
+        // Android may update the in-memory map before a failed disk commit.
+        assertTrue(memory.values.containsKey("process_session"));
+        assertEquals("session-2", memory.values.get("process_session"));
+        repository = new CatalogRepository(memory.preferences());
         assertEquals(1, repository.loadCatalog().size());
+        assertEquals("installed", repository.loadHookStatuses().get("search"));
+        assertEquals(1000, repository.observedAtMillis());
         assertEquals("session-1", repository.processSession());
         memory.failCommit = false;
         CatalogBatch third = new CatalogBatch("three");
@@ -40,8 +46,10 @@ public final class CatalogRepositoryTest {
     private static final class MemoryPreferences {
         private final Map<String, Object> values = new HashMap<>();
         private boolean failCommit;
+        private SharedPreferences instance;
         SharedPreferences preferences() {
-            return (SharedPreferences) Proxy.newProxyInstance(getClass().getClassLoader(),
+            if (instance != null) return instance;
+            instance = (SharedPreferences) Proxy.newProxyInstance(getClass().getClassLoader(),
                     new Class<?>[] {SharedPreferences.class}, (proxy, method, args) -> {
                         if ("getAll".equals(method.getName())) return new HashMap<>(values);
                         if ("getLong".equals(method.getName())) return values.getOrDefault(args[0], args[1]);
@@ -49,6 +57,7 @@ public final class CatalogRepositoryTest {
                         if ("edit".equals(method.getName())) return editor();
                         throw new UnsupportedOperationException(method.getName());
                     });
+            return instance;
         }
         SharedPreferences.Editor editor() {
             Map<String, Object> changes = new HashMap<>();
@@ -60,13 +69,12 @@ public final class CatalogRepositoryTest {
                             case "remove": changes.put((String) args[0], null); return proxy;
                             case "putString": case "putLong": changes.put((String) args[0], args[1]); return proxy;
                             case "commit":
-                                if (failCommit) return false;
                                 if (clear[0]) values.clear();
                                 for (Map.Entry<String, Object> entry : changes.entrySet()) {
                                     if (entry.getValue() == null) values.remove(entry.getKey());
                                     else values.put(entry.getKey(), entry.getValue());
                                 }
-                                return true;
+                                return !failCommit;
                             default: throw new UnsupportedOperationException(method.getName());
                         }
                     });

@@ -8,6 +8,7 @@ import java.util.Set;
 public final class ConfigurationDraft {
     private HiddenConfig baseline = HiddenConfig.empty();
     private HiddenConfig current = HiddenConfig.empty();
+    private boolean requireVerifiedBaseline;
     private boolean initialized;
 
     public boolean initialized() { return initialized; }
@@ -18,6 +19,9 @@ public final class ConfigurationDraft {
 
     public void loadSaved(HiddenConfig saved) {
         if (saved == null) return;
+        // Once a commit fails, preference reads may contain any failed attempt. Only a
+        // verified save can advance the baseline, even after recreation or late callbacks.
+        if (requireVerifiedBaseline) return;
         boolean preserveEdit = dirty();
         baseline = saved;
         if (!preserveEdit) current = saved;
@@ -45,7 +49,11 @@ public final class ConfigurationDraft {
     }
 
     public boolean markSaved(boolean persisted) {
-        if (!initialized || !persisted) return false;
+        if (!initialized) return false;
+        if (!persisted) {
+            requireVerifiedBaseline = true;
+            return false;
+        }
         baseline = current;
         return true;
     }
@@ -57,7 +65,7 @@ public final class ConfigurationDraft {
     public State snapshot() {
         return new State(initialized, encoded(baseline), baseline.suppressNotifications(),
                 baseline.localPremium(), encoded(current), current.suppressNotifications(),
-                current.localPremium());
+                current.localPremium(), requireVerifiedBaseline);
     }
 
     public static ConfigurationDraft restore(State state) {
@@ -67,6 +75,7 @@ public final class ConfigurationDraft {
                     state.baselineNotifications, state.baselinePremium);
             draft.current = HiddenConfig.fromStrings(state.currentKeys,
                     state.currentNotifications, state.currentPremium);
+            draft.requireVerifiedBaseline = state.requireVerifiedBaseline;
             draft.initialized = true;
         }
         return draft;
@@ -87,10 +96,11 @@ public final class ConfigurationDraft {
         private final Set<String> currentKeys;
         private final boolean currentNotifications;
         private final boolean currentPremium;
+        private final boolean requireVerifiedBaseline;
 
         private State(boolean initialized, Set<String> baselineKeys, boolean baselineNotifications,
                 boolean baselinePremium, Set<String> currentKeys, boolean currentNotifications,
-                boolean currentPremium) {
+                boolean currentPremium, boolean requireVerifiedBaseline) {
             this.initialized = initialized;
             this.baselineKeys = new HashSet<>(baselineKeys);
             this.baselineNotifications = baselineNotifications;
@@ -98,6 +108,7 @@ public final class ConfigurationDraft {
             this.currentKeys = new HashSet<>(currentKeys);
             this.currentNotifications = currentNotifications;
             this.currentPremium = currentPremium;
+            this.requireVerifiedBaseline = requireVerifiedBaseline;
         }
     }
 }
