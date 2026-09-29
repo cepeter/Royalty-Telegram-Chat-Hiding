@@ -21,6 +21,9 @@ class ContactHookContractTests(unittest.TestCase):
         self.assertIn("FilteredListState.capture", self.contacts)
         self.assertNotIn("private static final class ListState", self.contacts)
 
+    def test_refresh_resolution_does_not_gate_surface_installation(self):
+        self.assertNotIn("verifyRefreshMethod", self.contacts)
+
     def test_sectioned_contact_list_is_position_mapped_not_modified(self):
         self.assertIn('Class.forName("we.d"', self.contacts)
         for method in ('"M"', '"O"', '"N"', '"P"', '"V"', '"W"'):

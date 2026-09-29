@@ -20,6 +20,21 @@ final class AdapterRefreshRegistry {
     static synchronized Method resolve(Class<?> type) throws NoSuchMethodException {
         Method cached = REFRESH.get(type);
         if (cached != null) return cached;
+        for (Class<?> current = type; current != null && current != Object.class;
+                current = current.getSuperclass()) {
+            try {
+                Method named = current.getDeclaredMethod("notifyDataSetChanged");
+                if (!Modifier.isStatic(named.getModifiers())
+                        && named.getParameterCount() == 0
+                        && named.getReturnType() == void.class) {
+                    named.setAccessible(true);
+                    REFRESH.put(type, named);
+                    return named;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // Some Telegram-bundled RecyclerView variants obfuscate this API.
+            }
+        }
         Method resolved = null;
         for (Class<?> root = type; root != null && root != Object.class; root = root.getSuperclass()) {
             // Pinned root Adapter extends Object, is abstract, and owns one private final

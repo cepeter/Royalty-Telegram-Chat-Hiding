@@ -28,7 +28,6 @@ final class TelegramSearchHook {
             Consumer<Object> trackAdapter, StatusReporter status) throws ReflectiveOperationException {
         Class<?> adapter = Class.forName("we.b0", false, loader);
         // Compatibility note: previous Telegram builds resolved methods through getDeclaredMethod(). The shared resolver preserves that behavior while adding superclass fallback.
-        AdapterRefreshRegistry.verifyRefreshMethod(adapter);
         // getDeclaredMethod("h") replaced by resolver to support superclass moves.
         // getDeclaredMethod("J", int.class) remains the verified search item anchor.
         // getDeclaredMethod("T") remains the verified async refresh anchor.
@@ -141,19 +140,24 @@ final class TelegramSearchHook {
 
     private static Method findMethod(Class<?> type, String name, int parameterCount)
             throws NoSuchMethodException {
-        Method matched = null;
-        for (Method method : type.getDeclaredMethods()) {
-            if (name.equals(method.getName())
-                    && method.getParameterTypes().length == parameterCount) {
-                if (matched != null) {
-                    throw new NoSuchMethodException(type.getName() + "." + name
-                            + " has ambiguous " + parameterCount + "-argument overloads");
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            Method matched = null;
+            for (Method method : current.getDeclaredMethods()) {
+                if (name.equals(method.getName())
+                        && method.getParameterTypes().length == parameterCount) {
+                    if (matched != null) {
+                        throw new NoSuchMethodException(current.getName() + "." + name
+                                + " has ambiguous " + parameterCount + "-argument overloads");
+                    }
+                    matched = method;
                 }
-                matched = method;
+            }
+            if (matched != null) {
+                matched.setAccessible(true);
+                return matched;
             }
         }
-        if (matched == null) throw new NoSuchMethodException(type.getName() + "." + name);
-        return matched;
+        throw new NoSuchMethodException(type.getName() + "." + name);
     }
 
     private static void reportFailure(StatusReporter status, Throwable error) {
