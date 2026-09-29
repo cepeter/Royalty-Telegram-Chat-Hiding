@@ -4,17 +4,30 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
-## [3.1.0] - pending release
+## [3.1.0] - 2026-09-29
 
 ### Added
 
 - Stable owner-bound selections with migration review, account filters and labels, actionable diagnostics, and draft selection controls.
 - Optional background, screen-off, and timed re-concealment with device credential protection for settings and reveal.
 - On-device encrypted configuration export and import with owner-aware preview and explicit Save.
+- A dismissible in-app update card backed by a bounded daily check of the official GitHub release.
 
 ### Changed
 
-- Release metadata now declares version 3.1.0 (code 18). Physical-device acceptance and publication remain pending.
+- Made catalog refreshes preserve unsaved drafts and publish only complete, nonce-matched snapshots.
+- Made hook installation and reflective field updates transactional, with rollback on partial failure.
+- Hardened signed-release inspection and publication while retaining previous releases for rollback.
+- Centralized release metadata at version 3.1.0 (code 18) and clarified the required Telegram `versionCode 70992`.
+
+### Fixed
+
+- Preserved visible row order and concealed-row anchors across Telegram adapter insertions, removals, and reorders.
+- Kept visible share recipients selected through search while filtering concealed recipients.
+
+### Release acceptance
+
+- Repository, JVM, Android lint, and debug APK gates passed. Physical-device acceptance remains pending and is documented in `docs/device-acceptance-3.1.0.md`.
 
 ## [3.0.5] - 2026-09-26
 
@@ -173,7 +186,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.0.5...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.0
 [3.0.5]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.5
 [3.0.4]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.4
 [3.0.3]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.3
