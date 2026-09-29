@@ -86,6 +86,20 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("installRuntimeHooks", application_callback)
         self.assertIn("compareAndSet(false, true)", self.source)
 
+    def test_telegram_reveal_never_launches_device_authentication(self):
+        gesture = self.source[
+            self.source.index("private static void completeRevealGesture") :
+            self.source.index("private static Class<?> resolveActionBarClass")
+        ]
+        adapters = self.source[
+            self.source.index("private static void installRevealAdapters") :
+            self.source.index("private static void scheduleRevealTimeout")
+        ]
+        self.assertNotIn("beginChallenge", gesture)
+        self.assertNotIn("launchCredential", gesture)
+        self.assertNotIn("AuthenticationProtocol.ACTION_RESULT", adapters)
+        self.assertIn("REVEAL.toggle", gesture)
+
     def test_each_hook_reports_install_status(self):
         self.assertIn('install("compatibility"', self.source)
         self.assertIn('install("search"', self.source)

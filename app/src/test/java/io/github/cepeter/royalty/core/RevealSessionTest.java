@@ -38,11 +38,21 @@ public final class RevealSessionTest {
         assertFalse(session.revealed());
     }
 
+    @Test public void settingsAuthenticationDoesNotGateTelegramReveal() {
+        RevealSession session = new RevealSession();
+        session.configure(HiddenConfig.empty().withPrivacy(false, false, 0, true));
+        assertTrue(session.toggle(10));
+        assertTrue(session.revealed());
+        assertFalse(session.toggle(11));
+        assertFalse(session.revealed());
+    }
+
     @Test public void challengeRequiresActiveNonceForegroundAndCurrentPolicy() {
         RevealSession session = new RevealSession();
         session.configure(HiddenConfig.empty().withPrivacy(true, false, 0, true));
-        assertFalse(session.toggle(1));
-        String first = session.beginChallenge(1);
+        assertTrue(session.toggle(1));
+        assertFalse(session.toggle(2));
+        String first = session.beginChallenge(3);
         assertEquals(32, first.length());
         assertFalse(session.authorize("wrong", 2));
         assertFalse(session.authorize(first, 120001));

@@ -79,6 +79,11 @@ public final class MainActivity extends Activity {
     private final List<CatalogEntry> catalog = new ArrayList<>();
     private final List<CatalogEntry> visibleCatalog = new ArrayList<>();
     private static final String DRAFT_STATE = "configuration_draft";
+    private static final String DASHBOARD_TAB_STATE = "dashboard_tab";
+    private static final int TAB_CHATS = 0;
+    private static final int TAB_PRIVACY = 1;
+    private static final int TAB_STATUS = 2;
+    private static final int TAB_BACKUP = 3;
     private ConfigurationDraft draft = new ConfigurationDraft();
     private SettingsAccess settingsAccess = new SettingsAccess();
     private ProtectedModalController protectedModals;
@@ -144,6 +149,10 @@ public final class MainActivity extends Activity {
     private Switch premiumSwitch;
     private Button saveButton;
     private CatalogSelectionControls selectionControls;
+    private ScrollView dashboardScroll;
+    private LinearLayout chatsPage, privacyPage, statusPage, backupPage;
+    private Button chatsTab, privacyTab, statusTab, backupTab;
+    private int activeDashboardTab = TAB_CHATS;
     private AccountInventory accountInventory = AccountInventory.incomplete("no catalog");
     private final Runnable freshnessTick = new Runnable() {
         @Override public void run() {
@@ -164,6 +173,12 @@ public final class MainActivity extends Activity {
             Object saved = savedInstanceState.getSerializable(DRAFT_STATE);
             if (saved instanceof ConfigurationDraft.State)
                 draft = ConfigurationDraft.restore((ConfigurationDraft.State) saved);
+        }
+        if (savedInstanceState != null) {
+            activeDashboardTab = savedInstanceState.getInt(DASHBOARD_TAB_STATE, TAB_CHATS);
+            if (activeDashboardTab < TAB_CHATS || activeDashboardTab > TAB_BACKUP) {
+                activeDashboardTab = TAB_CHATS;
+            }
         }
         protectedModals = new ProtectedModalController(settingsAccess);
         backupController = new BackupController(this, settingsAccess, protectedModals);
@@ -190,6 +205,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putSerializable(DRAFT_STATE, draft.snapshot());
+        outState.putInt(DASHBOARD_TAB_STATE, activeDashboardTab);
         super.onSaveInstanceState(outState);
     }
 
@@ -293,6 +309,7 @@ public final class MainActivity extends Activity {
         configureSystemBars();
 
         ScrollView scrollView = new ScrollView(this);
+        dashboardScroll = scrollView;
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(getColor(R.color.royalty_background));
 
@@ -341,7 +358,30 @@ public final class MainActivity extends Activity {
         scopeCard.addView(scope, matchWrap());
         root.addView(scopeCard, withTopMargin(matchWrap(), 12));
 
-        root.addView(createSectionLabel(R.string.status_section), withTopMargin(matchWrap(), 22));
+        LinearLayout tabBar = new LinearLayout(this);
+        tabBar.setOrientation(LinearLayout.HORIZONTAL);
+        tabBar.setPadding(dp(4), dp(4), dp(4), dp(4));
+        tabBar.setBackground(roundedDrawable(R.color.royalty_surface_variant, 16, 0));
+        chatsTab = createDashboardTab(R.string.tab_chats, TAB_CHATS);
+        privacyTab = createDashboardTab(R.string.tab_privacy, TAB_PRIVACY);
+        statusTab = createDashboardTab(R.string.tab_status, TAB_STATUS);
+        backupTab = createDashboardTab(R.string.tab_backup, TAB_BACKUP);
+        for (Button tab : new Button[] {chatsTab, privacyTab, statusTab, backupTab}) {
+            tabBar.addView(tab, new LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        }
+        root.addView(tabBar, withTopMargin(matchWrap(), 14));
+
+        chatsPage = createDashboardPage();
+        privacyPage = createDashboardPage();
+        statusPage = createDashboardPage();
+        backupPage = createDashboardPage();
+        root.addView(chatsPage, matchWrap());
+        root.addView(privacyPage, matchWrap());
+        root.addView(statusPage, matchWrap());
+        root.addView(backupPage, matchWrap());
+
+        statusPage.addView(createSectionLabel(R.string.status_section), withTopMargin(matchWrap(), 20));
 
         LinearLayout statusCard = createCard(LinearLayout.VERTICAL);
 
@@ -387,7 +427,7 @@ public final class MainActivity extends Activity {
         protectionDetails.setBackground(roundedDrawable(R.color.royalty_surface_variant, 12, 0));
         protectionDetails.setVisibility(View.GONE);
         statusCard.addView(protectionDetails, withTopMargin(matchWrap(), 8));
-        root.addView(statusCard, withTopMargin(matchWrap(), 8));
+        statusPage.addView(statusCard, withTopMargin(matchWrap(), 8));
 
         updateCard = createCard(LinearLayout.VERTICAL);
         updateCard.setVisibility(View.GONE);
@@ -409,9 +449,9 @@ public final class MainActivity extends Activity {
         dismissParams.setMarginStart(dp(8));
         updateActions.addView(dismissUpdateButton, dismissParams);
         updateCard.addView(updateActions, withTopMargin(matchWrap(), 10));
-        root.addView(updateCard, withTopMargin(matchWrap(), 12));
+        statusPage.addView(updateCard, withTopMargin(matchWrap(), 12));
 
-        root.addView(createSectionLabel(R.string.privacy_section), withTopMargin(matchWrap(), 22));
+        privacyPage.addView(createSectionLabel(R.string.privacy_section), withTopMargin(matchWrap(), 20));
 
         LinearLayout notificationCard = createCard(LinearLayout.HORIZONTAL);
         notificationCard.setGravity(Gravity.CENTER_VERTICAL);
@@ -437,7 +477,7 @@ public final class MainActivity extends Activity {
         });
         notificationCard.addView(notificationSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(notificationCard, withTopMargin(matchWrap(), 12));
+        privacyPage.addView(notificationCard, withTopMargin(matchWrap(), 12));
 
         LinearLayout premiumCard = createCard(LinearLayout.HORIZONTAL);
         premiumCard.setGravity(Gravity.CENTER_VERTICAL);
@@ -463,13 +503,13 @@ public final class MainActivity extends Activity {
         });
         premiumCard.addView(premiumSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(premiumCard, withTopMargin(matchWrap(), 12));
+        privacyPage.addView(premiumCard, withTopMargin(matchWrap(), 12));
 
         LinearLayout revealCard = createCard(LinearLayout.VERTICAL);
         revealCard.addView(createText(
-                R.string.reveal_protection_title, 16, R.color.royalty_text, Typeface.BOLD), matchWrap());
+                R.string.concealment_title, 16, R.color.royalty_text, Typeface.BOLD), matchWrap());
         revealCard.addView(createText(
-                R.string.reveal_protection_subtitle, 13, R.color.royalty_text_muted, Typeface.NORMAL),
+                R.string.concealment_subtitle, 13, R.color.royalty_text_muted, Typeface.NORMAL),
                 withTopMargin(matchWrap(), 3));
 
         backgroundSwitch = privacySwitch("Conceal when Telegram backgrounds", draft.current().concealOnBackground(),
@@ -478,13 +518,13 @@ public final class MainActivity extends Activity {
         screenOffSwitch = privacySwitch("Conceal when screen turns off", draft.current().concealOnScreenOff(),
                 checked -> draft.setConcealOnScreenOff(checked));
         revealCard.addView(screenOffSwitch, withTopMargin(matchWrap(), 6));
-        authenticationSwitch = privacySwitch("Require device screen lock to reveal", draft.current().authenticate(),
+        authenticationSwitch = privacySwitch(getString(R.string.settings_lock_title), draft.current().authenticate(),
                 checked -> {
                     if (checked) {
                         KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
                         if (manager == null || !manager.isDeviceSecure()) {
                             paintDraftControls();
-                            showError("Set a device screen lock before enabling authentication.");
+                            showError("Set a device screen lock before locking Royalty settings.");
                             return;
                         }
                     }
@@ -502,9 +542,9 @@ public final class MainActivity extends Activity {
             renderCatalogAndHealth();
         });
         revealCard.addView(timeoutButton, withTopMargin(matchWrap(), 10));
-        root.addView(revealCard, withTopMargin(matchWrap(), 12));
+        privacyPage.addView(revealCard, withTopMargin(matchWrap(), 12));
 
-        root.addView(createSectionLabel(R.string.data_section), withTopMargin(matchWrap(), 22));
+        backupPage.addView(createSectionLabel(R.string.data_section), withTopMargin(matchWrap(), 20));
 
         LinearLayout backupCard = createCard(LinearLayout.VERTICAL);
         TextView backupTitle = createText(0, 16, R.color.royalty_text, Typeface.BOLD);
@@ -521,9 +561,9 @@ public final class MainActivity extends Activity {
         importButton.setText("Import encrypted backup");
         importButton.setOnClickListener(v -> backupController.importFile());
         backupCard.addView(importButton, withTopMargin(matchWrap(), 8));
-        root.addView(backupCard, withTopMargin(matchWrap(), 16));
+        backupPage.addView(backupCard, withTopMargin(matchWrap(), 12));
 
-        root.addView(createSectionLabel(R.string.hidden_chats_section), withTopMargin(matchWrap(), 22));
+        chatsPage.addView(createSectionLabel(R.string.hidden_chats_section), withTopMargin(matchWrap(), 20));
         LinearLayout chatsCard = createCard(LinearLayout.VERTICAL);
         TextView chatsSubtitle = createText(
                 R.string.hidden_chats_subtitle, 13, R.color.royalty_text_muted, Typeface.NORMAL);
@@ -634,10 +674,48 @@ public final class MainActivity extends Activity {
                 R.string.refresh_hint, 12, R.color.royalty_text_muted, Typeface.NORMAL);
         hint.setGravity(Gravity.CENTER_HORIZONTAL);
         chatsCard.addView(hint, withTopMargin(matchWrap(), 10));
-        root.addView(chatsCard, withTopMargin(matchWrap(), 8));
+        chatsPage.addView(chatsCard, withTopMargin(matchWrap(), 8));
+
+        selectDashboardTab(activeDashboardTab, false);
         scrollView.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return scrollView;
+    }
+
+    private LinearLayout createDashboardPage() {
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        return page;
+    }
+
+    private Button createDashboardTab(int stringResource, int tab) {
+        Button button = createButton(stringResource);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        button.setPadding(dp(6), 0, dp(6), 0);
+        button.setOnClickListener(view -> selectDashboardTab(tab, true));
+        return button;
+    }
+
+    private void selectDashboardTab(int tab, boolean scrollToTop) {
+        activeDashboardTab = tab;
+        LinearLayout[] pages = {chatsPage, privacyPage, statusPage, backupPage};
+        Button[] tabs = {chatsTab, privacyTab, statusTab, backupTab};
+        for (int index = 0; index < pages.length; index++) {
+            boolean selected = index == tab;
+            if (pages[index] != null) pages[index].setVisibility(selected ? View.VISIBLE : View.GONE);
+            if (tabs[index] != null) styleDashboardTab(tabs[index], selected);
+        }
+        if (scrollToTop && dashboardScroll != null) {
+            dashboardScroll.post(() -> dashboardScroll.smoothScrollTo(0, 0));
+        }
+    }
+
+    private void styleDashboardTab(Button button, boolean selected) {
+        button.setTextColor(getColor(selected
+                ? R.color.royalty_on_primary : R.color.royalty_text_muted));
+        button.setBackground(selected
+                ? rippleBackground(R.color.royalty_primary, 12, 0)
+                : rippleBackground(R.color.royalty_surface_variant, 12, 0));
     }
 
     private Switch privacySwitch(String label, boolean checked, java.util.function.Consumer<Boolean> onChange) {
@@ -876,7 +954,7 @@ public final class MainActivity extends Activity {
             if (current.authenticate()) {
                 KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
                 if (manager == null || !manager.isDeviceSecure()) {
-                    showError("Set a device screen lock before saving authentication.");
+                    showError("Set a device screen lock before locking Royalty settings.");
                     return;
                 }
             }
