@@ -27,6 +27,11 @@ Royalty started as a personal replacement for [Loyalty](https://github.com/Xpose
 - Removes them from share targets, contact pickers, new-group, add-member, and invite flows.
 - Can suppress new-message notifications for hidden chats.
 - Lets you reveal hidden chats temporarily with a three-second press and hold.
+- Keeps selections tied to stable Telegram account owners, with account labels, filters, and review of legacy selections.
+- Offers optional re-concealment on background, screen-off, or a 30-second, one-minute, or five-minute timeout.
+- Offers optional device screen-lock confirmation for settings and reveal.
+- Provides hidden-only filtering, selected counts, scoped selection, Undo, Save, and Discard.
+- Exports and imports encrypted, owner-aware configuration backups through Android's document picker.
 - Shows per-surface hook health in the app, so failures are visible instead of silent.
 - Checks GitHub Releases at most once every 24 hours when the app opens and shows a dismissible card when an update is available.
 
@@ -55,6 +60,20 @@ Royalty does not delete chats, modify messages, or change Telegram’s stored di
 
 Notification suppression is optional and stays off until you enable it.
 
+## Accounts, privacy, and recovery
+
+Royalty 3.1.0 binds each saved hidden chat to the stable owner ID of its Telegram account. After upgrading an older configuration, legacy selections remain visible for review but do not conceal chats until you explicitly bind them to the displayed account owner and Save. Refresh the catalog with Telegram running, confirm each account label, and review any unavailable selection before changing accounts. A missing or incomplete refresh does not mean an account was logged out. If an account is replaced in the same slot, its predecessor's selections remain recoverable and do not transfer automatically.
+
+Use the account filter, search, or hidden-only view to narrow the list. **Select matching** acts on the visible scope. Undo reverses draft edits; Discard restores the last saved configuration. Save commits the draft only after account ownership is checked again. The diagnostics panel shows the installed and supported Telegram versions, cache age, bridge status, and per-surface health. A fresh check asks Telegram for current observations; it does not perform the [physical-device acceptance matrix](docs/device-acceptance-3.1.0.md).
+
+Background re-concealment, screen-off re-concealment, reveal timeout, and device-lock authentication start disabled. Timeout choices are Off, 30 seconds, 1 minute, and 5 minutes. These options govern reveal state; notification suppression is independent. Authentication uses the device's configured screen lock and requires a secure lock to enable. Settings relock after backgrounding, while unsaved draft edits remain available after unlocking.
+
+### Encrypted backups
+
+Tap **Export saved configuration**, enter and confirm a passphrase of at least 12 characters, and choose a document destination. Export reads the **confirmed saved configuration**, so save desired draft edits first. The backup contains owner IDs, signed dialog IDs, and notification, Local Premium, background, screen-off, and timeout preferences. It excludes chat titles and messages, catalog data, device credentials, authentication enablement, and temporary reveal state. Encryption happens in Royalty before the selected document provider receives bytes. A provider you choose may synchronize the **encrypted file** to a cloud account; keep the passphrase separately.
+
+To restore, tap **Import encrypted backup**, choose the file, and enter its passphrase. Review recognized and skipped owners, new and conflicting selections, and preference changes. Apply edits only the current draft; tap **Save** to persist or **Discard** to cancel. Royalty matches stable owners to current account slots and checks them again at Apply and Save. Unknown or ambiguous owners, conflicting saved bindings, and legacy unbound selections are not silently reassigned. Import preserves existing selections and the current authentication policy. If account ownership changes during the preview, reopen the file and review the new mapping. An interrupted document picker or activity recreation may require restarting the operation.
+
 ## Everyday use
 
 Configuration changes are synchronized through the framework's Modern Xposed remote-preferences service. Use the search field to filter the chat picker by title or dialog ID. Switch Telegram folders or restart Telegram if the visible list has not redrawn yet.
@@ -78,7 +97,7 @@ Repeat the gesture to conceal them again. Reveal mode resets when Telegram resta
 | Share and contact pickers | ✅ Telegram 12.10.4 |
 | New group, add member, and contact invite | ✅ Telegram 12.10.4 |
 
-The 2.2.0 surfaces above passed repository, JVM, lint, APK-build, and exact-DEX compatibility checks. The two-account physical-device matrix could not run before publication because neither configured ADB host had a connected device; see [`docs/device-acceptance-2.2.0.md`](docs/device-acceptance-2.2.0.md).
+Historical 2.2.0 repository and APK checks are recorded in [`docs/device-acceptance-2.2.0.md`](docs/device-acceptance-2.2.0.md). The current 3.1.0 [device acceptance checklist](docs/device-acceptance-3.1.0.md) remains pending physical execution; JVM and CI gates alone do not establish live Telegram behavior.
 
 ## If something is not working
 
@@ -124,7 +143,7 @@ Dependencies are checksum-pinned in `gradle/verification-metadata.xml`. Modern X
 ### Project layout
 
 ```text
-app/src/main/java/.../core/      Filtering and validation logic
+app/src/main/java/.../core/      Filtering, validation, backup codec and import logic
 app/src/main/java/.../xposed/    Vector/LSPosed hooks and request bridge
 app/src/main/java/.../catalog/   Nonce-validated callback transport and private storage
 app/src/main/java/.../config/    Safe preference writer

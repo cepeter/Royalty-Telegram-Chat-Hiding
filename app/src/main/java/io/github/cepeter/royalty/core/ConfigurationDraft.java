@@ -54,6 +54,15 @@ public final class ConfigurationDraft {
         return true;
     }
 
+    /** One undoable import edit. Authentication remains governed by the saved policy. */
+    public boolean applyImported(HiddenConfig imported) {
+        if (!initialized || imported == null || imported.authenticate() != current.authenticate()) return false;
+        if (current.equals(imported)) return true;
+        remember();
+        current = imported;
+        return true;
+    }
+
     private boolean setPrivacy(boolean background, boolean screenOff, int timeout, boolean auth) {
         if (!initialized) return false;
         HiddenConfig next = current.withPrivacy(background, screenOff, timeout, auth);

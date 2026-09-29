@@ -82,6 +82,7 @@ public final class MainActivity extends Activity {
     private ConfigurationDraft draft = new ConfigurationDraft();
     private SettingsAccess settingsAccess = new SettingsAccess();
     private ProtectedModalController protectedModals;
+    private BackupController backupController;
     private boolean contentBuilt;
     private boolean credentialPending;
     private Switch backgroundSwitch, screenOffSwitch, authenticationSwitch;
@@ -163,6 +164,7 @@ public final class MainActivity extends Activity {
                 draft = ConfigurationDraft.restore((ConfigurationDraft.State) saved);
         }
         protectedModals = new ProtectedModalController(settingsAccess);
+        backupController = new BackupController(this, settingsAccess, protectedModals);
         catalogRepository = new CatalogRepository(this);
         updateChecker = new UpdateChecker(mainHandler);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
@@ -192,6 +194,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (protectedModals != null) protectedModals.closeAll();
+        if (backupController != null) backupController.destroy();
         if (updateChecker != null) {
             updateChecker.close();
         }
@@ -230,11 +233,16 @@ public final class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == BackupController.CREATE_REQUEST || requestCode == BackupController.OPEN_REQUEST) {
+            backupController.onDocument(requestCode, resultCode, data);
+            return;
+        }
         if (requestCode != SETTINGS_CREDENTIAL_REQUEST) return;
         credentialPending = false;
         if (resultCode == RESULT_OK) settingsAccess.authenticated();
         else Toast.makeText(this, "Authentication cancelled; settings remain locked", Toast.LENGTH_SHORT).show();
         renderCached();
+        backupController.resumeIfAllowed();
         if (settingsAccess.allowed()) requestCatalog();
     }
 
@@ -460,6 +468,23 @@ public final class MainActivity extends Activity {
             timeoutButton.setText(timeoutLabel(next));
         });
         root.addView(timeoutButton, withTopMargin(matchWrap(), 12));
+
+        LinearLayout backupCard = createCard(LinearLayout.VERTICAL);
+        TextView backupTitle = createText(0, 16, R.color.royalty_text, Typeface.BOLD);
+        backupTitle.setText("Encrypted configuration backup");
+        backupCard.addView(backupTitle, matchWrap());
+        TextView backupHint = createText(0, 13, R.color.royalty_text_muted, Typeface.NORMAL);
+        backupHint.setText("Export confirmed saved settings. Import previews owner matches, then edits the draft until you Save.");
+        backupCard.addView(backupHint, withTopMargin(matchWrap(), 4));
+        Button exportButton = createSecondaryButton(R.string.app_name);
+        exportButton.setText("Export saved configuration");
+        exportButton.setOnClickListener(v -> backupController.exportSaved());
+        backupCard.addView(exportButton, withTopMargin(matchWrap(), 8));
+        Button importButton = createSecondaryButton(R.string.app_name);
+        importButton.setText("Import encrypted backup");
+        importButton.setOnClickListener(v -> backupController.importFile());
+        backupCard.addView(importButton, withTopMargin(matchWrap(), 8));
+        root.addView(backupCard, withTopMargin(matchWrap(), 16));
 
         root.addView(createSectionLabel(R.string.hidden_chats_section), withTopMargin(matchWrap(), 20));
         TextView chatsSubtitle = createText(
@@ -722,6 +747,7 @@ public final class MainActivity extends Activity {
         }
         renderSettings();
         renderCatalogAndHealth();
+        backupController.resumeIfAllowed();
     }
 
     private void renderSettings() {
@@ -792,6 +818,7 @@ public final class MainActivity extends Activity {
                     return;
                 }
             }
+            accountInventory = catalogRepository.loadInventory();
             if (!draft.canSaveAgainst(accountInventory)) {
                 showError("Account ownership changed or is incomplete. Refresh and review selections before saving.");
                 return;
@@ -813,6 +840,11 @@ public final class MainActivity extends Activity {
             showError(getString(R.string.framework_inactive));
         }
     }
+
+    ConfigurationDraft backupDraft() { return draft; }
+    AccountInventory backupInventory() { return accountInventory; }
+    AccountInventory refreshBackupInventory() { accountInventory = catalogRepository.loadInventory(); return accountInventory; }
+    void renderBackupDraft() { if (settingsAccess.allowed()) { renderSettings(); renderCatalogAndHealth(); } }
 
     private void setSuppressNotifications(boolean enabled) {
         notificationSwitch.setChecked(enabled);
