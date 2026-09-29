@@ -18,6 +18,9 @@ class ShareHookContractTests(unittest.TestCase):
         for field in ('"d", SEARCH', '"d", HELPER', '"D0", RECENT'):
             self.assertIn(field, self.share)
 
+    def test_refresh_resolution_does_not_gate_surface_installation(self):
+        self.assertNotIn("verifyRefreshMethod", self.share)
+
     def test_share_lists_use_filtered_copies_and_maps_keep_identity(self):
         self.assertIn("DialogFilter.filteredCopy", self.share)
         self.assertIn("ModernHookBridge.setObjectField", self.share)

@@ -16,6 +16,9 @@ class SearchHookContractTests(unittest.TestCase):
         self.assertIn("CONFIG::current", self.hook)
         self.assertIn("TelegramHook::revealState", self.hook)
 
+    def test_refresh_resolution_does_not_gate_surface_installation(self):
+        self.assertNotIn("verifyRefreshMethod", self.search)
+
     def test_search_rows_are_position_mapped_without_mutating_telegram_lists(self):
         self.assertIn('Class.forName("we.b0"', self.search)
         self.assertIn('getDeclaredMethod("h")', self.search)

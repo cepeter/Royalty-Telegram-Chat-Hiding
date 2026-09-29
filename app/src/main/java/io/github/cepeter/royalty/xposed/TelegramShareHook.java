@@ -26,8 +26,6 @@ final class TelegramShareHook {
             BooleanSupplier revealed, Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
         Class<?> main = Class.forName("org.telegram.ui.Components.oq0", false, loader);
         Class<?> search = Class.forName("org.telegram.ui.Components.sq0", false, loader);
-        AdapterRefreshRegistry.verifyRefreshMethod(main);
-        AdapterRefreshRegistry.verifyRefreshMethod(search);
         ModernHookBridge.hookMethod(ModernHookBridge.findMethod(main, "E"), new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
