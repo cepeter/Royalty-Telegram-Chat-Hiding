@@ -4,6 +4,15 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.5] - 2026-09-30
+
+### Changed
+
+- Make the Telegram header reveal/conceal gesture immediate and local: device credential authentication now protects opening Royalty settings only.
+- Replace the single long dashboard with four native tabs: Chats, Privacy, Status, and Backup, while preserving the selected tab across activity recreation.
+- Clarify settings copy so automatic concealment remains independent from the Royalty settings lock.
+- Advance Android release metadata to version 3.1.5 (code 22) for the signed release.
+
 ## [3.1.4] - 2026-09-29
 
 ### Fixed
@@ -213,7 +222,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.4...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.5...HEAD
+[3.1.5]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.5
 [3.1.4]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.4
 [3.1.3]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.3
 [3.1.2]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.2
