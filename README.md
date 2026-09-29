@@ -28,6 +28,7 @@ Royalty started as a personal replacement for [Loyalty](https://github.com/Xpose
 - Can suppress new-message notifications for hidden chats.
 - Lets you reveal hidden chats temporarily with a three-second press and hold.
 - Shows per-surface hook health in the app, so failures are visible instead of silent.
+- Checks GitHub Releases at most once every 24 hours when the app opens and shows a dismissible card when an update is available.
 
 Royalty does not delete chats, modify messages, or change Telegram’s stored dialog list.
 
@@ -101,6 +102,7 @@ Hook failures fail open: Telegram keeps showing its normal, unfiltered content i
 - Catalog requests require a signature-level permission and return through an exact-component `PendingIntent`.
 - Every request uses an active 128-bit nonce.
 - Catalog responses contain only the account, dialog ID, and display title, capped at 1,024 entries per account and 256 UTF-16 code units per title.
+- When Royalty opens, it sends at most one unauthenticated HTTPS request to the official GitHub Releases API every 24 hours. It sends no chat data or device identifier and never downloads or installs an APK automatically.
 
 See [SECURITY.md](SECURITY.md) for the threat model and reporting process.
 
@@ -126,6 +128,7 @@ app/src/main/java/.../core/      Filtering and validation logic
 app/src/main/java/.../xposed/    Vector/LSPosed hooks and request bridge
 app/src/main/java/.../catalog/   Nonce-validated callback transport and private storage
 app/src/main/java/.../config/    Safe preference writer
+app/src/main/java/.../update/    Bounded GitHub release check and metadata validation
 app/src/test/                    JVM contract tests
 ```
 
