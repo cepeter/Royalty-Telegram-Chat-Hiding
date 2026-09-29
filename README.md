@@ -18,7 +18,7 @@ An Xposed module for the official Telegram Android app.
 Royalty started as a personal replacement for [Loyalty](https://github.com/Xposed-Modules-Repo/ru.mike.loyalty) after it stopped working on my setup. It keeps chosen chats out of Telegram’s dialog lists, search results, share targets, and people pickers, with optional notification suppression.
 
 > [!IMPORTANT]
-> Royalty is tested with official Telegram **12.10.4** (`org.telegram.messenger`). Telegram changes internal classes often, so other versions may not work.
+> Royalty supports only official Telegram **12.10.4** (`versionCode 70992`, package `org.telegram.messenger`). Both the displayed version and versionCode must match; other builds are rejected before hooks are installed.
 
 ## What it does
 
@@ -37,7 +37,7 @@ Royalty does not delete chats, modify messages, or change Telegram’s stored di
 |---|---|
 | Android | 8.1 or newer |
 | Hook framework | Vector/LSPosed with Modern Xposed API 101 support |
-| Telegram | Official app, version 12.10.4 |
+| Telegram | Official app, `versionName 12.10.4`, `versionCode 70992` |
 | Telegram package | `org.telegram.messenger` |
 
 > [!WARNING]
@@ -82,7 +82,7 @@ The 2.2.0 surfaces above passed repository, JVM, lint, APK-build, and exact-DEX 
 ## If something is not working
 
 1. Confirm that Royalty is enabled and scoped only to `org.telegram.messenger`.
-2. Confirm that Telegram is version **12.10.4**.
+2. Confirm that Telegram reports **versionName 12.10.4** and **versionCode 70992**; both must match.
 3. Restart the device after enabling or updating the module.
 4. Open Telegram before tapping **Refresh** in Royalty.
 5. Check the hook-status cards for `missing` or `runtime_error`.
