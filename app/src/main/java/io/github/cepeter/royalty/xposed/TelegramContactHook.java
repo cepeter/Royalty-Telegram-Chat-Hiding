@@ -26,24 +26,24 @@ final class TelegramContactHook {
             BooleanSupplier revealed, Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
         Class<?> group = Class.forName("org.telegram.ui.q70", false, loader);
         AdapterRefreshRegistry.verifyRefreshMethod(group);
-        hookBefore(group.findMethod("h"), p -> {
+        hookBefore(groupModernHookBridge.findMethod("h"), p -> {
             trackAdapter.accept(p.thisObject);
             applyGroup(p.thisObject, config.get(), revealed.getAsBoolean(), status);
         }, status);
-        hookAfter(group.findMethod("L", String.class), p -> {
+        hookAfter(groupModernHookBridge.findMethod("L", String.class), p -> {
             trackAdapter.accept(p.thisObject);
             applyGroup(p.thisObject, config.get(), revealed.getAsBoolean(), status);
         }, status);
 
         Class<?> search = Class.forName("we.g1", false, loader);
         AdapterRefreshRegistry.verifyRefreshMethod(Class.forName("org.telegram.ui.mt", false, loader));
-        hookBefore(search.findMethod("h"), p -> {
+        hookBefore(searchModernHookBridge.findMethod("h"), p -> {
             if (isClass(p.thisObject, "org.telegram.ui.mt")) {
                 trackAdapter.accept(p.thisObject);
                 applySearch(p.thisObject, config.get(), revealed.getAsBoolean(), status);
             }
         }, status);
-        hookAfter(search.findMethod("G", String.class), p -> {
+        hookAfter(searchModernHookBridge.findMethod("G", String.class), p -> {
             if (isClass(p.thisObject, "org.telegram.ui.mt")) {
                 trackAdapter.accept(p.thisObject);
                 applySearch(p.thisObject, config.get(), revealed.getAsBoolean(), status);
@@ -58,9 +58,9 @@ final class TelegramContactHook {
         Class<?> base = Class.forName("we.d", false, loader);
         Class<?> concrete = Class.forName("org.telegram.ui.nt", false, loader);
         AdapterRefreshRegistry.verifyRefreshMethod(concrete);
-        Method refresh = concrete.findMethod("l");
-        Method count = base.findMethod("M", int.class);
-        Method item = base.findMethod("O", int.class, int.class);
+        Method refresh = concreteModernHookBridge.findMethod("l");
+        Method count = baseModernHookBridge.findMethod("M", int.class);
+        Method item = baseModernHookBridge.findMethod("O", int.class, int.class);
         ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 if (!isClass(p.thisObject, "org.telegram.ui.nt")) return;

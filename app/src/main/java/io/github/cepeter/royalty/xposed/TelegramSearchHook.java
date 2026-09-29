@@ -28,8 +28,8 @@ final class TelegramSearchHook {
             Consumer<Object> trackAdapter, StatusReporter status) throws ReflectiveOperationException {
         Class<?> adapter = Class.forName("we.b0", false, loader);
         AdapterRefreshRegistry.verifyRefreshMethod(adapter);
-        Method count = adapter.findMethod("h");
-        Method item = adapter.findMethod("J", int.class);
+        Method count = adapterModernHookBridge.findMethod("h");
+        Method item = adapterModernHookBridge.findMethod("J", int.class);
 
         ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
             @Override
@@ -47,9 +47,9 @@ final class TelegramSearchHook {
             }
         });
 
-        hookPosition(adapter.findMethod("J", int.class), 0, revealed, status);
-        hookPosition(adapter.findMethod("j", int.class), 0, revealed, status);
-        hookPosition(adapter.findMethod("i", int.class), 0, revealed, status);
+        hookPosition(adapterModernHookBridge.findMethod("J", int.class), 0, revealed, status);
+        hookPosition(adapterModernHookBridge.findMethod("j", int.class), 0, revealed, status);
+        hookPosition(adapterModernHookBridge.findMethod("i", int.class), 0, revealed, status);
         hookPosition(findMethod(adapter, "v", 2), 1, revealed, status);
 
         ModernHookBridge.MethodHook invalidate = new ModernHookBridge.MethodHook() {
@@ -58,13 +58,13 @@ final class TelegramSearchHook {
                 POSITIONS.remove(param.thisObject);
             }
         };
-        ModernHookBridge.hookMethod(adapter.findMethod("U", int.class, String.class), invalidate);
+        ModernHookBridge.hookMethod(adapterModernHookBridge.findMethod("U", int.class, String.class), invalidate);
         Class<?> view = Class.forName("org.telegram.ui.Components.eo0", false, loader);
         if (ModernHookBridge.hookAllMethods(view, "l", invalidate).isEmpty()) {
             throw new NoSuchMethodException(view.getName() + ".l");
         }
 
-        ModernHookBridge.hookMethod(adapter.findMethod("T"), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(adapterModernHookBridge.findMethod("T"), new ModernHookBridge.MethodHook() {
             @Override
             protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
                 ModernHookBridge.callMethod(param.thisObject, "l");
