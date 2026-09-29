@@ -56,4 +56,21 @@ public final class HiddenConfig {
     public boolean localPremium() {
         return localPremium;
     }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof HiddenConfig)) return false;
+        HiddenConfig that = (HiddenConfig) other;
+        return hiddenDialogs.equals(that.hiddenDialogs)
+                && suppressNotifications == that.suppressNotifications
+                && localPremium == that.localPremium;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = hiddenDialogs.hashCode();
+        result = 31 * result + Boolean.hashCode(suppressNotifications);
+        return 31 * result + Boolean.hashCode(localPremium);
+    }
 }

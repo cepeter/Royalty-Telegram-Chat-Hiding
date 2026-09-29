@@ -64,9 +64,9 @@ class ConfigurationUiContractTests(unittest.TestCase):
 
     def test_refresh_requests_catalog_and_observes_completion(self):
         self.assertIn("CatalogRequestClient.request(this)", self.source)
-        self.assertIn("CatalogProtocol.ACTION_UPDATED", self.source)
-        self.assertIn("registerReceiver", self.source)
-        self.assertIn("unregisterReceiver", self.source)
+        self.assertIn("CatalogUpdates.shared().subscribe", self.source)
+        self.assertIn("CatalogUpdates.shared().unsubscribe", self.source)
+        self.assertIn("event.nonce().equals(requestNonce)", self.source)
         self.assertIn("onPause()", self.source)
 
     def test_timeout_keeps_cached_rows_and_shows_guidance(self):

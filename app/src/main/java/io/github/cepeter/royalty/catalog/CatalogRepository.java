@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import io.github.cepeter.royalty.core.CatalogEntry;
-import io.github.cepeter.royalty.core.CatalogSubmission;
 import io.github.cepeter.royalty.core.DialogKey;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,6 +14,8 @@ public final class CatalogRepository {
     private static final String PREFERENCES_NAME = "catalog";
     private static final String DIALOG_PREFIX = "dialog.";
     private static final String STATUS_PREFIX = "status.";
+    private static final String PROCESS_SESSION = "process_session";
+    private static final String OBSERVED_AT = "observed_at";
 
     private final SharedPreferences preferences;
 
@@ -22,30 +23,42 @@ public final class CatalogRepository {
         preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
     }
 
-    @SuppressLint("ApplySharedPref")
-    public boolean replaceAccount(int account, long[] ids, String[] titles) {
-        List<CatalogEntry> entries = CatalogSubmission.sanitize(account, ids, titles);
-        String accountPrefix = DIALOG_PREFIX + account + ":";
-        SharedPreferences.Editor editor = preferences.edit();
-        for (String key : preferences.getAll().keySet()) {
-            if (key.startsWith(accountPrefix)) {
-                editor.remove(key);
-            }
-        }
-        for (CatalogEntry entry : entries) {
-            editor.putString(DIALOG_PREFIX + entry.key(), entry.title());
-        }
-        editor.putLong("catalog_updated_at", System.currentTimeMillis());
-        return editor.commit();
+    CatalogRepository(SharedPreferences preferences) {
+        this.preferences = preferences;
     }
 
     @SuppressLint("ApplySharedPref")
-    public boolean recordStatus(String hook, String status, String detail) {
-        return preferences.edit()
-                .putString(STATUS_PREFIX + hook, status)
-                .putString(STATUS_PREFIX + hook + ".detail", detail)
-                .putLong(STATUS_PREFIX + hook + ".updated_at", System.currentTimeMillis())
-                .commit();
+    public boolean replaceSnapshot(CatalogBatch.Snapshot snapshot) {
+        SharedPreferences.Editor editor = preferences.edit();
+        for (String key : preferences.getAll().keySet()) {
+            if (key.startsWith(DIALOG_PREFIX) || key.startsWith(STATUS_PREFIX)) editor.remove(key);
+        }
+        for (List<CatalogEntry> entries : snapshot.accounts().values()) {
+            for (CatalogEntry entry : entries) editor.putString(DIALOG_PREFIX + entry.key(), entry.title());
+        }
+        for (Map.Entry<String, CatalogBatch.Status> entry : snapshot.statuses().entrySet()) {
+            editor.putString(STATUS_PREFIX + entry.getKey(), entry.getValue().value());
+            editor.putString(STATUS_PREFIX + entry.getKey() + ".detail", entry.getValue().detail());
+        }
+        editor.putString(PROCESS_SESSION, snapshot.processSession());
+        editor.putLong(OBSERVED_AT, snapshot.observedAtMillis());
+        return editor.commit();
+    }
+
+    public String processSession() { return preferences.getString(PROCESS_SESSION, ""); }
+    public long observedAtMillis() { return preferences.getLong(OBSERVED_AT, 0); }
+
+    public Map<String, String> loadHookDetails() {
+        Map<String, String> details = new java.util.TreeMap<>();
+        for (Map.Entry<String, ?> stored : preferences.getAll().entrySet()) {
+            if (stored.getKey().startsWith(STATUS_PREFIX) && stored.getKey().endsWith(".detail")
+                    && stored.getValue() instanceof String) {
+                String hook = stored.getKey().substring(STATUS_PREFIX.length(),
+                        stored.getKey().length() - ".detail".length());
+                details.put(hook, (String) stored.getValue());
+            }
+        }
+        return details;
     }
 
     public List<CatalogEntry> loadCatalog() {

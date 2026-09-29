@@ -92,7 +92,9 @@ public final class TelegramHook extends XposedModule {
 
         try {
             CatalogRequestBridge.register(context, CATALOGS);
+            reportStatus("bridge", "installed", "");
         } catch (RuntimeException error) {
+            reportStatus("bridge", "missing", error.getClass().getSimpleName());
             ModernHookBridge.log("TelegramChatHider: bridge startup failed: " + error);
         }
         TelegramVersionGuard.Version version;

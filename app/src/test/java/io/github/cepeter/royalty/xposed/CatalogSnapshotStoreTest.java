@@ -52,4 +52,23 @@ public final class CatalogSnapshotStoreTest {
         assertThrows(IllegalArgumentException.class,
                 () -> store.recordStatus("dialogs", "Bad Status", ""));
     }
+
+    @Test public void rejectsSeventeenthDistinctStatus() {
+        CatalogSnapshotStore store = new CatalogSnapshotStore();
+        for (char hook = 'a'; hook <= 'p'; hook++) {
+            store.recordStatus(Character.toString(hook), "installed", "");
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> store.recordStatus("q", "installed", ""));
+    }
+
+    @Test public void snapshotsCarryStableSessionAndFreshObservationTime() {
+        CatalogSnapshotStore store = new CatalogSnapshotStore();
+        long before = System.currentTimeMillis();
+        CatalogSnapshotStore.Snapshot first = store.snapshot();
+        CatalogSnapshotStore.Snapshot second = store.snapshot();
+        assertEquals(first.processSession(), second.processSession());
+        org.junit.Assert.assertTrue(first.observedAtMillis() >= before);
+        org.junit.Assert.assertTrue(second.observedAtMillis() >= first.observedAtMillis());
+    }
 }

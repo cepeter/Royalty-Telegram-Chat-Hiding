@@ -11,10 +11,12 @@ import android.os.SystemClock;
 public final class CatalogRequestClient {
     private CatalogRequestClient() {}
 
-    public static long request(Context context) {
+    public static PendingRequestStore.Request request(Context context) {
         Context applicationContext = context.getApplicationContext();
         PendingRequestStore.Request pending = new PendingRequestStore(applicationContext)
                 .create(SystemClock.elapsedRealtime());
+        CatalogResultReceiver.begin(pending.nonce());
+        CatalogUpdates.shared().begin(pending.nonce(), pending.expiresAtElapsedRealtime());
         Intent callbackIntent = new Intent(CatalogProtocol.ACTION_RESULT)
                 .setComponent(new ComponentName(applicationContext, CatalogResultReceiver.class))
                 .setData(Uri.parse("catalog-callback:" + pending.nonce()))
@@ -29,6 +31,6 @@ public final class CatalogRequestClient {
                 .setPackage(CatalogProtocol.TELEGRAM_PACKAGE)
                 .putExtra(CatalogProtocol.EXTRA_CALLBACK, callback);
         applicationContext.sendBroadcast(request);
-        return pending.expiresAtElapsedRealtime();
+        return pending;
     }
 }

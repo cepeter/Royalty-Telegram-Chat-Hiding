@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 public final class CatalogSnapshotStore {
+    private final String processSession = java.util.UUID.randomUUID().toString();
     private final Map<Integer, AccountSnapshot> accounts = new LinkedHashMap<>();
     private final Map<String, StatusSnapshot> statuses = new TreeMap<>();
 
@@ -28,6 +29,9 @@ public final class CatalogSnapshotStore {
     public synchronized void recordStatus(String hook, String status, String detail) {
         String safeHook = requireStatusToken(hook, "hook");
         String safeStatus = requireStatusToken(status, "status");
+        if (!statuses.containsKey(safeHook) && statuses.size() >= CatalogProtocol.MAX_STATUS_COUNT) {
+            throw new IllegalArgumentException("too many statuses");
+        }
         String safeDetail = detail == null ? "" : detail;
         if (safeDetail.length() > CatalogProtocol.MAX_STATUS_DETAIL_LENGTH) {
             safeDetail = safeDetail.substring(0, CatalogProtocol.MAX_STATUS_DETAIL_LENGTH);
@@ -40,7 +44,8 @@ public final class CatalogSnapshotStore {
         for (Map.Entry<Integer, AccountSnapshot> entry : accounts.entrySet()) {
             accountCopy.put(entry.getKey(), entry.getValue().copy());
         }
-        return new Snapshot(accountCopy, new TreeMap<>(statuses));
+        return new Snapshot(accountCopy, new TreeMap<>(statuses), processSession,
+                System.currentTimeMillis());
     }
 
     private static String requireStatusToken(String value, String name) {
@@ -60,12 +65,16 @@ public final class CatalogSnapshotStore {
     public static final class Snapshot {
         private final Map<Integer, AccountSnapshot> accounts;
         private final Map<String, StatusSnapshot> statuses;
+        private final String processSession;
+        private final long observedAtMillis;
 
         private Snapshot(
                 Map<Integer, AccountSnapshot> accounts,
-                Map<String, StatusSnapshot> statuses) {
+                Map<String, StatusSnapshot> statuses, String processSession, long observedAtMillis) {
             this.accounts = Collections.unmodifiableMap(accounts);
             this.statuses = Collections.unmodifiableMap(statuses);
+            this.processSession = processSession;
+            this.observedAtMillis = observedAtMillis;
         }
 
         public Map<Integer, AccountSnapshot> accounts() {
@@ -75,6 +84,9 @@ public final class CatalogSnapshotStore {
         public Map<String, StatusSnapshot> statuses() {
             return statuses;
         }
+
+        public String processSession() { return processSession; }
+        public long observedAtMillis() { return observedAtMillis; }
     }
 
     public static final class AccountSnapshot {
