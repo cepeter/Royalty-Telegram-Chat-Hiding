@@ -51,6 +51,16 @@ public final class BackupTest {
         System.arraycopy(valid, 13, bad, 29, 16); assertPayloadReject(bad);
     }
 
+    @Test public void exportCountsLegacyUnboundWithoutSerializingThem() {
+        HiddenConfig saved = HiddenConfig.fromBindings(Collections.singletonMap(CHAT, 101L),
+                Collections.singleton(DialogKey.of(1, 9)), false, false);
+        BackupData.Export snapshot = BackupData.exportFromSaved(saved);
+        assertEquals(1, snapshot.skippedUnbound());
+        assertEquals(1, snapshot.data().entries().size());
+        assertEquals(101L, snapshot.data().entries().get(0).ownerId());
+        assertEquals(0, BackupData.exportFromSaved(HiddenConfig.empty()).skippedUnbound());
+    }
+
     @Test public void previewMapsStableOwnersPreservesExistingAndAuth() {
         HiddenConfig existing = HiddenConfig.fromBindings(
                 Collections.singletonMap(DialogKey.of(0, -42), 999L),

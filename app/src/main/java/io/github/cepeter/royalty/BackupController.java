@@ -9,6 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 import io.github.cepeter.royalty.core.BackupCodec;
 import io.github.cepeter.royalty.core.BackupData;
+import io.github.cepeter.royalty.core.BackupOperation;
 import io.github.cepeter.royalty.core.BackupPreview;
 import io.github.cepeter.royalty.core.ProtectedModalController;
 import io.github.cepeter.royalty.core.SettingsAccess;
@@ -27,7 +28,7 @@ final class BackupController {
     private final SettingsAccess access;
     private final ProtectedModalController modals;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private char[] pendingPassphrase;
+    private BackupOperation pendingOperation, runningOperation;
     private BackupData pendingPreview;
     private Uri pendingImportUri;
     private boolean destroyed, busy;
@@ -40,7 +41,7 @@ final class BackupController {
     void exportSaved() {
         if (!access.allowed() || busy || !activity.backupDraft().initialized()) return;
         passphraseDialog(true, pass -> {
-            pendingPassphrase = pass;
+            pendingOperation = new BackupOperation(pass);
             exportPending = true;
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -60,34 +61,45 @@ final class BackupController {
 
     private void launch(Intent intent, int code) {
         try { activity.startActivityForResult(intent, code); }
-        catch (RuntimeException error) { clearPassphrase(); exportPending = false; notice("Document picker unavailable"); }
+        catch (RuntimeException error) { clearPending(); exportPending = false; notice("Document picker unavailable"); }
     }
 
     void onDocument(int code, int result, Intent intent) {
         if (destroyed) return;
         if (result != MainActivity.RESULT_OK || intent == null || intent.getData() == null) {
-            clearPassphrase(); exportPending = false; return;
+            clearPending(); exportPending = false; return;
         }
         Uri uri = intent.getData();
         if (code == CREATE_REQUEST) {
-            if (!exportPending || pendingPassphrase == null) return;
+            if (!exportPending || pendingOperation == null) return;
             exportPending = false;
-            char[] pass = takePassphrase();
+            BackupOperation operation = takePending();
             // Snapshot only the confirmed configuration before dispatching the worker.
-            BackupData data;
-            try { data = BackupData.fromSaved(activity.backupDraft().baseline()); }
-            catch (RuntimeException error) { Arrays.fill(pass, '\0'); notice("Saved configuration is unavailable"); return; }
-            runWorker(() -> {
+            BackupData.Export snapshot;
+            try { snapshot = BackupData.exportFromSaved(activity.backupDraft().baseline()); }
+            catch (RuntimeException error) { operation.cancel(); notice("Saved configuration cannot be exported"); return; }
+            runWorker(operation, () -> {
                 byte[] bytes = null;
                 try {
-                    bytes = BackupCodec.encrypt(data, pass);
+                    operation.checkActive();
+                    bytes = BackupCodec.encrypt(snapshot.data(), operation.passphrase());
+                    operation.checkActive();
                     try (OutputStream out = activity.getContentResolver().openOutputStream(uri, "wt")) {
                         if (out == null) throw new IOException("document cannot be opened");
-                        out.write(bytes); out.flush();
+                        operation.track(out);
+                        try {
+                            for (int offset = 0; offset < bytes.length; offset += 8192) {
+                                operation.checkActive();
+                                out.write(bytes, offset, Math.min(8192, bytes.length - offset));
+                            }
+                            operation.checkActive();
+                            out.flush();
+                        } finally { operation.untrack(out); }
                     }
-                    callback(() -> notice("Encrypted saved configuration exported"));
-                } catch (Exception error) { callback(() -> notice("Export failed; discard the incomplete document")); }
-                finally { Arrays.fill(pass, '\0'); if (bytes != null) Arrays.fill(bytes, (byte) 0); }
+                    callback(() -> { if (!operation.cancelled()) notice("Encrypted configuration exported; "
+                            + snapshot.skippedUnbound() + " legacy unbound selection(s) omitted"); });
+                } catch (Exception error) { callback(() -> { if (!operation.cancelled()) notice("Export failed; discard the incomplete document"); }); }
+                finally { if (bytes != null) Arrays.fill(bytes, (byte) 0); }
             });
         } else if (code == OPEN_REQUEST) {
             pendingImportUri = uri;
@@ -96,28 +108,41 @@ final class BackupController {
     }
 
     private void promptImport(Uri uri) {
-        passphraseDialog(false, pass -> runWorker(() -> {
+        passphraseDialog(false, pass -> {
+            BackupOperation operation = new BackupOperation(pass);
+            runWorker(operation, () -> {
                 byte[] bytes = null;
                 try {
-                    bytes = readBounded(uri);
-                    BackupData data = BackupCodec.decrypt(bytes, pass);
-                    callback(() -> { pendingPreview = data; resumeIfAllowed(); });
-                } catch (Exception error) { callback(() -> notice("Import failed: wrong passphrase or invalid backup")); }
-                finally { Arrays.fill(pass, '\0'); if (bytes != null) Arrays.fill(bytes, (byte) 0); }
-        }));
+                    bytes = readBounded(uri, operation);
+                    operation.checkActive();
+                    BackupData data = BackupCodec.decrypt(bytes, operation.passphrase());
+                    operation.checkActive();
+                    callback(() -> { if (!operation.cancelled()) { pendingPreview = data; resumeIfAllowed(); } });
+                } catch (Exception error) { callback(() -> { if (!operation.cancelled()) notice("Import failed: wrong passphrase or invalid backup"); }); }
+                finally { if (bytes != null) Arrays.fill(bytes, (byte) 0); }
+            });
+        });
     }
 
-    private byte[] readBounded(Uri uri) throws IOException {
+    private byte[] readBounded(Uri uri, BackupOperation operation) throws IOException {
+        operation.checkActive();
         try (InputStream in = activity.getContentResolver().openInputStream(uri)) {
             if (in == null) throw new IOException("document cannot be opened");
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buffer = new byte[8192];
-            int count;
-            while ((count = in.read(buffer)) != -1) {
-                if (out.size() + count > BackupCodec.MAX_BYTES) throw new IOException("backup too large");
-                out.write(buffer, 0, count);
-            }
-            return out.toByteArray();
+            operation.track(in);
+            try {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buffer = new byte[8192];
+                int count;
+                while (true) {
+                    operation.checkActive();
+                    count = in.read(buffer);
+                    if (count == -1) break;
+                    if (out.size() + count > BackupCodec.MAX_BYTES) throw new IOException("backup too large");
+                    out.write(buffer, 0, count);
+                }
+                operation.checkActive();
+                return out.toByteArray();
+            } finally { operation.untrack(in); }
         }
     }
 
@@ -134,7 +159,10 @@ final class BackupController {
         Object token = new Object();
         AlertDialog dialog = new AlertDialog.Builder(activity)
                 .setTitle(export ? "Export saved configuration" : "Unlock encrypted backup")
-                .setMessage(export ? "Only confirmed saved selections and non-authentication preferences are exported. Use at least 12 characters." : "Enter the backup passphrase.")
+                .setMessage(export ? "Exports confirmed saved bindings and non-authentication preferences. "
+                        + activity.backupDraft().baseline().unbound().size()
+                        + " saved legacy unbound selection(s) will be omitted. Bind and Save them before relying on this backup. Use at least 12 characters."
+                        : "Enter the backup passphrase.")
                 .setView(fields)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(export ? "Choose document" : "Open", null).create();
@@ -207,14 +235,32 @@ final class BackupController {
         modals.open(token, dialog::dismiss);
     }
 
-    private void runWorker(Runnable work) {
-        if (busy || destroyed) return;
+    private void runWorker(BackupOperation operation, Runnable work) {
+        if (busy || destroyed) { operation.cancel(); return; }
         busy = true;
-        worker.execute(() -> { try { work.run(); } finally { callback(() -> busy = false); } });
+        runningOperation = operation;
+        try {
+            worker.execute(() -> {
+                try { operation.checkActive(); work.run(); }
+                catch (java.util.concurrent.CancellationException ignored) { }
+                finally {
+                    operation.clearSecret();
+                    callback(() -> { if (runningOperation == operation) runningOperation = null; busy = false; });
+                }
+            });
+        } catch (RuntimeException error) {
+            operation.cancel(); runningOperation = null; busy = false;
+        }
     }
     private void callback(Runnable action) { activity.runOnUiThread(() -> { if (!destroyed) action.run(); }); }
     private void notice(String message) { if (!destroyed) Toast.makeText(activity, message, Toast.LENGTH_LONG).show(); }
-    private char[] takePassphrase() { char[] pass = pendingPassphrase; pendingPassphrase = null; return pass; }
-    private void clearPassphrase() { if (pendingPassphrase != null) Arrays.fill(pendingPassphrase, '\0'); pendingPassphrase = null; }
-    void destroy() { destroyed = true; clearPassphrase(); pendingPreview = null; pendingImportUri = null; worker.shutdownNow(); }
+    private BackupOperation takePending() { BackupOperation operation = pendingOperation; pendingOperation = null; return operation; }
+    private void clearPending() { if (pendingOperation != null) pendingOperation.cancel(); pendingOperation = null; }
+    void destroy() {
+        destroyed = true;
+        clearPending();
+        if (runningOperation != null) runningOperation.cancel();
+        pendingPreview = null; pendingImportUri = null;
+        worker.shutdownNow();
+    }
 }

@@ -43,14 +43,28 @@ public final class BackupData {
         if (timeout != 0 && timeout != 30000 && timeout != 60000 && timeout != 300000)
             throw new IllegalArgumentException("unsupported timeout");
     }
+    /** Explicitly reports legacy selections omitted because they lack a stable owner. */
+    public static final class Export {
+        private final BackupData data;
+        private final int skippedUnbound;
+        private Export(BackupData data, int skippedUnbound) {
+            this.data = data; this.skippedUnbound = skippedUnbound;
+        }
+        public BackupData data() { return data; }
+        public int skippedUnbound() { return skippedUnbound; }
+    }
     public static BackupData fromSaved(HiddenConfig saved) {
+        return exportFromSaved(saved).data();
+    }
+    public static Export exportFromSaved(HiddenConfig saved) {
         Objects.requireNonNull(saved, "saved");
         List<Entry> entries = new ArrayList<>();
         for (Map.Entry<DialogKey, Long> binding : saved.bindings().entrySet())
             entries.add(new Entry(binding.getValue(), binding.getKey().dialogId()));
         entries.sort(Comparator.comparingLong(Entry::ownerId).thenComparingLong(Entry::dialogId));
-        return new BackupData(entries, saved.suppressNotifications(), saved.localPremium(),
-                saved.concealOnBackground(), saved.concealOnScreenOff(), saved.revealTimeoutMs());
+        return new Export(new BackupData(entries, saved.suppressNotifications(), saved.localPremium(),
+                saved.concealOnBackground(), saved.concealOnScreenOff(), saved.revealTimeoutMs()),
+                saved.unbound().size());
     }
     public List<Entry> entries() { return entries; }
     public boolean notifications() { return notifications; }
