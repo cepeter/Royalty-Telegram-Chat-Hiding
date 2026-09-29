@@ -73,6 +73,24 @@ class ConfigurationUiContractTests(unittest.TestCase):
         self.assertIn("Show diagnostics", strings)
         self.assertIn("Backup &amp; recovery", strings)
 
+    def test_dashboard_uses_four_native_tabs(self):
+        strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
+        for token in ("TAB_CHATS", "TAB_PRIVACY", "TAB_STATUS", "TAB_BACKUP",
+                      "createDashboardTab", "selectDashboardTab", "styleDashboardTab"):
+            self.assertIn(token, self.source)
+        for label in ("Chats", "Privacy", "Status", "Backup"):
+            self.assertIn(">" + label + "<", strings)
+        self.assertIn("chatsPage.addView", self.source)
+        self.assertIn("privacyPage.addView", self.source)
+        self.assertIn("statusPage.addView", self.source)
+        self.assertIn("backupPage.addView", self.source)
+
+    def test_authentication_copy_is_settings_only(self):
+        strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
+        self.assertIn("Lock Royalty settings with device screen lock", strings)
+        self.assertIn("Telegram reveal stays instant", strings)
+        self.assertNotIn("Require device screen lock to reveal", self.source)
+
     def test_refresh_requests_catalog_and_observes_completion(self):
         self.assertIn("CatalogRequestClient.request(this)", self.source)
         self.assertIn("CatalogUpdates.shared().subscribe", self.source)

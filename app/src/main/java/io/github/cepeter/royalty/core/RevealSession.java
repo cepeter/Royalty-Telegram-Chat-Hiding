@@ -31,7 +31,9 @@ public final class RevealSession {
     }
     public synchronized boolean toggle(long now) {
         if (revealed) { conceal(); return false; }
-        if (config.authenticate() || !foreground) return false;
+        // Authentication protects the Royalty settings activity only.
+        // Telegram's deliberate header gesture must remain local and immediate.
+        if (!foreground) return false;
         reveal(now);
         return true;
     }

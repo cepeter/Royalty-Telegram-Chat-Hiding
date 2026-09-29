@@ -2,12 +2,10 @@ package io.github.cepeter.royalty.xposed;
 
 import android.content.Context;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.app.Activity;
 import android.app.Application;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -20,8 +18,6 @@ import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface;
 import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.ActivityVisibility;
-import io.github.cepeter.royalty.core.AuthenticationProtocol;
-import io.github.cepeter.royalty.core.AuthenticationRoute;
 import io.github.cepeter.royalty.core.RevealSession;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
@@ -356,16 +352,9 @@ public final class TelegramHook extends XposedModule {
             }
             lastDialogsFragment = fragment;
             REVEAL.configure(CONFIG.saved());
-            boolean revealed;
-            if (!REVEAL.revealed() && REVEAL.authenticationRequired()) {
-                String nonce = REVEAL.beginChallenge(SystemClock.elapsedRealtime());
-                if (nonce == null || !launchCredential(actionBar.getContext(), nonce)) {
-                    REVEAL.cancelChallenge();
-                    Toast.makeText(actionBar.getContext(), "Device credential unavailable; hidden chats remain concealed", Toast.LENGTH_LONG).show();
-                }
-                return;
-            }
-            revealed = REVEAL.toggle(SystemClock.elapsedRealtime());
+            // Device authentication is intentionally scoped to opening Royalty settings.
+            // The Telegram header gesture only toggles the in-process reveal state.
+            boolean revealed = REVEAL.toggle(SystemClock.elapsedRealtime());
             scheduleRevealTimeout();
             Toast.makeText(
                             actionBar.getContext(),
@@ -587,20 +576,6 @@ public final class TelegramHook extends XposedModule {
         }
     }
 
-    private static boolean launchCredential(Context context, String nonce) {
-        try {
-            Intent intent = new Intent().setComponent(new ComponentName(
-                    AuthenticationRoute.packageName(modulePackage), AuthenticationRoute.className()))
-                    .putExtra(AuthenticationProtocol.EXTRA_NONCE, nonce)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(intent);
-            return true;
-        } catch (RuntimeException error) {
-            reportRuntimeError("reveal", error);
-            return false;
-        }
-    }
-
     private static void installRevealAdapters(Application application) {
         java.util.function.BooleanSupplier active = ModernHookBridge.installationActive();
         Application.ActivityLifecycleCallbacks lifecycle = new Application.ActivityLifecycleCallbacks() {
@@ -638,41 +613,14 @@ public final class TelegramHook extends XposedModule {
         BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override public void onReceive(Context ignored, Intent intent) {
                 if (!active.getAsBoolean()) return;
-                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
-                    if (REVEAL.onScreenOff()) refreshRevealedViews();
-                    return;
-                }
-                if (!AuthenticationProtocol.ACTION_RESULT.equals(intent.getAction())
-                        || !intent.getBooleanExtra(AuthenticationProtocol.EXTRA_SUCCESS, false)) return;
-                try {
-                    REVEAL.configure(CONFIG.saved());
-                    if (REVEAL.authorize(intent.getStringExtra(AuthenticationProtocol.EXTRA_NONCE),
-                            SystemClock.elapsedRealtime())) {
-                        refreshRevealedViews();
-                        scheduleRevealTimeout();
-                    }
-                } catch (RuntimeException error) {
-                    REVEAL.cancelChallenge();
-                    reportRuntimeError("reveal", error);
+                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())
+                        && REVEAL.onScreenOff()) {
+                    refreshRevealedViews();
                 }
             }
         };
-        // One receiver identity owns both registrations; unregister removes both filters.
         ModernHookBridge.trackCleanup(() -> application.unregisterReceiver(receiver));
         application.registerReceiver(receiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
-        IntentFilter response = new IntentFilter(AuthenticationProtocol.ACTION_RESULT);
-        if (Build.VERSION.SDK_INT >= 33) {
-            application.registerReceiver(receiver, response,
-                    AuthenticationProtocol.SIGNATURE_PERMISSION, null, Context.RECEIVER_EXPORTED);
-        } else {
-            registerLegacyAuthReceiver(application, receiver, response);
-        }
-    }
-
-    @SuppressWarnings("deprecation")
-    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
-    private static void registerLegacyAuthReceiver(Context context, BroadcastReceiver receiver, IntentFilter filter) {
-        context.registerReceiver(receiver, filter, AuthenticationProtocol.SIGNATURE_PERMISSION, null);
     }
 
     private static void scheduleRevealTimeout() {
