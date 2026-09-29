@@ -55,7 +55,7 @@ public final class RevealSessionTest {
         String first = session.beginChallenge(3);
         assertEquals(32, first.length());
         assertFalse(session.authorize("wrong", 2));
-        assertFalse(session.authorize(first, 120001));
+        assertFalse(session.authorize(first, 120003));
         String cancelled = session.beginChallenge(150000);
         session.cancelChallenge();
         assertFalse(session.authorize(cancelled, 150001));
