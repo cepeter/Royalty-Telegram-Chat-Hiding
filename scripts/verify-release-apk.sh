@@ -6,31 +6,91 @@ apk=${1:-app/build/outputs/apk/release/app-release.apk}
 apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
 aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
 apkanalyzer="$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer"
-"$apksigner" verify --verbose "$apk"
-"$aapt" dump badging "$apk" | grep -F "package: name='io.github.cepeter.royalty' versionCode='17' versionName='3.0.5'"
+metadata_file="$(dirname "$0")/../version.properties"
+rm -f "$apk.sha256" "$apk.release.json"
+version_values=$(python3 - "$metadata_file" <<'PY'
+import pathlib
+import re
+import sys
+lines = pathlib.Path(sys.argv[1]).read_text().splitlines()
+values = {}
+for line in lines:
+    match = re.fullmatch(r'(versionName|versionCode)=([^=]+)', line)
+    if not match or match.group(1) in values:
+        raise SystemExit('Invalid version.properties')
+    values[match.group(1)] = match.group(2)
+if set(values) != {'versionName', 'versionCode'} or not re.fullmatch(r'\d+\.\d+\.\d+', values['versionName']) or not re.fullmatch(r'[1-9]\d*', values['versionCode']):
+    raise SystemExit('Invalid version.properties')
+print(values['versionName'])
+print(values['versionCode'])
+PY
+) || exit 1
+readarray -t versions <<< "$version_values"
+version_name=${versions[0]}
+version_code=${versions[1]}
+if ! signature=$("$apksigner" verify --verbose --print-certs "$apk"); then
+  echo 'APK signature verification failed' >&2
+  exit 1
+fi
+expected_signer=$(<"$(dirname "$0")/../release-signing-cert.sha256")
+if [[ $(grep -Ec '^Number of signers: 1$' <<< "$signature") != 1 ]] ||
+   [[ $(grep -Ec '^Signer #[0-9]+ certificate SHA-256 digest:' <<< "$signature") != 1 ]] ||
+   ! grep -Fqx "Signer #1 certificate SHA-256 digest: $expected_signer" <<< "$signature"; then
+  echo 'Unexpected APK signer identity' >&2
+  exit 1
+fi
+if ! badging=$("$aapt" dump badging "$apk"); then
+  echo 'APK badging inspection failed' >&2
+  exit 1
+fi
+if ! grep -Eq "^package: name='io\.github\.cepeter\.royalty' versionCode='$version_code' versionName='$version_name'( |$)" <<< "$badging"; then
+  echo 'APK package or version does not match version.properties' >&2
+  exit 1
+fi
+if [[ ${GITHUB_REF_TYPE:-} == tag && ${GITHUB_REF_NAME:-} != "v$version_name" ]]; then
+  echo "Release tag does not match inspected APK version: ${GITHUB_REF_NAME:-}" >&2
+  exit 1
+fi
 python3 - "$apk" <<'PY'
 import sys
 import zipfile
-
 expected = {
-    "META-INF/xposed/java_init.list": b"io.github.cepeter.royalty.xposed.TelegramHook\n",
-    "META-INF/xposed/scope.list": b"org.telegram.messenger\n",
-    "META-INF/xposed/module.prop": b"minApiVersion=101\ntargetApiVersion=101\nstaticScope=true\n",
+    'META-INF/xposed/java_init.list': b'io.github.cepeter.royalty.xposed.TelegramHook\n',
+    'META-INF/xposed/scope.list': b'org.telegram.messenger\n',
+    'META-INF/xposed/module.prop': b'minApiVersion=101\ntargetApiVersion=101\nstaticScope=true\n',
 }
 with zipfile.ZipFile(sys.argv[1]) as apk_file:
     for path, content in expected.items():
         if apk_file.read(path) != content:
-            raise SystemExit(f"Unexpected modern Xposed resource: {path}")
-    if "assets/xposed_init" in apk_file.namelist():
-        raise SystemExit("Legacy Xposed entrypoint is packaged")
+            raise SystemExit(f'Unexpected modern Xposed resource: {path}')
+    if 'assets/xposed_init' in apk_file.namelist():
+        raise SystemExit('Legacy Xposed entrypoint is packaged')
 PY
-manifest=$("$aapt" dump xmltree "$apk" AndroidManifest.xml)
-if grep -Eq 'xposedmodule|xposedminversion|xposedsharedprefs|xposedscope' <<<"$manifest"; then
+if ! manifest=$("$aapt" dump xmltree "$apk" AndroidManifest.xml); then
+  echo 'APK manifest inspection failed' >&2
+  exit 1
+fi
+if grep -Eq 'xposedmodule|xposedminversion|xposedsharedprefs|xposedscope' <<< "$manifest"; then
   echo 'Legacy Xposed manifest metadata is packaged' >&2
   exit 1
 fi
-if "$apkanalyzer" dex packages "$apk" | grep -Eq '^[PC] d[[:space:]].*io\.github\.libxposed\.api'; then
+if ! packages=$("$apkanalyzer" dex packages "$apk"); then
+  echo 'APK dex package inspection failed' >&2
+  exit 1
+fi
+if grep -Eq '^[PC] d[[:space:]].*io\.github\.libxposed\.api' <<< "$packages"; then
   echo 'Modern Xposed compile-only API classes were packaged in the APK' >&2
   exit 1
 fi
-sha256sum "$apk" | tee "$apk.sha256"
+checksum=$(sha256sum "$apk")
+sha=${checksum%% *}
+python3 - "$apk.release.json" "$version_name" "$version_code" "$expected_signer" "$sha" <<'PY'
+import json
+import sys
+path, name, code, signer, checksum = sys.argv[1:]
+with open(path, 'w') as output:
+    json.dump({'tag': 'v' + name, 'versionName': name, 'versionCode': int(code),
+               'signerSha256': signer, 'apkSha256': checksum}, output, sort_keys=True)
+    output.write('\n')
+PY
+printf '%s\n' "$checksum" > "$apk.sha256"
