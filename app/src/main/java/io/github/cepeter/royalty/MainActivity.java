@@ -135,6 +135,8 @@ public final class MainActivity extends Activity {
     private TextView telegramStatusDot;
     private TextView telegramStatusText;
     private TextView protectionDetails;
+    private Button diagnosticsButton;
+    private boolean diagnosticsExpanded;
     private EditText searchInput;
     private ListView dialogList;
     private ArrayAdapter<String> dialogAdapter;
@@ -310,7 +312,7 @@ public final class MainActivity extends Activity {
         mark.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
         mark.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         mark.setBackground(roundedDrawable(R.color.royalty_primary, 23, 0));
-        header.addView(mark, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        header.addView(mark, new LinearLayout.LayoutParams(dp(44), dp(44)));
 
         LinearLayout heading = new LinearLayout(this);
         heading.setOrientation(LinearLayout.VERTICAL);
@@ -323,7 +325,7 @@ public final class MainActivity extends Activity {
         eyebrow.setLetterSpacing(0.08f);
         heading.addView(eyebrow, matchWrap());
 
-        TextView title = createText(R.string.app_name, 30, R.color.royalty_text, Typeface.BOLD);
+        TextView title = createText(R.string.app_name, 28, R.color.royalty_text, Typeface.BOLD);
         heading.addView(title, matchWrap());
 
         TextView subtitle = createText(
@@ -332,15 +334,20 @@ public final class MainActivity extends Activity {
         header.addView(heading, headingParams);
         root.addView(header, matchWrap());
 
+        LinearLayout scopeCard = createSoftPanel();
         TextView scope = createText(
-                R.string.supported_scope, 12, R.color.royalty_text_muted, Typeface.NORMAL);
-        scope.setLineSpacing(0, 1.15f);
-        root.addView(scope, withTopMargin(matchWrap(), 12));
+                R.string.supported_scope_compact, 12, R.color.royalty_text_muted, Typeface.BOLD);
+        scope.setLetterSpacing(0.02f);
+        scopeCard.addView(scope, matchWrap());
+        root.addView(scopeCard, withTopMargin(matchWrap(), 12));
 
-        root.addView(createSectionLabel(R.string.status_section), withTopMargin(matchWrap(), 20));
+        root.addView(createSectionLabel(R.string.status_section), withTopMargin(matchWrap(), 22));
 
-        LinearLayout statusCard = createCard(LinearLayout.HORIZONTAL);
-        statusCard.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout statusCard = createCard(LinearLayout.VERTICAL);
+
+        LinearLayout statusTop = new LinearLayout(this);
+        statusTop.setOrientation(LinearLayout.HORIZONTAL);
+        statusTop.setGravity(Gravity.CENTER_VERTICAL);
 
         LinearLayout statusRows = new LinearLayout(this);
         statusRows.setOrientation(LinearLayout.VERTICAL);
@@ -351,16 +358,35 @@ public final class MainActivity extends Activity {
         telegramStatusDot = createStatusDot();
         telegramStatusText = createText(0, 14, R.color.royalty_text, Typeface.BOLD);
         statusRows.addView(createConnectionRow(
-                telegramStatusDot, telegramStatusText), withTopMargin(matchWrap(), 6));
-        protectionDetails = createText(0, 12, R.color.royalty_text_muted, Typeface.NORMAL);
-        statusRows.addView(protectionDetails, withTopMargin(matchWrap(), 8));
-        statusCard.addView(statusRows, new LinearLayout.LayoutParams(
+                telegramStatusDot, telegramStatusText), withTopMargin(matchWrap(), 8));
+        statusTop.addView(statusRows, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
         Button refreshButton = createSecondaryButton(R.string.refresh);
         refreshButton.setOnClickListener(view -> requestCatalog());
-        statusCard.addView(refreshButton, new LinearLayout.LayoutParams(
+        statusTop.addView(refreshButton, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        statusCard.addView(statusTop, matchWrap());
+
+        LinearLayout statusActions = new LinearLayout(this);
+        statusActions.setOrientation(LinearLayout.HORIZONTAL);
+        diagnosticsButton = createTertiaryButton(R.string.show_diagnostics);
+        diagnosticsButton.setOnClickListener(view -> {
+            diagnosticsExpanded = !diagnosticsExpanded;
+            protectionDetails.setVisibility(diagnosticsExpanded ? View.VISIBLE : View.GONE);
+            diagnosticsButton.setText(diagnosticsExpanded
+                    ? R.string.hide_diagnostics : R.string.show_diagnostics);
+        });
+        statusActions.addView(diagnosticsButton, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        statusCard.addView(statusActions, withTopMargin(matchWrap(), 10));
+
+        protectionDetails = createText(0, 12, R.color.royalty_text_muted, Typeface.NORMAL);
+        protectionDetails.setLineSpacing(0, 1.12f);
+        protectionDetails.setPadding(dp(12), dp(10), dp(12), dp(10));
+        protectionDetails.setBackground(roundedDrawable(R.color.royalty_surface_variant, 12, 0));
+        protectionDetails.setVisibility(View.GONE);
+        statusCard.addView(protectionDetails, withTopMargin(matchWrap(), 8));
         root.addView(statusCard, withTopMargin(matchWrap(), 8));
 
         updateCard = createCard(LinearLayout.VERTICAL);
@@ -384,6 +410,8 @@ public final class MainActivity extends Activity {
         updateActions.addView(dismissUpdateButton, dismissParams);
         updateCard.addView(updateActions, withTopMargin(matchWrap(), 10));
         root.addView(updateCard, withTopMargin(matchWrap(), 12));
+
+        root.addView(createSectionLabel(R.string.privacy_section), withTopMargin(matchWrap(), 22));
 
         LinearLayout notificationCard = createCard(LinearLayout.HORIZONTAL);
         notificationCard.setGravity(Gravity.CENTER_VERTICAL);
@@ -437,12 +465,19 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(premiumCard, withTopMargin(matchWrap(), 12));
 
+        LinearLayout revealCard = createCard(LinearLayout.VERTICAL);
+        revealCard.addView(createText(
+                R.string.reveal_protection_title, 16, R.color.royalty_text, Typeface.BOLD), matchWrap());
+        revealCard.addView(createText(
+                R.string.reveal_protection_subtitle, 13, R.color.royalty_text_muted, Typeface.NORMAL),
+                withTopMargin(matchWrap(), 3));
+
         backgroundSwitch = privacySwitch("Conceal when Telegram backgrounds", draft.current().concealOnBackground(),
                 checked -> draft.setConcealOnBackground(checked));
-        root.addView(backgroundSwitch, withTopMargin(matchWrap(), 12));
+        revealCard.addView(backgroundSwitch, withTopMargin(matchWrap(), 10));
         screenOffSwitch = privacySwitch("Conceal when screen turns off", draft.current().concealOnScreenOff(),
                 checked -> draft.setConcealOnScreenOff(checked));
-        root.addView(screenOffSwitch, withTopMargin(matchWrap(), 12));
+        revealCard.addView(screenOffSwitch, withTopMargin(matchWrap(), 6));
         authenticationSwitch = privacySwitch("Require device screen lock to reveal", draft.current().authenticate(),
                 checked -> {
                     if (checked) {
@@ -455,7 +490,7 @@ public final class MainActivity extends Activity {
                     }
                     draft.setAuthenticate(checked);
                 });
-        root.addView(authenticationSwitch, withTopMargin(matchWrap(), 12));
+        revealCard.addView(authenticationSwitch, withTopMargin(matchWrap(), 6));
         timeoutButton = createSecondaryButton(R.string.app_name);
         timeoutButton.setOnClickListener(v -> {
             int current = draft.current().revealTimeoutMs();
@@ -466,7 +501,10 @@ public final class MainActivity extends Activity {
             draft.setRevealTimeoutMs(next);
             renderCatalogAndHealth();
         });
-        root.addView(timeoutButton, withTopMargin(matchWrap(), 12));
+        revealCard.addView(timeoutButton, withTopMargin(matchWrap(), 10));
+        root.addView(revealCard, withTopMargin(matchWrap(), 12));
+
+        root.addView(createSectionLabel(R.string.data_section), withTopMargin(matchWrap(), 22));
 
         LinearLayout backupCard = createCard(LinearLayout.VERTICAL);
         TextView backupTitle = createText(0, 16, R.color.royalty_text, Typeface.BOLD);
@@ -485,10 +523,11 @@ public final class MainActivity extends Activity {
         backupCard.addView(importButton, withTopMargin(matchWrap(), 8));
         root.addView(backupCard, withTopMargin(matchWrap(), 16));
 
-        root.addView(createSectionLabel(R.string.hidden_chats_section), withTopMargin(matchWrap(), 20));
+        root.addView(createSectionLabel(R.string.hidden_chats_section), withTopMargin(matchWrap(), 22));
+        LinearLayout chatsCard = createCard(LinearLayout.VERTICAL);
         TextView chatsSubtitle = createText(
                 R.string.hidden_chats_subtitle, 13, R.color.royalty_text_muted, Typeface.NORMAL);
-        root.addView(chatsSubtitle, withTopMargin(matchWrap(), 3));
+        chatsCard.addView(chatsSubtitle, matchWrap());
 
         searchInput = new EditText(this);
         searchInput.setHint(R.string.search_chats_hint);
@@ -524,13 +563,13 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams clearSearchParams = new LinearLayout.LayoutParams(dp(48), dp(48));
         clearSearchParams.setMarginStart(dp(8));
         searchRow.addView(clearSearchButton, clearSearchParams);
-        root.addView(searchRow, withTopMargin(matchWrap(), 10));
+        chatsCard.addView(searchRow, withTopMargin(matchWrap(), 12));
         selectionControls = new CatalogSelectionControls(this,
                 () -> applyCatalogFilter(searchInput.getText().toString()),
                 this::selectMatching, () -> {
                     if (draft.undo()) renderCatalogAndHealth();
                 });
-        root.addView(selectionControls, withTopMargin(matchWrap(), 8));
+        chatsCard.addView(selectionControls, withTopMargin(matchWrap(), 8));
 
         dialogList = new ListView(this);
         dialogList.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
@@ -572,22 +611,30 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(360));
         listParams.topMargin = dp(8);
-        root.addView(dialogList, listParams);
+        chatsCard.addView(dialogList, listParams);
 
+        LinearLayout saveActions = new LinearLayout(this);
+        saveActions.setOrientation(LinearLayout.HORIZONTAL);
         saveButton = createPrimaryButton(R.string.save);
         saveButton.setOnClickListener(view -> saveConfiguration());
-        root.addView(saveButton, withTopMargin(matchWrap(), 12));
+        saveActions.addView(saveButton, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         Button discardButton = createSecondaryButton(R.string.discard);
         discardButton.setOnClickListener(view -> {
             draft.discard();
             renderCached();
         });
-        root.addView(discardButton, withTopMargin(matchWrap(), 8));
+        LinearLayout.LayoutParams discardParams = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        discardParams.setMarginStart(dp(8));
+        saveActions.addView(discardButton, discardParams);
+        chatsCard.addView(saveActions, withTopMargin(matchWrap(), 12));
 
         TextView hint = createText(
                 R.string.refresh_hint, 12, R.color.royalty_text_muted, Typeface.NORMAL);
         hint.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.addView(hint, withTopMargin(matchWrap(), 8));
+        chatsCard.addView(hint, withTopMargin(matchWrap(), 10));
+        root.addView(chatsCard, withTopMargin(matchWrap(), 8));
         scrollView.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return scrollView;
@@ -597,7 +644,9 @@ public final class MainActivity extends Activity {
         Switch control = new Switch(this);
         control.setText(label);
         control.setTextColor(getColor(R.color.royalty_text));
+        control.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         control.setMinimumHeight(dp(48));
+        control.setPadding(0, 0, 0, 0);
         control.setChecked(checked);
         control.setOnCheckedChangeListener((button, value) -> {
             draftControls.edit(() -> onChange.accept(value), this::renderCatalogAndHealth);
@@ -1018,9 +1067,9 @@ public final class MainActivity extends Activity {
     private LinearLayout createCard(int orientation) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(orientation);
-        card.setPadding(dp(16), dp(14), dp(16), dp(14));
-        card.setBackground(roundedDrawable(R.color.royalty_surface, 18, 1));
-        card.setElevation(dp(2));
+        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        card.setBackground(roundedDrawable(R.color.royalty_surface, 20, 1));
+        card.setElevation(dp(1));
         return card;
     }
 
@@ -1036,6 +1085,22 @@ public final class MainActivity extends Activity {
         button.setTextColor(getColor(R.color.royalty_primary));
         button.setBackground(rippleBackground(R.color.royalty_surface_variant, 14, 0));
         return button;
+    }
+
+    private Button createTertiaryButton(int stringResource) {
+        Button button = createButton(stringResource);
+        button.setTextColor(getColor(R.color.royalty_text_muted));
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setPadding(dp(4), 0, dp(4), 0);
+        return button;
+    }
+
+    private LinearLayout createSoftPanel() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(14), dp(10), dp(14), dp(10));
+        panel.setBackground(roundedDrawable(R.color.royalty_surface_variant, 14, 0));
+        return panel;
     }
 
     private Button createButton(int stringResource) {
