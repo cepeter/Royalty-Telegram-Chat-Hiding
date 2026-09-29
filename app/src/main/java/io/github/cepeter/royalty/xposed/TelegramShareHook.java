@@ -71,7 +71,7 @@ final class TelegramShareHook {
         apply(adapter, "d", state, visible);
         Object oldMap = ModernHookBridge.getObjectField(adapter, "e");
         try {
-            replaceMapContents(oldMap, visible, state.raw(), account);
+            replaceMapContents(oldMap, visible, account);
         } catch (RuntimeException error) {
             apply(adapter, "d", state, new ArrayList<>(state.raw()));
             throw error;
@@ -129,21 +129,17 @@ final class TelegramShareHook {
     }
 
     private static void replaceMapContents(
-            Object target, List<Object> dialogs, List<Object> rollbackDialogs, int account) {
+            Object target, List<Object> dialogs, int account) {
         List<Object> verifiedDialogs = new ArrayList<>();
         List<Long> verifiedIds = new ArrayList<>();
         collectMapEntries(dialogs, account, verifiedDialogs, verifiedIds);
-
-        List<Object> rollbackVerifiedDialogs = new ArrayList<>();
-        List<Long> rollbackVerifiedIds = new ArrayList<>();
-        collectMapEntries(
-                rollbackDialogs, account, rollbackVerifiedDialogs, rollbackVerifiedIds);
+        SelectedMapSnapshot.Backing original = SelectedMapSnapshot.capture(target, account);
 
         try {
             writeMapContents(target, verifiedDialogs, verifiedIds);
         } catch (RuntimeException error) {
             try {
-                writeMapContents(target, rollbackVerifiedDialogs, rollbackVerifiedIds);
+                original.restore();
             } catch (RuntimeException rollbackError) {
                 error.addSuppressed(rollbackError);
             }
@@ -184,7 +180,7 @@ final class TelegramShareHook {
             if (!config.isHidden(DialogKey.of(account, entry.id))) retained.add(entry.value);
         }
         if (retained.size() != originalSelected.size()) {
-            replaceMapContents(selected, retained, originalSelected, account);
+            replaceMapContents(selected, retained, account);
         }
         LAST_REVEAL.put(outer, new SelectionMarker(config, false));
     }

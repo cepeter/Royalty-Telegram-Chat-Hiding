@@ -88,4 +88,28 @@ public final class TelegramShareSelectionTest {
         assertSame(visible, outer.T.valueAt(0));
         assertFalse(lastSuccessfulReveal(outer));
     }
+
+    @Test
+    public void persistentInsertFailurePreservesOriginalSelectionAndMapIdentity() throws Exception {
+        Outer outer = new Outer();
+        f selected = outer.T;
+        Dialog hidden = new Dialog(1), visible = new Dialog(2);
+        selected.k(hidden, 1);
+        selected.k(visible, 2);
+        guard(outer, Collections.emptyList(), 0, HiddenConfig.empty(), true);
+        selected.alwaysFailInsert = true;
+
+        assertThrows(IllegalStateException.class,
+                () -> guard(outer, Collections.emptyList(), 0, hidden("0:1"), false));
+        assertSame(selected, outer.T);
+        assertEquals(2, selected.size());
+        assertSame(hidden, selected.valueAt(0));
+        assertSame(visible, selected.valueAt(1));
+        assertTrue(lastSuccessfulReveal(outer));
+
+        selected.alwaysFailInsert = false;
+        guard(outer, Collections.emptyList(), 0, hidden("0:1"), false);
+        assertEquals(1, selected.size());
+        assertSame(visible, selected.valueAt(0));
+    }
 }

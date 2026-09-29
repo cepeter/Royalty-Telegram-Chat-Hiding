@@ -7,6 +7,7 @@ public final class f {
     private Object[] values = new Object[8];
     private int size;
     public boolean failNextInsert;
+    public boolean alwaysFailInsert;
 
     public void b() {
         Arrays.fill(keys, 0);
@@ -15,7 +16,7 @@ public final class f {
     }
 
     public void k(Object value, long key) {
-        if (failNextInsert) {
+        if (failNextInsert || alwaysFailInsert) {
             failNextInsert = false;
             throw new IllegalStateException("insertion failed");
         }

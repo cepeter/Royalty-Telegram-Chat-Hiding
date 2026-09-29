@@ -5,8 +5,13 @@ import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertNull;
 
+import io.github.cepeter.royalty.core.DialogFilter;
+import io.github.cepeter.royalty.core.DialogKey;
+import io.github.cepeter.royalty.core.HiddenConfig;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 import org.junit.Test;
 
 public final class FilteredListStateTest {
@@ -92,13 +97,22 @@ public final class FilteredListStateTest {
         Object a = new Object(), h1 = new Object(), b = new Object(), h2 = new Object();
         Object replacement = new Object();
         FilteredListState state = FilteredListState.capture(new ArrayList<>(Arrays.asList(a, h1, b, h2)), null);
-        ArrayList<Object> applied = new ArrayList<>(Arrays.asList(a, b));
+        HiddenConfig config = HiddenConfig.fromStrings(
+                new HashSet<>(Arrays.asList("0:1", "0:2")), false);
+        List<Object> initiallyVisible = DialogFilter.filteredCopy(state.raw(),
+                row -> DialogKey.of(0, row == h1 ? 1 : row == h2 ? 2 : 3), config, false);
+        assertEquals(Arrays.asList(a, b), initiallyVisible);
+        ArrayList<Object> applied = new ArrayList<>(initiallyVisible);
         state.markApplied(applied);
         applied.clear();
         applied.add(replacement);
         FilteredListState.capture(applied, state);
         assertEquals(Arrays.asList(replacement, h1, h2), state.raw());
-        assertEquals(Arrays.asList(replacement, h1, h2), new ArrayList<>(state.raw()));
+        List<Object> revealed = DialogFilter.filteredCopy(state.raw(),
+                row -> DialogKey.of(0, row == h1 ? 1 : row == h2 ? 2 : 3), config, true);
+        assertEquals(Arrays.asList(replacement, h1, h2), revealed);
+        assertSame(h1, revealed.get(1));
+        assertSame(h2, revealed.get(2));
     }
 
     @Test

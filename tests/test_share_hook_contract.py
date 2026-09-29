@@ -26,7 +26,6 @@ class ShareHookContractTests(unittest.TestCase):
         self.assertNotIn("getDeclaredConstructor", self.share)
         self.assertNotIn('setObjectField(adapter, "e"', self.share)
         self.assertNotIn('setObjectField(outer, "T"', self.share)
-        self.assertIn("rollbackDialogs", self.share)
         self.assertIn("error.addSuppressed(rollbackError)", self.share)
 
     def test_reveal_restore_and_stale_selection_guard_are_present(self):
