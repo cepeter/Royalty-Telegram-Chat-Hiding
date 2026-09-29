@@ -49,6 +49,7 @@ import io.github.cepeter.royalty.config.XposedPreferenceService;
 import io.github.cepeter.royalty.core.CatalogEntry;
 import io.github.cepeter.royalty.core.CatalogSelection;
 import io.github.cepeter.royalty.core.AccountInventory;
+import io.github.cepeter.royalty.core.AccountBindingPresentation;
 import io.github.cepeter.royalty.core.ConfigurationDraft;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.DiagnosticsFormatter;
@@ -456,9 +457,8 @@ public final class MainActivity extends Activity {
         boolean canBind = accountInventory.complete() && entry.ownerId() > 0
                 && accountInventory.matches(key.account(), entry.ownerId());
         new AlertDialog.Builder(this).setTitle("Review account binding")
-                .setMessage(canBind ? "Bind this saved selection to "
-                        + accountInventory.owner(key.account()).label() + "?"
-                        : "This saved selection belongs to an unavailable or changed account. Refresh after opening Telegram, or remove it.")
+                .setMessage(AccountBindingPresentation.reviewPrompt(entry,
+                        draft.current(), accountInventory))
                 .setNeutralButton("Remove selection", (ignored, which) -> {
                     draft.setHidden(key, false);
                     renderCatalogAndHealth();
@@ -653,17 +653,7 @@ public final class MainActivity extends Activity {
     }
 
     private String formatEntry(CatalogEntry entry) {
-        AccountInventory.Owner activeOwner = accountInventory.owner(entry.key().account());
-        Long savedOwner = entry.ownerId() > 0 ? entry.ownerId()
-                : draft.current().boundOwner(entry.key());
-        String owner = activeOwner != null && savedOwner != null && activeOwner.id() == savedOwner
-                ? activeOwner.label() : "Account " + (entry.key().account() + 1)
-                + " · saved owner " + (savedOwner != null ? savedOwner : "unbound");
-        String review = draft.current().isHidden(entry.key())
-                && (entry.ownerId() == 0 || draft.current().boundOwner(entry.key()) == null
-                || !accountInventory.matches(entry.key().account(), draft.current().boundOwner(entry.key())))
-                ? " · review binding" : "";
-        return entry.title() + "\n" + owner + " · ID " + entry.key().dialogId() + review;
+        return AccountBindingPresentation.row(entry, draft.current(), accountInventory);
     }
 
     private void selectMatching() {

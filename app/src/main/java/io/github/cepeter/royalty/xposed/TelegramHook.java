@@ -7,7 +7,6 @@ import android.widget.Toast;
 import io.github.cepeter.royalty.config.ConfigStore;
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface;
-import io.github.cepeter.royalty.core.CatalogSubmission;
 import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
@@ -484,33 +483,14 @@ public final class TelegramHook extends XposedModule {
             LAST_CATALOG_PUBLISH.put(account, now);
         }
 
-        int count = Math.min(dialogs.size(), CatalogSubmission.MAX_ENTRIES);
-        long[] ids = new long[count];
-        String[] titles = new String[count];
-        int added = 0;
-        for (int index = 0; index < count; index++) {
-            Object dialog = dialogs.get(index);
-            try {
-                long id = ModernHookBridge.getLongField(dialog, "id");
-                if (id == 0) {
-                    continue;
-                }
-                ids[added] = id;
-                titles[added] = resolveDialogTitle(messagesController, id);
-                added++;
-            } catch (Throwable ignored) {
-                // Telegram may add synthetic rows; they are not hideable dialogs.
+        CatalogOwnerPublisher.publish(account, dialogs, new CatalogOwnerPublisher.RowReader<Object>() {
+            @Override public long id(Object row) {
+                return ModernHookBridge.getLongField(row, "id");
             }
-        }
-        if (added != count) {
-            ids = java.util.Arrays.copyOf(ids, added);
-            titles = java.util.Arrays.copyOf(titles, added);
-        }
-        io.github.cepeter.royalty.core.AccountInventory inventory = CONFIG.inventory();
-        CATALOGS.setInventory(inventory);
-        io.github.cepeter.royalty.core.AccountInventory.Owner owner = inventory.owner(account);
-        if (inventory.complete() && owner != null)
-            CATALOGS.replaceAccount(account, owner.id(), ids, titles);
+            @Override public String title(Object row, long id) {
+                return resolveDialogTitle(messagesController, id);
+            }
+        }, CONFIG::inventory, CATALOGS);
     }
 
     private static String resolveDialogTitle(Object messagesController, long dialogId) {

@@ -54,7 +54,8 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("CatalogRequestBridge.register", self.source)
         self.assertIn("CatalogProtocol.ACTION_REQUEST", bridge)
         self.assertNotIn("bindService", bridge)
-        self.assertIn("CatalogSubmission.MAX_ENTRIES", self.source)
+        owner_publisher = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogOwnerPublisher.java").read_text()
+        self.assertIn("CatalogSubmission.MAX_ENTRIES", owner_publisher)
 
     def test_old_binding_bridge_is_removed(self):
         publisher = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogPublisher.java"
