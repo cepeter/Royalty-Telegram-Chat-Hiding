@@ -17,7 +17,16 @@ final class TelegramShareHook {
     private static final Map<Object, FilteredListState> SEARCH = weakMap();
     private static final Map<Object, FilteredListState> HELPER = weakMap();
     private static final Map<Object, FilteredListState> RECENT = weakMap();
-    private static final Map<Object, Boolean> LAST_REVEAL = weakMap();
+    private static final Map<Object, SelectionMarker> LAST_REVEAL = weakMap();
+
+    private static final class SelectionMarker {
+        final HiddenConfig config;
+        final boolean reveal;
+        SelectionMarker(HiddenConfig config, boolean reveal) {
+            this.config = config;
+            this.reveal = reveal;
+        }
+    }
 
     private TelegramShareHook() {}
 
@@ -163,23 +172,21 @@ final class TelegramShareHook {
 
     private static void guardSelection(Object outer, List<Object> dialogs, int account,
             HiddenConfig config, boolean reveal) {
-        Boolean previous = LAST_REVEAL.put(outer, reveal);
-        if (previous == null || !previous || reveal) return;
+        if (reveal) {
+            LAST_REVEAL.put(outer, new SelectionMarker(config, true));
+            return;
+        }
         Object selected = ModernHookBridge.getObjectField(outer, "T");
         List<Object> originalSelected = new ArrayList<>();
         List<Object> retained = new ArrayList<>();
-        for (Object dialog : dialogs) {
-            java.util.Optional<DialogKey> key = TelegramObjectKey.fromDialog(account, dialog);
-            if (!key.isPresent()) continue;
-            long id = key.get().dialogId();
-            if (((Number) ModernHookBridge.callMethod(selected, "h", id)).intValue() >= 0) {
-                originalSelected.add(dialog);
-                if (!config.isHidden(key.get())) {
-                    retained.add(dialog);
-                }
-            }
+        for (SelectedMapSnapshot.Entry entry : SelectedMapSnapshot.read(selected, account)) {
+            originalSelected.add(entry.value);
+            if (!config.isHidden(DialogKey.of(account, entry.id))) retained.add(entry.value);
         }
-        replaceMapContents(selected, retained, originalSelected, account);
+        if (retained.size() != originalSelected.size()) {
+            replaceMapContents(selected, retained, originalSelected, account);
+        }
+        LAST_REVEAL.put(outer, new SelectionMarker(config, false));
     }
 
     private static void safely(StatusReporter status, Runnable action) {

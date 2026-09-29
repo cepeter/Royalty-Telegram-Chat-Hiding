@@ -561,7 +561,7 @@ public final class TelegramHook extends XposedModule {
 
     private static void install(String hook, HookInstaller installer) {
         try {
-            installer.install();
+            ModernHookBridge.installAtomically(installer::install);
             reportStatus(hook, "installed", "");
         } catch (Throwable error) {
             reportStatus(hook, "missing", error.getClass().getSimpleName());

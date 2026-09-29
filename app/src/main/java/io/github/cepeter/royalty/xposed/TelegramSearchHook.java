@@ -131,13 +131,19 @@ final class TelegramSearchHook {
 
     private static Method findMethod(Class<?> type, String name, int parameterCount)
             throws NoSuchMethodException {
+        Method matched = null;
         for (Method method : type.getDeclaredMethods()) {
             if (name.equals(method.getName())
                     && method.getParameterTypes().length == parameterCount) {
-                return method;
+                if (matched != null) {
+                    throw new NoSuchMethodException(type.getName() + "." + name
+                            + " has ambiguous " + parameterCount + "-argument overloads");
+                }
+                matched = method;
             }
         }
-        throw new NoSuchMethodException(type.getName() + "." + name);
+        if (matched == null) throw new NoSuchMethodException(type.getName() + "." + name);
+        return matched;
     }
 
     private static void reportFailure(StatusReporter status, Throwable error) {

@@ -13,6 +13,14 @@ import java.util.List;
 
 final class ModernHookBridge {
     private static XposedModule module;
+    private static final ThreadLocal<HookInstallation> INSTALLATION = new ThreadLocal<>();
+
+    interface Installer { void install() throws Throwable; }
+
+    private static final class HookInstallation {
+        final List<XposedInterface.HookHandle> handles = new ArrayList<>();
+        volatile boolean active;
+    }
 
     private ModernHookBridge() {}
 
@@ -25,12 +33,16 @@ final class ModernHookBridge {
 
     static XposedInterface.HookHandle hookMethod(Executable executable, MethodHook callback) {
         executable.setAccessible(true);
-        return requireModule()
+        HookInstallation installation = INSTALLATION.get();
+        XposedInterface.HookHandle handle = requireModule()
                 .hook(executable)
                 .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
                 .intercept(new XposedInterface.Hooker() {
                     @Override
                     public Object intercept(XposedInterface.Chain chain) throws Throwable {
+                        if (installation != null && !installation.active) {
+                            return chain.proceed(chain.getArgs().toArray());
+                        }
                         MethodHookParam param = new MethodHookParam(
                                 chain.getExecutable(),
                                 chain.getThisObject(),
@@ -50,6 +62,36 @@ final class ModernHookBridge {
                         return param.result;
                     }
                 });
+        trackHandle(handle);
+        return handle;
+    }
+
+    static void installAtomically(Installer installer) throws Throwable {
+        if (INSTALLATION.get() != null) {
+            throw new IllegalStateException("nested hook installation");
+        }
+        HookInstallation installation = new HookInstallation();
+        INSTALLATION.set(installation);
+        try {
+            installer.install();
+            installation.active = true;
+        } catch (Throwable failure) {
+            for (int index = installation.handles.size() - 1; index >= 0; index--) {
+                try {
+                    installation.handles.get(index).unhook();
+                } catch (Throwable rollbackError) {
+                    failure.addSuppressed(rollbackError);
+                }
+            }
+            throw failure;
+        } finally {
+            INSTALLATION.remove();
+        }
+    }
+
+    static void trackHandle(XposedInterface.HookHandle handle) {
+        HookInstallation installation = INSTALLATION.get();
+        if (installation != null) installation.handles.add(handle);
     }
 
     static List<XposedInterface.HookHandle> hookAllMethods(
