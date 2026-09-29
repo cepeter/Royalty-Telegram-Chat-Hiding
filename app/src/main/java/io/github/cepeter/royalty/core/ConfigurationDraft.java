@@ -54,6 +54,27 @@ public final class ConfigurationDraft {
         return true;
     }
 
+    private boolean setPrivacy(boolean background, boolean screenOff, int timeout, boolean auth) {
+        if (!initialized) return false;
+        HiddenConfig next = current.withPrivacy(background, screenOff, timeout, auth);
+        if (next.equals(current)) return true;
+        remember();
+        current = next;
+        return true;
+    }
+    public boolean setConcealOnBackground(boolean value) {
+        return setPrivacy(value, current.concealOnScreenOff(), current.revealTimeoutMs(), current.authenticate());
+    }
+    public boolean setConcealOnScreenOff(boolean value) {
+        return setPrivacy(current.concealOnBackground(), value, current.revealTimeoutMs(), current.authenticate());
+    }
+    public boolean setRevealTimeoutMs(int value) {
+        return setPrivacy(current.concealOnBackground(), current.concealOnScreenOff(), value, current.authenticate());
+    }
+    public boolean setAuthenticate(boolean value) {
+        return setPrivacy(current.concealOnBackground(), current.concealOnScreenOff(), current.revealTimeoutMs(), value);
+    }
+
     public boolean setHidden(DialogKey key, boolean hidden, long owner) {
         if (!initialized || key == null || owner <= 0) return false;
         remember();
@@ -116,16 +137,20 @@ public final class ConfigurationDraft {
     public State snapshot() {
         return new State(initialized, encoded(baseline), baseline.suppressNotifications(),
                 baseline.localPremium(), encoded(current), current.suppressNotifications(),
-                current.localPremium(), requireVerifiedBaseline, encodeBindings(baseline), encodeBindings(current));
+                current.localPremium(), requireVerifiedBaseline, encodeBindings(baseline), encodeBindings(current),
+                baseline.concealOnBackground(), baseline.concealOnScreenOff(), baseline.revealTimeoutMs(), baseline.authenticate(),
+                current.concealOnBackground(), current.concealOnScreenOff(), current.revealTimeoutMs(), current.authenticate());
     }
 
     public static ConfigurationDraft restore(State state) {
         ConfigurationDraft draft = new ConfigurationDraft();
         if (state != null && state.initialized) {
             draft.baseline = decode(state.baselineKeys, state.baselineBindings,
-                    state.baselineNotifications, state.baselinePremium);
+                    state.baselineNotifications, state.baselinePremium).withPrivacy(
+                            state.baselineBackground, state.baselineScreenOff, state.baselineTimeout, state.baselineAuth);
             draft.current = decode(state.currentKeys, state.currentBindings,
-                    state.currentNotifications, state.currentPremium);
+                    state.currentNotifications, state.currentPremium).withPrivacy(
+                            state.currentBackground, state.currentScreenOff, state.currentTimeout, state.currentAuth);
             draft.requireVerifiedBaseline = state.requireVerifiedBaseline;
             draft.initialized = true;
         }
@@ -168,11 +193,17 @@ public final class ConfigurationDraft {
         private final boolean requireVerifiedBaseline;
         private final Map<String, Long> baselineBindings;
         private final Map<String, Long> currentBindings;
+        private final boolean baselineBackground, baselineScreenOff, baselineAuth;
+        private final int baselineTimeout;
+        private final boolean currentBackground, currentScreenOff, currentAuth;
+        private final int currentTimeout;
 
         private State(boolean initialized, Set<String> baselineKeys, boolean baselineNotifications,
                 boolean baselinePremium, Set<String> currentKeys, boolean currentNotifications,
                 boolean currentPremium, boolean requireVerifiedBaseline,
-                Map<String, Long> baselineBindings, Map<String, Long> currentBindings) {
+                Map<String, Long> baselineBindings, Map<String, Long> currentBindings,
+                boolean baselineBackground, boolean baselineScreenOff, int baselineTimeout, boolean baselineAuth,
+                boolean currentBackground, boolean currentScreenOff, int currentTimeout, boolean currentAuth) {
             this.initialized = initialized;
             this.baselineKeys = new HashSet<>(baselineKeys);
             this.baselineNotifications = baselineNotifications;
@@ -183,6 +214,14 @@ public final class ConfigurationDraft {
             this.requireVerifiedBaseline = requireVerifiedBaseline;
             this.baselineBindings = new HashMap<>(baselineBindings);
             this.currentBindings = new HashMap<>(currentBindings);
+            this.baselineBackground = baselineBackground;
+            this.baselineScreenOff = baselineScreenOff;
+            this.baselineTimeout = baselineTimeout;
+            this.baselineAuth = baselineAuth;
+            this.currentBackground = currentBackground;
+            this.currentScreenOff = currentScreenOff;
+            this.currentTimeout = currentTimeout;
+            this.currentAuth = currentAuth;
         }
     }
 }

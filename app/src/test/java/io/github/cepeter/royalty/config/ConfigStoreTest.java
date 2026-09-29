@@ -1,6 +1,7 @@
 package io.github.cepeter.royalty.config;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.content.SharedPreferences;
@@ -117,6 +118,24 @@ public final class ConfigStoreTest {
         assertTrue(recreated.baseline().suppressNotifications());
     }
 
+    @Test public void privacyPolicyPersistsWithOwnerBindingsAndDefaultsDisabled() {
+        Map<String, Object> values = new HashMap<>();
+        SharedPreferences preferences = preferences(values);
+        HiddenConfig defaults = ConfigStore.load(preferences);
+        assertFalse(defaults.authenticate());
+        assertEquals(0, defaults.revealTimeoutMs());
+        DialogKey key = DialogKey.of(1, 42);
+        HiddenConfig selected = HiddenConfig.fromBindings(Collections.singletonMap(key, 77L),
+                Collections.emptySet(), true, false).withPrivacy(true, true, 300000, true);
+        assertTrue(ConfigStore.save(preferences, selected));
+        HiddenConfig loaded = ConfigStore.load(preferences);
+        assertEquals(Long.valueOf(77), loaded.boundOwner(key));
+        assertTrue(loaded.concealOnBackground());
+        assertTrue(loaded.concealOnScreenOff());
+        assertEquals(300000, loaded.revealTimeoutMs());
+        assertTrue(loaded.authenticate());
+    }
+
     private static SharedPreferences preferences(Map<String, Object> values) {
         return preferences(values, new boolean[] {false});
     }
@@ -128,6 +147,7 @@ public final class ConfigStoreTest {
                 (proxy, method, args) -> {
                     switch (method.getName()) {
                         case "putBoolean":
+                        case "putInt":
                         case "putStringSet":
                             values.put((String) args[0], args[1]);
                             return proxy;
@@ -145,6 +165,7 @@ public final class ConfigStoreTest {
                 (proxy, method, args) -> {
                     switch (method.getName()) {
                         case "getBoolean":
+                        case "getInt":
                         case "getStringSet":
                             return values.getOrDefault((String) args[0], args[1]);
                         case "edit":

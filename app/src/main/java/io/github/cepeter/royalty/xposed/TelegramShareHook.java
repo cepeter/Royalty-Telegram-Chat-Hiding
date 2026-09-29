@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -33,27 +34,33 @@ final class TelegramShareHook {
     interface StatusReporter { void report(String status, String detail); }
 
     static void install(ClassLoader loader, Supplier<HiddenConfig> config,
-            BooleanSupplier revealed, StatusReporter status) throws Exception {
+            BooleanSupplier revealed, Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
         Class<?> main = Class.forName("org.telegram.ui.Components.oq0", false, loader);
         Class<?> search = Class.forName("org.telegram.ui.Components.sq0", false, loader);
+        AdapterRefreshRegistry.verifyRefreshMethod(main);
+        AdapterRefreshRegistry.verifyRefreshMethod(search);
         ModernHookBridge.hookMethod(main.getDeclaredMethod("E"), new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
-                safely(status, () -> applyMain(p.thisObject, config, revealed, status));
+                safely(status, () -> { trackAdapter.accept(p.thisObject);
+                    applyMain(p.thisObject, config, revealed, status); });
             }
         });
         ModernHookBridge.hookMethod(main.getDeclaredMethod("h"), new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
-                safely(status, () -> applyMain(p.thisObject, config, revealed, status));
+                safely(status, () -> { trackAdapter.accept(p.thisObject);
+                    applyMain(p.thisObject, config, revealed, status); });
             }
         });
         ModernHookBridge.hookMethod(search.getDeclaredMethod("E", String.class), new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
-                safely(status, () -> applySearch(p.thisObject, config, revealed, status));
+                safely(status, () -> { trackAdapter.accept(p.thisObject);
+                    applySearch(p.thisObject, config, revealed, status); });
             }
         });
         ModernHookBridge.hookMethod(search.getDeclaredMethod("h"), new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
-                safely(status, () -> applySearch(p.thisObject, config, revealed, status));
+                safely(status, () -> { trackAdapter.accept(p.thisObject);
+                    applySearch(p.thisObject, config, revealed, status); });
             }
         });
     }

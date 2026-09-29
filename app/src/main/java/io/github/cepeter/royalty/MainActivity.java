@@ -2,6 +2,7 @@ package io.github.cepeter.royalty;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.KeyguardManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -30,6 +31,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckedTextView;
@@ -55,6 +57,7 @@ import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.DiagnosticsFormatter;
 import io.github.cepeter.royalty.core.HiddenConfig;
 import io.github.cepeter.royalty.core.ProtectionStatus;
+import io.github.cepeter.royalty.core.SettingsAccess;
 import io.github.cepeter.royalty.update.UpdateChecker;
 import io.github.cepeter.royalty.update.UpdateRelease;
 import java.util.ArrayList;
@@ -76,6 +79,13 @@ public final class MainActivity extends Activity {
     private final List<CatalogEntry> visibleCatalog = new ArrayList<>();
     private static final String DRAFT_STATE = "configuration_draft";
     private ConfigurationDraft draft = new ConfigurationDraft();
+    private SettingsAccess settingsAccess = new SettingsAccess();
+    private boolean contentBuilt;
+    private boolean credentialPending;
+    private Switch backgroundSwitch, screenOffSwitch, authenticationSwitch;
+    private Button timeoutButton;
+    private static final int SETTINGS_CREDENTIAL_REQUEST = 90;
+    private static final int[] TIMEOUTS = {0, 30000, 60000, 300000};
     private boolean preferencesAvailable;
     private boolean renderingSettings;
     private boolean catalogRequestTimedOut;
@@ -88,6 +98,7 @@ public final class MainActivity extends Activity {
             mainHandler.post(() -> {
                 preferences = current;
                 renderCached();
+                if (settingsAccess.allowed()) requestCatalog();
             });
     private final Runnable catalogTimeout = () -> {
         if (requestNonce != null && requestExpiresAt != 0
@@ -141,8 +152,9 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Object retained = getLastNonConfigurationInstance();
-        if (retained instanceof ConfigurationDraft) {
-            draft = (ConfigurationDraft) retained;
+        if (retained instanceof Retained) {
+            draft = ((Retained) retained).draft;
+            settingsAccess = ((Retained) retained).access;
         } else if (savedInstanceState != null) {
             Object saved = savedInstanceState.getSerializable(DRAFT_STATE);
             if (saved instanceof ConfigurationDraft.State)
@@ -150,14 +162,22 @@ public final class MainActivity extends Activity {
         }
         catalogRepository = new CatalogRepository(this);
         updateChecker = new UpdateChecker(mainHandler);
-        setContentView(buildContentView());
-        renderCached();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        showGate();
         XposedPreferenceService.subscribe(preferenceListener);
     }
 
     @Override
     public Object onRetainNonConfigurationInstance() {
-        return draft;
+        return new Retained(draft, settingsAccess);
+    }
+
+    private static final class Retained {
+        final ConfigurationDraft draft;
+        final SettingsAccess access;
+        Retained(ConfigurationDraft draft, SettingsAccess access) {
+            this.draft = draft; this.access = access;
+        }
     }
 
     @Override
@@ -180,8 +200,10 @@ public final class MainActivity extends Activity {
         super.onResume();
         CatalogUpdates.shared().subscribe(catalogUpdateListener);
         renderCached();
-        requestCatalog();
-        maybeCheckForUpdate();
+        if (settingsAccess.allowed()) {
+            requestCatalog();
+            maybeCheckForUpdate();
+        }
         mainHandler.removeCallbacks(freshnessTick);
         mainHandler.postDelayed(freshnessTick, 15_000);
     }
@@ -192,6 +214,63 @@ public final class MainActivity extends Activity {
         mainHandler.removeCallbacks(freshnessTick);
         CatalogUpdates.shared().unsubscribe(catalogUpdateListener);
         super.onPause();
+    }
+
+    @Override protected void onStop() {
+        if (!isChangingConfigurations()) {
+            settingsAccess.background();
+            if (settingsAccess.authenticationRequired()) showGate();
+        }
+        super.onStop();
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != SETTINGS_CREDENTIAL_REQUEST) return;
+        credentialPending = false;
+        if (resultCode == RESULT_OK) settingsAccess.authenticated();
+        else Toast.makeText(this, "Authentication cancelled; settings remain locked", Toast.LENGTH_SHORT).show();
+        renderCached();
+        if (settingsAccess.allowed()) requestCatalog();
+    }
+
+    private void showGate() {
+        if (isFinishing()) return;
+        contentBuilt = false;
+        LinearLayout gate = new LinearLayout(this);
+        gate.setOrientation(LinearLayout.VERTICAL);
+        gate.setGravity(Gravity.CENTER);
+        gate.setPadding(dp(24), dp(24), dp(24), dp(24));
+        gate.setBackgroundColor(getColor(R.color.royalty_background));
+        TextView message = createText(0, 18, R.color.royalty_text, Typeface.BOLD);
+        message.setText(settingsAccess.known() ? "Confirm your device screen lock to open settings"
+                : "Waiting for saved privacy settings…");
+        gate.addView(message, matchWrap());
+        if (settingsAccess.known() && settingsAccess.authenticationRequired()) {
+            Button unlock = createPrimaryButton(R.string.app_name);
+            unlock.setText("Unlock settings");
+            unlock.setOnClickListener(v -> requestSettingsCredential());
+            gate.addView(unlock, withTopMargin(matchWrap(), 16));
+        }
+        setContentView(gate);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void requestSettingsCredential() {
+        if (credentialPending || !settingsAccess.known() || !settingsAccess.authenticationRequired()) return;
+        KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+        if (manager == null || !manager.isDeviceSecure()) {
+            showError("Set a device screen lock to access protected settings.");
+            return;
+        }
+        Intent intent = manager.createConfirmDeviceCredentialIntent("Unlock settings", "Confirm your device screen lock");
+        if (intent == null) { showError("Device credential is unavailable."); return; }
+        credentialPending = true;
+        try { startActivityForResult(intent, SETTINGS_CREDENTIAL_REQUEST); }
+        catch (RuntimeException error) {
+            credentialPending = false;
+            showError("Device credential is unavailable.");
+        }
     }
 
     private View buildContentView() {
@@ -344,6 +423,39 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(premiumCard, withTopMargin(matchWrap(), 12));
 
+        backgroundSwitch = privacySwitch("Conceal when Telegram backgrounds", draft.current().concealOnBackground(),
+                checked -> draft.setConcealOnBackground(checked));
+        root.addView(backgroundSwitch, withTopMargin(matchWrap(), 12));
+        screenOffSwitch = privacySwitch("Conceal when screen turns off", draft.current().concealOnScreenOff(),
+                checked -> draft.setConcealOnScreenOff(checked));
+        root.addView(screenOffSwitch, withTopMargin(matchWrap(), 12));
+        authenticationSwitch = privacySwitch("Require device screen lock to reveal", draft.current().authenticate(),
+                checked -> {
+                    if (checked) {
+                        KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+                        if (manager == null || !manager.isDeviceSecure()) {
+                            renderingSettings = true;
+                            authenticationSwitch.setChecked(false);
+                            renderingSettings = false;
+                            showError("Set a device screen lock before enabling authentication.");
+                            return;
+                        }
+                    }
+                    draft.setAuthenticate(checked);
+                });
+        root.addView(authenticationSwitch, withTopMargin(matchWrap(), 12));
+        timeoutButton = createSecondaryButton(R.string.app_name);
+        timeoutButton.setOnClickListener(v -> {
+            int current = draft.current().revealTimeoutMs();
+            int next = 0;
+            for (int i = 0; i < TIMEOUTS.length; i++) if (TIMEOUTS[i] == current) {
+                next = TIMEOUTS[(i + 1) % TIMEOUTS.length]; break;
+            }
+            draft.setRevealTimeoutMs(next);
+            timeoutButton.setText(timeoutLabel(next));
+        });
+        root.addView(timeoutButton, withTopMargin(matchWrap(), 12));
+
         root.addView(createSectionLabel(R.string.hidden_chats_section), withTopMargin(matchWrap(), 20));
         TextView chatsSubtitle = createText(
                 R.string.hidden_chats_subtitle, 13, R.color.royalty_text_muted, Typeface.NORMAL);
@@ -450,6 +562,23 @@ public final class MainActivity extends Activity {
         scrollView.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return scrollView;
+    }
+
+    private Switch privacySwitch(String label, boolean checked, java.util.function.Consumer<Boolean> onChange) {
+        Switch control = new Switch(this);
+        control.setText(label);
+        control.setTextColor(getColor(R.color.royalty_text));
+        control.setMinimumHeight(dp(48));
+        control.setChecked(checked);
+        control.setOnCheckedChangeListener((button, value) -> {
+            if (!renderingSettings) onChange.accept(value);
+        });
+        return control;
+    }
+
+    private String timeoutLabel(int value) {
+        if (value == 0) return "Reveal timeout: Off";
+        return "Reveal timeout: " + (value / 1000) + " seconds";
     }
 
     private void promptRebind(CatalogEntry entry) {
@@ -568,6 +697,17 @@ public final class MainActivity extends Activity {
     }
 
     private void renderCached() {
+        if (preferences != null) {
+            try {
+                draft.loadSaved(ConfigStore.load(preferences));
+                if (draft.initialized()) settingsAccess.learn(draft.baseline());
+            } catch (RuntimeException error) { preferencesAvailable = false; }
+        }
+        if (!settingsAccess.allowed()) { showGate(); return; }
+        if (!contentBuilt) {
+            setContentView(buildContentView());
+            contentBuilt = true;
+        }
         renderSettings();
         renderCatalogAndHealth();
     }
@@ -585,15 +725,24 @@ public final class MainActivity extends Activity {
         renderingSettings = true;
         setSuppressNotifications(draft.current().suppressNotifications());
         setLocalPremium(draft.current().localPremium());
+        backgroundSwitch.setChecked(draft.current().concealOnBackground());
+        screenOffSwitch.setChecked(draft.current().concealOnScreenOff());
+        authenticationSwitch.setChecked(draft.current().authenticate());
+        timeoutButton.setText(timeoutLabel(draft.current().revealTimeoutMs()));
         renderingSettings = false;
         boolean editable = draft.initialized() && preferencesAvailable;
         notificationSwitch.setEnabled(editable);
         premiumSwitch.setEnabled(editable);
+        backgroundSwitch.setEnabled(editable);
+        screenOffSwitch.setEnabled(editable);
+        authenticationSwitch.setEnabled(editable);
+        timeoutButton.setEnabled(editable);
         dialogList.setEnabled(editable);
         saveButton.setEnabled(editable);
     }
 
     private void renderCatalogAndHealth() {
+        if (!contentBuilt || !settingsAccess.allowed()) return;
         catalog.clear();
         catalog.addAll(catalogRepository.loadCatalog());
         addMissingSelections(draft.current().hiddenDialogs());
@@ -624,6 +773,13 @@ public final class MainActivity extends Activity {
         }
         try {
             HiddenConfig current = draft.current();
+            if (current.authenticate()) {
+                KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+                if (manager == null || !manager.isDeviceSecure()) {
+                    showError("Set a device screen lock before saving authentication.");
+                    return;
+                }
+            }
             if (!draft.canSaveAgainst(accountInventory)) {
                 showError("Account ownership changed or is incomplete. Refresh and review selections before saving.");
                 return;
@@ -634,7 +790,9 @@ public final class MainActivity extends Activity {
                 showError(getString(R.string.save_failed));
                 return;
             }
-            renderCatalogAndHealth();
+            settingsAccess.learn(draft.baseline());
+            if (settingsAccess.allowed()) renderCatalogAndHealth();
+            else showGate();
             Toast.makeText(this, "Changes saved", Toast.LENGTH_SHORT).show();
         } catch (RuntimeException error) {
             draft.markSaved(false);

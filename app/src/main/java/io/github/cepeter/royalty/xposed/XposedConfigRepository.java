@@ -28,6 +28,8 @@ public final class XposedConfigRepository {
         return inventory;
     }
 
+    public HiddenConfig saved() { return ConfigStore.load(preferences); }
+
     public HiddenConfig current() {
         return ConfigStore.load(preferences).eligible(inventory());
     }

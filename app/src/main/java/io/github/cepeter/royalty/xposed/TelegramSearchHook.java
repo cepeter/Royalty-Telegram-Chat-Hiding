@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 final class TelegramSearchHook {
@@ -24,8 +25,9 @@ final class TelegramSearchHook {
             ClassLoader loader,
             Supplier<HiddenConfig> config,
             BooleanSupplier revealed,
-            StatusReporter status) throws ReflectiveOperationException {
+            Consumer<Object> trackAdapter, StatusReporter status) throws ReflectiveOperationException {
         Class<?> adapter = Class.forName("we.b0", false, loader);
+        AdapterRefreshRegistry.verifyRefreshMethod(adapter);
         Method count = adapter.getDeclaredMethod("h");
         Method item = adapter.getDeclaredMethod("J", int.class);
 
@@ -37,6 +39,7 @@ final class TelegramSearchHook {
                     int[] positions = buildPositions(
                             param.thisObject, sourceCount, item, config, revealed, status);
                     POSITIONS.put(param.thisObject, positions);
+                    trackAdapter.accept(param.thisObject);
                     param.setResult(positions.length);
                 } catch (Throwable error) {
                     reportFailure(status, error);
@@ -68,6 +71,8 @@ final class TelegramSearchHook {
             }
         });
     }
+
+    static void invalidatePositions() { POSITIONS.clear(); }
 
     private static void hookPosition(
             Method method,

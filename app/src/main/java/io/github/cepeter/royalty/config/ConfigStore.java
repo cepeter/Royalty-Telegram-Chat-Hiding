@@ -16,6 +16,10 @@ public final class ConfigStore {
     public static final String SUPPRESS_NOTIFICATIONS = "suppress_notifications";
     public static final String LOCAL_PREMIUM = "local_premium";
 
+    public static final String CONCEAL_BACKGROUND = "conceal_background";
+    public static final String CONCEAL_SCREEN_OFF = "conceal_screen_off";
+    public static final String REVEAL_TIMEOUT = "reveal_timeout_ms";
+    public static final String AUTHENTICATE = "authenticate";
     private ConfigStore() {}
 
     public static HiddenConfig load(SharedPreferences preferences) {
@@ -38,7 +42,15 @@ public final class ConfigStore {
         unbound.removeAll(bindings.keySet());
         return HiddenConfig.fromBindings(bindings, unbound,
                 preferences.getBoolean(SUPPRESS_NOTIFICATIONS, false),
-                preferences.getBoolean(LOCAL_PREMIUM, false));
+                preferences.getBoolean(LOCAL_PREMIUM, false),
+                preferences.getBoolean(CONCEAL_BACKGROUND, false),
+                preferences.getBoolean(CONCEAL_SCREEN_OFF, false),
+                safeTimeout(preferences.getInt(REVEAL_TIMEOUT, 0)),
+                preferences.getBoolean(AUTHENTICATE, false));
+    }
+
+    private static int safeTimeout(int value) {
+        return value == 30000 || value == 60000 || value == 300000 ? value : 0;
     }
 
     @SuppressLint("ApplySharedPref")
@@ -51,7 +63,11 @@ public final class ConfigStore {
         return preferences.edit().putStringSet(HIDDEN_DIALOGS, encoded)
                 .putStringSet(OWNER_BINDINGS, bindings)
                 .putBoolean(SUPPRESS_NOTIFICATIONS, config.suppressNotifications())
-                .putBoolean(LOCAL_PREMIUM, config.localPremium()).commit();
+                .putBoolean(LOCAL_PREMIUM, config.localPremium())
+                .putBoolean(CONCEAL_BACKGROUND, config.concealOnBackground())
+                .putBoolean(CONCEAL_SCREEN_OFF, config.concealOnScreenOff())
+                .putInt(REVEAL_TIMEOUT, config.revealTimeoutMs())
+                .putBoolean(AUTHENTICATE, config.authenticate()).commit();
     }
 
     @SuppressLint("ApplySharedPref")

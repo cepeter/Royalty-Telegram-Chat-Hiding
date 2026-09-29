@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -22,37 +23,51 @@ final class TelegramContactHook {
     interface StatusReporter { void report(String status, String detail); }
 
     static void install(ClassLoader loader, Supplier<HiddenConfig> config,
-            BooleanSupplier revealed, StatusReporter status) throws Exception {
+            BooleanSupplier revealed, Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
         Class<?> group = Class.forName("org.telegram.ui.q70", false, loader);
-        hookBefore(group.getDeclaredMethod("h"), p ->
-                applyGroup(p.thisObject, config.get(), revealed.getAsBoolean(), status), status);
-        hookAfter(group.getDeclaredMethod("L", String.class), p ->
-                applyGroup(p.thisObject, config.get(), revealed.getAsBoolean(), status), status);
+        AdapterRefreshRegistry.verifyRefreshMethod(group);
+        hookBefore(group.getDeclaredMethod("h"), p -> {
+            trackAdapter.accept(p.thisObject);
+            applyGroup(p.thisObject, config.get(), revealed.getAsBoolean(), status);
+        }, status);
+        hookAfter(group.getDeclaredMethod("L", String.class), p -> {
+            trackAdapter.accept(p.thisObject);
+            applyGroup(p.thisObject, config.get(), revealed.getAsBoolean(), status);
+        }, status);
 
         Class<?> search = Class.forName("we.g1", false, loader);
+        AdapterRefreshRegistry.verifyRefreshMethod(Class.forName("org.telegram.ui.mt", false, loader));
         hookBefore(search.getDeclaredMethod("h"), p -> {
-            if (isClass(p.thisObject, "org.telegram.ui.mt"))
+            if (isClass(p.thisObject, "org.telegram.ui.mt")) {
+                trackAdapter.accept(p.thisObject);
                 applySearch(p.thisObject, config.get(), revealed.getAsBoolean(), status);
+            }
         }, status);
         hookAfter(search.getDeclaredMethod("G", String.class), p -> {
-            if (isClass(p.thisObject, "org.telegram.ui.mt"))
+            if (isClass(p.thisObject, "org.telegram.ui.mt")) {
+                trackAdapter.accept(p.thisObject);
                 applySearch(p.thisObject, config.get(), revealed.getAsBoolean(), status);
+            }
         }, status);
 
-        installSections(loader, config, revealed, status);
+        installSections(loader, config, revealed, trackAdapter, status);
     }
 
     private static void installSections(ClassLoader loader, Supplier<HiddenConfig> config,
-            BooleanSupplier revealed, StatusReporter status) throws Exception {
+            BooleanSupplier revealed, Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
         Class<?> base = Class.forName("we.d", false, loader);
         Class<?> concrete = Class.forName("org.telegram.ui.nt", false, loader);
+        AdapterRefreshRegistry.verifyRefreshMethod(concrete);
         Method refresh = concrete.getDeclaredMethod("l");
         Method count = base.getDeclaredMethod("M", int.class);
         Method item = base.getDeclaredMethod("O", int.class, int.class);
         ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 if (!isClass(p.thisObject, "org.telegram.ui.nt")) return;
-                safely(status, () -> buildSection(p, item, config.get(), revealed.getAsBoolean()));
+                safely(status, () -> {
+                    trackAdapter.accept(p.thisObject);
+                    buildSection(p, item, config.get(), revealed.getAsBoolean());
+                });
             }
         });
         for (String name : new String[] {"O", "N", "P", "V", "W"}) {
@@ -67,6 +82,8 @@ final class TelegramContactHook {
             }
         });
     }
+
+    static void invalidateSections() { SECTIONS.clear(); }
 
     private static void buildSection(ModernHookBridge.MethodHookParam p, Method item,
             HiddenConfig config, boolean reveal) {
