@@ -70,6 +70,15 @@ final class AdapterRefreshRegistry {
         resolve(adapter.getClass()).invoke(adapter);
     }
 
+    static boolean tryRefresh(Object adapter) throws ReflectiveOperationException {
+        try {
+            refresh(adapter);
+            return true;
+        } catch (NoSuchMethodException unsupported) {
+            return false;
+        }
+    }
+
     synchronized void track(Object adapter) {
         if (adapter != null) adapters.put(adapter, Boolean.TRUE);
     }

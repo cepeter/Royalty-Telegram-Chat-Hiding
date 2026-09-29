@@ -693,8 +693,17 @@ public final class TelegramHook extends XposedModule {
         TelegramSearchHook.invalidatePositions();
         TelegramContactHook.invalidateSections();
         ADAPTERS.refreshAll(adapter -> {
-            try { AdapterRefreshRegistry.refresh(adapter); }
-            catch (Throwable error) { reportRuntimeError("reveal", error); }
+            try {
+                if (!AdapterRefreshRegistry.tryRefresh(adapter)) {
+                    ModernHookBridge.log(
+                            "TelegramChatHider: optional adapter refresh unavailable for "
+                                    + adapter.getClass().getName());
+                }
+            } catch (VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable error) {
+                reportRuntimeError("reveal", error);
+            }
         });
     }
 
