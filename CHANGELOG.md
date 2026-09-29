@@ -4,6 +4,18 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.4] - 2026-09-29
+
+### Fixed
+
+- Keep optional Telegram adapter redraw failures from degrading reveal health when reveal itself remains functional.
+
+### Changed
+
+- Redesign the Royalty settings dashboard with clearer Connection, Privacy controls, Backup & recovery, and Hidden chats sections.
+- Collapse technical diagnostics by default, group reveal-protection settings, and consolidate hidden-chat editing with side-by-side Save and Discard actions.
+- Advance Android release metadata to version 3.1.4 (code 21) for the signed release.
+
 ## [3.1.3] - 2026-09-29
 
 ### Fixed
@@ -201,7 +213,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.3...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.4...HEAD
+[3.1.4]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.4
 [3.1.3]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.3
 [3.1.2]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.2
 [3.1.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.0
