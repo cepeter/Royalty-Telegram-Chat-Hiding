@@ -54,15 +54,34 @@ public final class BackupOperationTest {
             });
             assertTrue(opened.await(2, TimeUnit.SECONDS));
             operation.cancel();
-            assertTrue(stream.closed);
+            assertTrue(stream.closeCompleted.await(2, TimeUnit.SECONDS));
             for (char c : secret) assertEquals('\0', c);
             release.countDown();
             assertFalse(work.get(2, TimeUnit.SECONDS));
             assertEquals(0, stream.size());
         } finally { executor.shutdownNow(); }
     }
+    @Test public void blockingProviderCloseNeverBlocksCancellationCaller() throws Exception {
+        ExecutorService caller = Executors.newSingleThreadExecutor();
+        CountDownLatch closing = new CountDownLatch(1), releaseClose = new CountDownLatch(1);
+        char[] secret = "secret passphrase".toCharArray(); BackupOperation operation = new BackupOperation(secret);
+        java.util.concurrent.atomic.AtomicReference<Thread> closeThread = new java.util.concurrent.atomic.AtomicReference<>();
+        operation.track(() -> {
+            closeThread.set(Thread.currentThread()); closing.countDown();
+            try { releaseClose.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        });
+        try {
+            Future<Thread> cancelled = caller.submit(() -> { operation.cancel(); return Thread.currentThread(); });
+            assertTrue(closing.await(2, TimeUnit.SECONDS));
+            Thread ui = cancelled.get(1, TimeUnit.SECONDS);
+            assertNotSame(ui, closeThread.get()); assertTrue(operation.cancelled());
+            for (char c : secret) assertEquals('\0', c);
+            try { operation.checkActive(); fail(); } catch (CancellationException expected) { }
+        } finally { releaseClose.countDown(); caller.shutdownNow(); }
+    }
+
     private static final class TrackedStream extends ByteArrayOutputStream {
-        volatile boolean closed;
-        @Override public void close() throws IOException { closed = true; super.close(); }
+        final CountDownLatch closeCompleted = new CountDownLatch(1);
+        @Override public void close() throws IOException { super.close(); closeCompleted.countDown(); }
     }
 }

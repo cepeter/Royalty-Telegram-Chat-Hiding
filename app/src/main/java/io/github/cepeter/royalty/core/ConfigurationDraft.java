@@ -28,6 +28,7 @@ public final class ConfigurationDraft {
         // verified save can advance the baseline, even after recreation or late callbacks.
         if (requireVerifiedBaseline) return;
         boolean preserveEdit = dirty();
+        if (!baseline.equals(saved)) undo.clear();
         baseline = saved;
         if (!preserveEdit) current = saved;
         initialized = true;

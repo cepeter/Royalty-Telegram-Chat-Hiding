@@ -58,9 +58,10 @@ public final class BackupData {
     }
     public static Export exportFromSaved(HiddenConfig saved) {
         Objects.requireNonNull(saved, "saved");
-        List<Entry> entries = new ArrayList<>();
+        Set<Entry> unique = new HashSet<>();
         for (Map.Entry<DialogKey, Long> binding : saved.bindings().entrySet())
-            entries.add(new Entry(binding.getValue(), binding.getKey().dialogId()));
+            unique.add(new Entry(binding.getValue(), binding.getKey().dialogId()));
+        List<Entry> entries = new ArrayList<>(unique);
         entries.sort(Comparator.comparingLong(Entry::ownerId).thenComparingLong(Entry::dialogId));
         return new Export(new BackupData(entries, saved.suppressNotifications(), saved.localPremium(),
                 saved.concealOnBackground(), saved.concealOnScreenOff(), saved.revealTimeoutMs()),

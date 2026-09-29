@@ -59,11 +59,14 @@ final class FilteredListState {
         List<List<Object>> anchored = new ArrayList<>(snapshot.size());
         for (int index = 0; index < snapshot.size(); index++) anchored.add(new ArrayList<>());
         List<Object> orphaned = new ArrayList<>();
+        boolean[] survives = new boolean[snapshot.size()];
+        IdentityHashMap<Object, Integer> remaining = identityCounts(current);
+        for (int i = 0; i < snapshot.size(); i++) survives[i] = consume(remaining, snapshot.get(i));
         int nextVisible = -1;
         int[] nextAnchors = new int[raw.size()];
         int ordinal = snapshot.size();
         for (int index = raw.size() - 1; index >= 0; index--) {
-            if (oldVisible[index]) nextVisible = --ordinal;
+            if (oldVisible[index]) { --ordinal; if (survives[ordinal]) nextVisible = ordinal; }
             nextAnchors[index] = nextVisible;
         }
         for (int index = 0; index < raw.size(); index++) {

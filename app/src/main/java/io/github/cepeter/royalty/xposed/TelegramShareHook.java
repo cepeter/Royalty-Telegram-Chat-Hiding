@@ -18,17 +18,6 @@ final class TelegramShareHook {
     private static final Map<Object, FilteredListState> SEARCH = weakMap();
     private static final Map<Object, FilteredListState> HELPER = weakMap();
     private static final Map<Object, FilteredListState> RECENT = weakMap();
-    private static final Map<Object, SelectionMarker> LAST_REVEAL = weakMap();
-
-    private static final class SelectionMarker {
-        final HiddenConfig config;
-        final boolean reveal;
-        SelectionMarker(HiddenConfig config, boolean reveal) {
-            this.config = config;
-            this.reveal = reveal;
-        }
-    }
-
     private TelegramShareHook() {}
 
     interface StatusReporter { void report(String status, String detail); }
@@ -176,7 +165,6 @@ final class TelegramShareHook {
     private static void guardSelection(Object outer, List<Object> dialogs, int account,
             HiddenConfig config, boolean reveal) {
         if (reveal) {
-            LAST_REVEAL.put(outer, new SelectionMarker(config, true));
             return;
         }
         Object selected = ModernHookBridge.getObjectField(outer, "T");
@@ -189,7 +177,6 @@ final class TelegramShareHook {
         if (retained.size() != originalSelected.size()) {
             replaceMapContents(selected, retained, account);
         }
-        LAST_REVEAL.put(outer, new SelectionMarker(config, false));
     }
 
     private static void safely(StatusReporter status, Runnable action) {

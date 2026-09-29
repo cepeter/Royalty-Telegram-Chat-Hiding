@@ -37,6 +37,6 @@ public final class AccountBindingPresentation {
     private static String currentOwner(AccountInventory inventory, int slot) {
         AccountInventory.Owner owner = inventory.owner(slot);
         return owner == null ? "Current owner unconfirmed"
-                : "Current owner " + owner.label() + " (" + owner.id() + ")";
+                : (inventory.complete() ? "Current owner " : "Last confirmed owner ") + owner.label() + " (" + owner.id() + ")";
     }
 }

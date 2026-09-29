@@ -90,7 +90,7 @@ public final class MainActivity extends Activity {
     private static final int SETTINGS_CREDENTIAL_REQUEST = 90;
     private static final int[] TIMEOUTS = {0, 30000, 60000, 300000};
     private boolean preferencesAvailable;
-    private boolean renderingSettings;
+    private final SettingsDraftControls draftControls = new SettingsDraftControls();
     private boolean catalogRequestTimedOut;
     private String catalogError = "";
     private String requestNonce;
@@ -247,6 +247,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showGate() {
+        applyScreenshotPolicy();
         if (!settingsAccess.allowed() && protectedModals != null) protectedModals.closeAll();
         if (isFinishing()) return;
         contentBuilt = false;
@@ -401,7 +402,7 @@ public final class MainActivity extends Activity {
         notificationSwitch.setShowText(false);
         notificationSwitch.setMinimumHeight(dp(48));
         notificationSwitch.setOnCheckedChangeListener((button, checked) -> {
-            if (!renderingSettings) {
+            if (!draftControls.rendering()) {
                 draft.setSuppressNotifications(checked);
                 renderCatalogAndHealth();
             }
@@ -427,7 +428,7 @@ public final class MainActivity extends Activity {
         premiumSwitch.setShowText(false);
         premiumSwitch.setMinimumHeight(dp(48));
         premiumSwitch.setOnCheckedChangeListener((button, checked) -> {
-            if (!renderingSettings) {
+            if (!draftControls.rendering()) {
                 draft.setLocalPremium(checked);
                 renderCatalogAndHealth();
             }
@@ -447,9 +448,7 @@ public final class MainActivity extends Activity {
                     if (checked) {
                         KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
                         if (manager == null || !manager.isDeviceSecure()) {
-                            renderingSettings = true;
-                            authenticationSwitch.setChecked(false);
-                            renderingSettings = false;
+                            paintDraftControls();
                             showError("Set a device screen lock before enabling authentication.");
                             return;
                         }
@@ -465,7 +464,7 @@ public final class MainActivity extends Activity {
                 next = TIMEOUTS[(i + 1) % TIMEOUTS.length]; break;
             }
             draft.setRevealTimeoutMs(next);
-            timeoutButton.setText(timeoutLabel(next));
+            renderCatalogAndHealth();
         });
         root.addView(timeoutButton, withTopMargin(matchWrap(), 12));
 
@@ -601,7 +600,7 @@ public final class MainActivity extends Activity {
         control.setMinimumHeight(dp(48));
         control.setChecked(checked);
         control.setOnCheckedChangeListener((button, value) -> {
-            if (!renderingSettings) onChange.accept(value);
+            draftControls.edit(() -> onChange.accept(value), this::renderCatalogAndHealth);
         });
         return control;
     }
@@ -740,6 +739,7 @@ public final class MainActivity extends Activity {
                 if (draft.initialized()) settingsAccess.learn(draft.baseline());
             } catch (RuntimeException error) { preferencesAvailable = false; }
         }
+        applyScreenshotPolicy();
         if (!settingsAccess.allowed()) { showGate(); return; }
         if (!contentBuilt) {
             setContentView(buildContentView());
@@ -760,14 +760,6 @@ public final class MainActivity extends Activity {
             }
         }
 
-        renderingSettings = true;
-        setSuppressNotifications(draft.current().suppressNotifications());
-        setLocalPremium(draft.current().localPremium());
-        backgroundSwitch.setChecked(draft.current().concealOnBackground());
-        screenOffSwitch.setChecked(draft.current().concealOnScreenOff());
-        authenticationSwitch.setChecked(draft.current().authenticate());
-        timeoutButton.setText(timeoutLabel(draft.current().revealTimeoutMs()));
-        renderingSettings = false;
         boolean editable = draft.initialized() && preferencesAvailable;
         notificationSwitch.setEnabled(editable);
         premiumSwitch.setEnabled(editable);
@@ -779,8 +771,29 @@ public final class MainActivity extends Activity {
         saveButton.setEnabled(editable);
     }
 
+    private void applyScreenshotPolicy() {
+        if (!settingsAccess.known() || settingsAccess.authenticationRequired())
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+    }
+
+    private void paintDraftControls() {
+        draftControls.render(draft, new SettingsDraftControls.Controls() {
+            public void notifications(boolean value) { setSuppressNotifications(value); }
+            public void premium(boolean value) { setLocalPremium(value); }
+            public void background(boolean value) { backgroundSwitch.setChecked(value); }
+            public void screenOff(boolean value) { screenOffSwitch.setChecked(value); }
+            public void authentication(boolean value) { authenticationSwitch.setChecked(value); }
+            public void timeout(int milliseconds) { timeoutButton.setText(timeoutLabel(milliseconds)); }
+        }, () -> selectionControls.update(accountInventory, catalog,
+                CatalogSelection.selectedCount(draft.current()), draft.undoSize(),
+                draft.initialized() && preferencesAvailable));
+    }
+
     private void renderCatalogAndHealth() {
+        applyScreenshotPolicy();
         if (!contentBuilt || !settingsAccess.allowed()) return;
+        paintDraftControls();
         catalog.clear();
         catalog.addAll(catalogRepository.loadCatalog());
         addMissingSelections(draft.current().hiddenDialogs());
@@ -890,7 +903,7 @@ public final class MainActivity extends Activity {
         protectionDetails.setText(DiagnosticsFormatter.describe(statuses,
                 catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
                 System.currentTimeMillis(), requestNonce != null, catalogError,
-                installedTelegramVersion()));
+                installedTelegramVersion(), catalogRepository.processSession()));
         setConnectionStatus(
                 frameworkStatusDot,
                 frameworkStatusText,
@@ -900,7 +913,8 @@ public final class MainActivity extends Activity {
                 telegramStatusDot,
                 telegramStatusText,
                 protection.unsupported() ? R.string.telegram_unsupported : R.string.telegram_connection,
-                protection.working());
+                requestNonce == null && protection.working());
+        if (requestNonce != null) telegramStatusText.setText("Telegram: checking…");
     }
 
     @SuppressWarnings("deprecation")

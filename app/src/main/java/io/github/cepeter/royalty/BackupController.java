@@ -217,7 +217,7 @@ final class BackupController {
                 + "\nAdd: " + preview.added() + "; already selected: " + preview.already()
                 + "; unknown: " + preview.skipped() + "; ambiguous: " + preview.ambiguous()
                 + "; conflicts or legacy unbound: " + preview.conflicts()
-                + "\nPreference changes: " + preview.preferenceChanges()
+                + "\nAccounts: " + preview.accountDetails() + "\nPreference changes: " + preview.preferenceChanges()
                 + "\nAuthentication stays unchanged. Existing selections remain. Apply edits the draft; Save commits them.";
         Object token = new Object();
         AlertDialog dialog = new AlertDialog.Builder(activity).setTitle("Review import")

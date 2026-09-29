@@ -4,6 +4,11 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 public final class RevealSessionTest {
+    @Test public void overlapFinalOrdinaryStopCannotBeMaskedByRecreation() {
+        ActivityVisibility visibility = new ActivityVisibility(); visibility.started("a"); visibility.started("b");
+        assertFalse(visibility.stopped("a", true)); assertTrue(visibility.stopped("b", false));
+    }
+
     @Test public void defaultsAllowManualRevealWithoutAutomaticConcealment() {
         RevealSession session = new RevealSession();
         assertTrue(session.toggle(100));
@@ -82,9 +87,9 @@ public final class RevealSessionTest {
 
     @Test public void configurationRecreationDoesNotCountAsBackground() {
         ActivityVisibility visibility = new ActivityVisibility();
-        visibility.started();
-        assertFalse(visibility.stopped(true));
-        visibility.started();
-        assertTrue(visibility.stopped(false));
+        visibility.started("activity");
+        assertFalse(visibility.stopped("activity", true));
+        visibility.started("activity");
+        assertTrue(visibility.stopped("activity", false));
     }
 }

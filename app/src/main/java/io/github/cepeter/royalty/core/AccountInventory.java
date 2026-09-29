@@ -7,11 +7,14 @@ import java.util.Map;
 /** A bounded, explicitly complete view of activated account owners. */
 public final class AccountInventory {
     public static final int MAX_ACCOUNTS = 4;
+    public static final int MAX_OWNER_LABEL_LENGTH = 128;
     public static final class Owner {
         private final long id;
         private final String label;
         public Owner(long id, String label) {
             if (id <= 0) throw new IllegalArgumentException("owner ID must be positive");
+            if (label != null && label.length() > MAX_OWNER_LABEL_LENGTH)
+                throw new IllegalArgumentException("owner label too long");
             this.id = id;
             this.label = label == null ? "" : label;
         }

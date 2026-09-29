@@ -18,7 +18,7 @@ final class ModernHookBridge {
     interface Installer { void install() throws Throwable; }
 
     private static final class HookInstallation {
-        final List<XposedInterface.HookHandle> handles = new ArrayList<>();
+        final List<Runnable> cleanups = new ArrayList<>();
         volatile boolean active;
     }
 
@@ -76,9 +76,9 @@ final class ModernHookBridge {
             installer.install();
             installation.active = true;
         } catch (Throwable failure) {
-            for (int index = installation.handles.size() - 1; index >= 0; index--) {
+            for (int index = installation.cleanups.size() - 1; index >= 0; index--) {
                 try {
-                    installation.handles.get(index).unhook();
+                    installation.cleanups.get(index).run();
                 } catch (Throwable rollbackError) {
                     failure.addSuppressed(rollbackError);
                 }
@@ -91,7 +91,19 @@ final class ModernHookBridge {
 
     static void trackHandle(XposedInterface.HookHandle handle) {
         HookInstallation installation = INSTALLATION.get();
-        if (installation != null) installation.handles.add(handle);
+        if (installation != null) installation.cleanups.add(handle::unhook);
+    }
+
+    static void trackCleanup(Runnable cleanup) {
+        HookInstallation installation = INSTALLATION.get();
+        if (installation == null) throw new IllegalStateException("cleanup outside installation");
+        installation.cleanups.add(cleanup);
+    }
+
+    static java.util.function.BooleanSupplier installationActive() {
+        HookInstallation installation = INSTALLATION.get();
+        if (installation == null) throw new IllegalStateException("adapter outside installation");
+        return () -> installation.active;
     }
 
     static List<XposedInterface.HookHandle> hookAllMethods(

@@ -42,7 +42,12 @@ public final class BackupOperation {
             opened = resource;
             resource = null;
         }
-        closeQuietly(opened);
+        if (opened != null) {
+            // Dedicated cancellation path: the I/O worker may need close to unblock.
+            Thread closer = new Thread(() -> closeQuietly(opened), "royalty-backup-close");
+            closer.setDaemon(true);
+            closer.start();
+        }
     }
     public synchronized void clearSecret() { Arrays.fill(passphrase, '\0'); }
     private static void closeQuietly(Closeable opened) {

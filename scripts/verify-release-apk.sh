@@ -43,7 +43,16 @@ if ! badging=$("$aapt" dump badging "$apk"); then
   echo 'APK badging inspection failed' >&2
   exit 1
 fi
-if ! grep -Eq "^package: name='io\.github\.cepeter\.royalty' versionCode='$version_code' versionName='$version_name'( |$)" <<< "$badging"; then
+if ! python3 - "$version_code" "$version_name" "$badging" <<'PYVERSION'
+import re
+import sys
+lines = [line for line in sys.argv[3].splitlines() if line.startswith("package:")]
+if len(lines) != 1:
+    raise SystemExit(1)
+match = re.match(r"^package: name='([^']*)' versionCode='([^']*)' versionName='([^']*)'(?: |$)", lines[0])
+raise SystemExit(0 if match and match.groups() == ("io.github.cepeter.royalty", sys.argv[1], sys.argv[2]) else 1)
+PYVERSION
+then
   echo 'APK package or version does not match version.properties' >&2
   exit 1
 fi

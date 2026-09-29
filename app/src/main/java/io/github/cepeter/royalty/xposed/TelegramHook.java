@@ -129,11 +129,6 @@ public final class TelegramHook extends XposedModule {
             reportUnsupportedVersion(version);
             return;
         }
-        try {
-            installRevealAdapters((Application) context.getApplicationContext());
-        } catch (RuntimeException error) {
-            reportRuntimeError("reveal", error);
-        }
         install("compatibility", () -> TelegramCompatibilityProbe.verify(classLoader));
         try {
             CONFIG.setOwnerResolver(new UserConfigOwnerResolver(classLoader),
@@ -166,7 +161,15 @@ public final class TelegramHook extends XposedModule {
                 classLoader,
                 CONFIG::localPremiumEnabled,
                 (status, detail) -> reportStatus("premium", status, detail)));
-        install("reveal", () -> installRevealHook(classLoader));
+        RevealInstallation.install(() -> installRevealHook(classLoader),
+                () -> installRevealAdapters((Application) context.getApplicationContext()),
+                (installed, error) -> {
+                    if (installed) reportStatus("reveal", "installed", "");
+                    else {
+                        reportStatus("reveal", "missing", error.getClass().getSimpleName());
+                        ModernHookBridge.log("TelegramChatHider: reveal prerequisites unavailable: " + error);
+                    }
+                });
     }
 
     private static void installDialogHook(ClassLoader classLoader) {
@@ -599,10 +602,12 @@ public final class TelegramHook extends XposedModule {
     }
 
     private static void installRevealAdapters(Application application) {
-        application.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
+        java.util.function.BooleanSupplier active = ModernHookBridge.installationActive();
+        Application.ActivityLifecycleCallbacks lifecycle = new Application.ActivityLifecycleCallbacks() {
             @Override public void onActivityCreated(Activity activity, Bundle state) {}
             @Override public void onActivityStarted(Activity activity) {
-                VISIBILITY.started();
+                if (!active.getAsBoolean()) return;
+                VISIBILITY.started(activity);
                 boolean wasRevealed = REVEAL.revealed();
                 revealState();
                 REVEAL.onForeground(SystemClock.elapsedRealtime());
@@ -614,15 +619,25 @@ public final class TelegramHook extends XposedModule {
             @Override public void onActivityResumed(Activity activity) {}
             @Override public void onActivityPaused(Activity activity) {}
             @Override public void onActivityStopped(Activity activity) {
-                if (VISIBILITY.stopped(activity.isChangingConfigurations())) {
+                if (!active.getAsBoolean()) return;
+                if (VISIBILITY.stopped(activity, activity.isChangingConfigurations())) {
                     if (REVEAL.onBackground(REVEAL.credentialHandoff())) refreshRevealedViews();
+                } else {
+                    long generation = VISIBILITY.pendingGeneration();
+                    if (generation >= 0) MAIN.postDelayed(() -> {
+                        if (active.getAsBoolean() && VISIBILITY.reconcile(generation)
+                                && REVEAL.onBackground(REVEAL.credentialHandoff())) refreshRevealedViews();
+                    }, ActivityVisibility.RECREATION_GRACE_MS);
                 }
             }
             @Override public void onActivitySaveInstanceState(Activity activity, Bundle state) {}
             @Override public void onActivityDestroyed(Activity activity) {}
-        });
+        };
+        ModernHookBridge.trackCleanup(() -> application.unregisterActivityLifecycleCallbacks(lifecycle));
+        application.registerActivityLifecycleCallbacks(lifecycle);
         BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override public void onReceive(Context ignored, Intent intent) {
+                if (!active.getAsBoolean()) return;
                 if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
                     if (REVEAL.onScreenOff()) refreshRevealedViews();
                     return;
@@ -642,6 +657,8 @@ public final class TelegramHook extends XposedModule {
                 }
             }
         };
+        // One receiver identity owns both registrations; unregister removes both filters.
+        ModernHookBridge.trackCleanup(() -> application.unregisterReceiver(receiver));
         application.registerReceiver(receiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
         IntentFilter response = new IntentFilter(AuthenticationProtocol.ACTION_RESULT);
         if (Build.VERSION.SDK_INT >= 33) {
@@ -676,7 +693,7 @@ public final class TelegramHook extends XposedModule {
         TelegramSearchHook.invalidatePositions();
         TelegramContactHook.invalidateSections();
         ADAPTERS.refreshAll(adapter -> {
-            try { ModernHookBridge.callMethod(adapter, "notifyDataSetChanged"); }
+            try { AdapterRefreshRegistry.refresh(adapter); }
             catch (Throwable error) { reportRuntimeError("reveal", error); }
         });
     }

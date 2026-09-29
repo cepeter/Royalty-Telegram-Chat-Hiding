@@ -6,6 +6,12 @@ import java.util.Optional;
 import org.junit.Test;
 
 public final class CatalogBatchTest {
+    @org.junit.Test public void oversizedOwnerLabelIsRejectedAtBoundary() {
+        CatalogBatch batch = new CatalogBatch("large");
+        org.junit.Assert.assertFalse(batch.begin("large", new int[] {0}, new long[] {101},
+                new String[] {"x".repeat(129)}, true, "session"));
+    }
+
     @Test public void completedInventoryCarriesOwnerOfRowsAndEmptyAccounts() {
         CatalogBatch batch = new CatalogBatch("owner");
         assertTrue(batch.begin("owner", new int[] {0, 1}, new long[] {101, 202},

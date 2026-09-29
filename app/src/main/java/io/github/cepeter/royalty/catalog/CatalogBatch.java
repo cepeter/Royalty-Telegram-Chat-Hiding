@@ -48,6 +48,8 @@ public final class CatalogBatch {
                 || session.isEmpty() || session.length() > 64) return invalidate();
         Map<Integer, AccountInventory.Owner> owners = new LinkedHashMap<>();
         for (int index = 0; index < expected.length; index++) {
+            if (labels[index] != null && labels[index].length() > AccountInventory.MAX_OWNER_LABEL_LENGTH)
+                return invalidate();
             int account = expected[index];
             if (account < 0 || account >= AccountInventory.MAX_ACCOUNTS
                     || !expectedAccounts.add(account)) return invalidate();

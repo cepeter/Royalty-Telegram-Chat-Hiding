@@ -8,6 +8,13 @@ import java.util.Map;
 import org.junit.Test;
 
 public final class BackupTest {
+    @Test public void saltAndNonceTamperingFailsAuthentication() throws Exception {
+        byte[] valid = BackupCodec.encrypt(data(), PASS);
+        for (int offset : new int[] {9, 24, 25, 36}) {
+            byte[] changed = valid.clone(); changed[offset] ^= 1; assertReject(changed, PASS);
+        }
+    }
+
     private static final char[] PASS = "correct horse battery staple".toCharArray();
     private static final DialogKey CHAT = DialogKey.of(0, -42);
     private static BackupData data() {
@@ -91,6 +98,31 @@ public final class BackupTest {
         assertEquals(Long.valueOf(101), draft.current().boundOwner(CHAT));
         assertTrue(draft.current().authenticate());
         assertFalse(draft.canSaveAgainst(inventory(202, 0)));
+    }
+
+    @Test public void movedOwnerExportCanonicalizesPairsAndKeepsPreferencesAndOmissions() {
+        Map<DialogKey, Long> bindings = new HashMap<>();
+        bindings.put(DialogKey.of(0, -42), 101L); bindings.put(DialogKey.of(2, -42), 101L);
+        BackupData.Export exported = BackupData.exportFromSaved(HiddenConfig.fromBindings(bindings,
+                Collections.singleton(DialogKey.of(1, 9)), true, true).withPrivacy(true, true, 60000, true));
+        assertEquals(1, exported.data().entries().size()); assertEquals(1, exported.skippedUnbound());
+        assertTrue(exported.data().notifications()); assertTrue(exported.data().premium());
+        assertTrue(exported.data().background()); assertTrue(exported.data().screenOff());
+        assertEquals(60000, exported.data().timeout());
+    }
+
+    @Test public void previewNamesCurrentAccountsAndSkippedReasonsWithBoundedGroups() {
+        BackupData data = new BackupData(Arrays.asList(new BackupData.Entry(101, 1),
+                new BackupData.Entry(101, 2), new BackupData.Entry(999, 3)), false, false, false, false, 0);
+        String details = BackupPreview.create(data, HiddenConfig.empty(), inventory(101, 0)).accountDetails();
+        assertTrue(details.contains("First")); assertTrue(details.contains("Account 1"));
+        assertTrue(details.contains("101")); assertTrue(details.contains("2 added"));
+        assertTrue(details.contains("999")); assertTrue(details.contains("not currently confirmed"));
+        java.util.List<BackupData.Entry> many = new java.util.ArrayList<>();
+        for (int i = 1; i <= 100; i++) many.add(new BackupData.Entry(i, i));
+        String bounded = BackupPreview.create(new BackupData(many, false, false, false, false, 0),
+                HiddenConfig.empty(), inventory(0, 0)).accountDetails();
+        assertTrue(bounded.contains("80 more owner groups")); assertTrue(bounded.length() < 5000);
     }
 
     private static void assertReject(byte[] bytes, char[] pass) throws Exception {

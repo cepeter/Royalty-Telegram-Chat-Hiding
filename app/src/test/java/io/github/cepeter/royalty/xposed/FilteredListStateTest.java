@@ -15,6 +15,15 @@ import java.util.List;
 import org.junit.Test;
 
 public final class FilteredListStateTest {
+    @org.junit.Test public void hiddenRowAnchorsToLaterSurvivorWhenImmediateNeighborRemoved() {
+        Object hidden = new Object(), a = new Object(), b = new Object();
+        FilteredListState state = FilteredListState.capture(java.util.Arrays.asList(hidden, a, b), null);
+        java.util.List<Object> visible = new java.util.ArrayList<>(java.util.Arrays.asList(a, b));
+        state.markApplied(visible); visible.remove(a);
+        state = FilteredListState.capture(visible, state);
+        org.junit.Assert.assertEquals(java.util.Arrays.asList(hidden, b), state.raw());
+    }
+
     private static final class ValueEqualRow {
         final int id;
         ValueEqualRow(int id) { this.id = id; }

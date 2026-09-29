@@ -51,6 +51,21 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.command(self.sdk / "cmdline-tools/latest/bin/apkanalyzer", "exit 7")
         self.assert_rejected_without_manifest(self.verify())
 
+    def test_wrong_version_separators_are_rejected(self):
+        self.command(self.sdk / "build-tools/36.0.0/aapt", "if [[ $2 == badging ]]; then echo \"package: name='io.github.cepeter.royalty' versionCode='18' versionName='3x1y0'\"; else echo manifest; fi")
+        self.assert_rejected_without_manifest(self.verify("v3.1.0"))
+
+    def test_explicit_inspection_command_failures(self):
+        for tool, body in (("apksigner", "exit 9"),
+                           ("aapt", "if [[ $2 == badging ]]; then exit 8; fi"),
+                           ("aapt", "if [[ $2 == xmltree ]]; then exit 7; else echo \"package: name='io.github.cepeter.royalty' versionCode='18' versionName='3.1.0'\"; fi")):
+            with self.subTest(tool=tool, body=body):
+                path = self.sdk / "build-tools/36.0.0" / tool
+                original = path.read_text()
+                self.command(path, body)
+                self.assert_rejected_without_manifest(self.verify())
+                path.write_text(original)
+
     def test_tag_must_match_inspected_apk_version(self):
         self.assert_rejected_without_manifest(self.verify("v99.0.0"))
 
