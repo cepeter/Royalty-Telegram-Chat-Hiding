@@ -62,6 +62,17 @@ class ConfigurationUiContractTests(unittest.TestCase):
         self.assertIn("royalty_background", colors)
         self.assertIn("royalty_background", night_colors)
 
+    def test_dashboard_uses_collapsible_diagnostics_and_grouped_actions(self):
+        strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
+        self.assertIn("diagnosticsExpanded", self.source)
+        self.assertIn("protectionDetails.setVisibility(View.GONE)", self.source)
+        self.assertIn("createSoftPanel", self.source)
+        self.assertIn("LinearLayout chatsCard = createCard", self.source)
+        self.assertIn("LinearLayout saveActions", self.source)
+        self.assertIn("Privacy controls", strings)
+        self.assertIn("Show diagnostics", strings)
+        self.assertIn("Backup &amp; recovery", strings)
+
     def test_refresh_requests_catalog_and_observes_completion(self):
         self.assertIn("CatalogRequestClient.request(this)", self.source)
         self.assertIn("CatalogUpdates.shared().subscribe", self.source)

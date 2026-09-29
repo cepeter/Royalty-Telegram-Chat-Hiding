@@ -20,6 +20,13 @@
     <string name="local_premium">Enable Local Premium</string>
     <string name="xposed_description">Hide selected Telegram chats from lists, search, sharing, and people pickers.</string>
     <string name="supported_scope">Main lists, notifications, search, share targets, and group/contact pickers are supported on Telegram 12.10.4. Local Premium controls client-side UI only.</string>
+    <string name="supported_scope_compact">Telegram 12.10.4 · Lists · Search · Sharing · People · Notifications</string>
+    <string name="privacy_section">Privacy controls</string>
+    <string name="reveal_protection_title">Reveal protection</string>
+    <string name="reveal_protection_subtitle">Automatically conceal hidden chats when Telegram is no longer actively in use.</string>
+    <string name="data_section">Backup &amp; recovery</string>
+    <string name="show_diagnostics">Show diagnostics</string>
+    <string name="hide_diagnostics">Hide diagnostics</string>
     <string name="hook_status">Hook status</string>
     <string name="open_telegram_first">Open Telegram once, then return here and refresh.</string>
     <string name="refresh">Refresh</string>
