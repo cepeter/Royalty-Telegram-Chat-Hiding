@@ -4,6 +4,13 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.2] - 2026-09-29
+
+### Fixed
+
+- Resolve Telegram 12.10.4 search, share, and contact hook methods through superclasses while preserving fail-open behavior on unsupported surfaces.
+- Advance Android release metadata to version 3.1.2 (code 19) so signed APK inspection matches the immutable release tag.
+
 ## [3.1.0] - 2026-09-29
 
 ### Added
@@ -186,7 +193,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.2...HEAD
+[3.1.2]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.2
 [3.1.0]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.0
 [3.0.5]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.5
 [3.0.4]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.0.4
