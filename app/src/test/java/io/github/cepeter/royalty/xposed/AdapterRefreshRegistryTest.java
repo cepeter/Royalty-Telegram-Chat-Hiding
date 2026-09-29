@@ -50,6 +50,11 @@ public final class AdapterRefreshRegistryTest {
         catch (NoSuchMethodException expected) { }
     }
 
+
+    @Test public void unsupportedRefreshIsBestEffortForReveal() throws Exception {
+        assertFalse(AdapterRefreshRegistry.tryRefresh(new Object()));
+    }
+
     @Test public void refreshRebindsEveryObservedAdapterOnRevealAndConceal() {
         RevealSession session = new RevealSession();
         AdapterRefreshRegistry registry = new AdapterRefreshRegistry();

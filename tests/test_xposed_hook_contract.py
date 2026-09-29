@@ -24,6 +24,14 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("param.args[0] = filtered", self.source)
         self.assertNotIn(".remove(", self.source)
 
+    def test_optional_adapter_refresh_does_not_degrade_reveal_health(self):
+        refresh = self.source[
+            self.source.index("private static void refreshRevealedViews") :
+            self.source.index("private static void requestDialogsReload")
+        ]
+        self.assertIn("AdapterRefreshRegistry.tryRefresh(adapter)", refresh)
+        self.assertIn("optional adapter refresh unavailable", refresh)
+
     def test_reveal_supports_verified_telegram_12_10_4_runtime_types(self):
         self.assertIn('"org.telegram.ui.ActionBar.l"', self.source)
         self.assertIn('"org.telegram.ui.ActionBar.q2"', self.source)
