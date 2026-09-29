@@ -32,16 +32,20 @@ public final class PendingRequestStore {
     }
 
     public synchronized Request create(long nowElapsedRealtime) {
-        removeExpired(nowElapsedRealtime);
+        requests.clear();
         String nonce;
         do {
             nonce = nextNonce();
         } while (requests.containsKey(nonce));
         long expiry = nowElapsedRealtime + CatalogProtocol.NONCE_LIFETIME_MS;
-        requests.put(nonce, expiry);
         if (preferences != null) {
-            preferences.edit().putLong(nonce, expiry).commit();
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.clear().putLong(nonce, expiry);
+            if (!editor.commit()) {
+                throw new IllegalStateException("catalog request could not be persisted");
+            }
         }
+        requests.put(nonce, expiry);
         return new Request(nonce, expiry);
     }
 
@@ -51,14 +55,14 @@ public final class PendingRequestStore {
         return expiry != null && nowElapsedRealtime < expiry;
     }
 
-    public synchronized void complete(String nonce) {
+    public synchronized boolean complete(String nonce) {
         if (nonce == null) {
-            return;
+            return false;
         }
-        requests.remove(nonce);
         if (preferences != null) {
-            preferences.edit().remove(nonce).commit();
+            if (!preferences.edit().remove(nonce).commit()) return false;
         }
+        return requests.remove(nonce) != null;
     }
 
     private void removeExpired(long nowElapsedRealtime) {

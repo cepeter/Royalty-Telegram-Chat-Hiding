@@ -32,6 +32,17 @@ public final class PendingRequestStoreTest {
     }
 
     @Test
+    public void newRequestSupersedesOldNonce() {
+        PendingRequestStore store = new PendingRequestStore(new HashMap<>());
+        PendingRequestStore.Request first = store.create(1000);
+        PendingRequestStore.Request second = store.create(1001);
+        assertFalse(store.isActive(first.nonce(), 1002));
+        assertTrue(store.isActive(second.nonce(), 1002));
+        store.complete(first.nonce());
+        assertTrue(store.isActive(second.nonce(), 1002));
+    }
+
+    @Test
     public void completionInvalidatesNonce() {
         PendingRequestStore store = new PendingRequestStore(new HashMap<>());
         PendingRequestStore.Request request = store.create(1000);

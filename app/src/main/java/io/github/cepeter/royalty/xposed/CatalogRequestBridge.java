@@ -54,6 +54,12 @@ public final class CatalogRequestBridge {
 
         CatalogSnapshotStore.Snapshot snapshot = store.snapshot();
         try {
+            int[] expectedAccounts = new int[snapshot.accounts().size()];
+            int expectedIndex = 0;
+            for (Integer account : snapshot.accounts().keySet()) expectedAccounts[expectedIndex++] = account;
+            callback.send(context, Activity.RESULT_OK, result(CatalogProtocol.TYPE_BEGIN)
+                    .putExtra(CatalogProtocol.EXTRA_EXPECTED_ACCOUNTS, expectedAccounts)
+                    .putExtra(CatalogProtocol.EXTRA_PROCESS_SESSION, snapshot.processSession()));
             for (Map.Entry<Integer, CatalogSnapshotStore.AccountSnapshot> entry
                     : snapshot.accounts().entrySet()) {
                 CatalogSnapshotStore.AccountSnapshot account = entry.getValue();
@@ -92,6 +98,8 @@ public final class CatalogRequestBridge {
             index++;
         }
         Intent status = result(CatalogProtocol.TYPE_STATUS)
+                .putExtra(CatalogProtocol.EXTRA_PROCESS_SESSION, snapshot.processSession())
+                .putExtra(CatalogProtocol.EXTRA_OBSERVED_AT, snapshot.observedAtMillis())
                 .putExtra(CatalogProtocol.EXTRA_STATUS_HOOKS, hooks)
                 .putExtra(CatalogProtocol.EXTRA_STATUS_VALUES, values)
                 .putExtra(CatalogProtocol.EXTRA_STATUS_DETAILS, details);

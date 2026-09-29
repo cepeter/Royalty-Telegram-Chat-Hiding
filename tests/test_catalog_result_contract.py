@@ -21,9 +21,12 @@ class CatalogResultContractTests(unittest.TestCase):
 
     def test_receiver_validates_nonce_and_payload_before_storage(self):
         self.assertIn("isActive", self.receiver)
-        self.assertIn("CatalogSubmission.sanitize", self.receiver)
+        self.assertIn("batch.account", self.receiver)
+        self.assertIn("batch.status", self.receiver)
+        self.assertIn("batch.complete", self.receiver)
+        self.assertIn("replaceSnapshot", self.receiver)
         self.assertIn("CatalogProtocol.TYPE_COMPLETE", self.receiver)
-        self.assertIn("CatalogProtocol.ACTION_UPDATED", self.receiver)
+        self.assertIn("CatalogUpdates.shared().complete", self.receiver)
         self.assertIn("SystemClock.elapsedRealtime()", self.receiver)
 
     def test_result_receiver_is_not_exported(self):

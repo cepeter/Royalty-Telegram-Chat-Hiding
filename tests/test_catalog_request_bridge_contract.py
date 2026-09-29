@@ -23,6 +23,9 @@ class CatalogRequestBridgeContractTests(unittest.TestCase):
         self.assertIn("CatalogProtocol.ACTION_REQUEST", self.source)
 
     def test_sends_bounded_account_status_and_completion_frames(self):
+        self.assertIn("CatalogProtocol.TYPE_BEGIN", self.source)
+        self.assertIn("CatalogProtocol.EXTRA_EXPECTED_ACCOUNTS", self.source)
+        self.assertIn("snapshot.processSession()", self.source)
         self.assertIn("snapshot.accounts().entrySet()", self.source)
         self.assertIn("CatalogProtocol.TYPE_ACCOUNT", self.source)
         self.assertIn("CatalogProtocol.TYPE_STATUS", self.source)

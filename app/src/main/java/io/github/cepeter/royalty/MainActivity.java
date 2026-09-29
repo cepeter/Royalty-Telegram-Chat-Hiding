@@ -1,13 +1,10 @@
 package io.github.cepeter.royalty;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.ColorStateList;
@@ -41,14 +38,17 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
-import io.github.cepeter.royalty.catalog.CatalogProtocol;
 import io.github.cepeter.royalty.catalog.CatalogRepository;
 import io.github.cepeter.royalty.catalog.CatalogRequestClient;
+import io.github.cepeter.royalty.catalog.CatalogUpdates;
+import io.github.cepeter.royalty.catalog.PendingRequestStore;
 import io.github.cepeter.royalty.config.ConfigStore;
 import io.github.cepeter.royalty.config.XposedPreferenceService;
 import io.github.cepeter.royalty.core.CatalogEntry;
+import io.github.cepeter.royalty.core.ConfigurationDraft;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
+import io.github.cepeter.royalty.core.ProtectionStatus;
 import io.github.cepeter.royalty.update.UpdateChecker;
 import io.github.cepeter.royalty.update.UpdateRelease;
 import java.util.ArrayList;
@@ -68,10 +68,12 @@ public final class MainActivity extends Activity {
 
     private final List<CatalogEntry> catalog = new ArrayList<>();
     private final List<CatalogEntry> visibleCatalog = new ArrayList<>();
-    private final Set<DialogKey> selectedDialogs = new HashSet<>();
+    private static final String DRAFT_STATE = "configuration_draft";
+    private ConfigurationDraft draft = new ConfigurationDraft();
     private boolean preferencesAvailable;
-    private boolean catalogUpdatesRegistered;
+    private boolean renderingSettings;
     private boolean catalogRequestTimedOut;
+    private String requestNonce;
     private long requestExpiresAt;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -81,21 +83,23 @@ public final class MainActivity extends Activity {
                 renderCached();
             });
     private final Runnable catalogTimeout = () -> {
-        if (requestExpiresAt != 0 && SystemClock.elapsedRealtime() >= requestExpiresAt) {
+        if (requestNonce != null && requestExpiresAt != 0
+                && SystemClock.elapsedRealtime() >= requestExpiresAt) {
             catalogRequestTimedOut = true;
+            CatalogUpdates.shared().complete(requestNonce, false);
+            requestNonce = null;
             requestExpiresAt = 0;
-            renderCached();
+            renderCatalogAndHealth();
         }
     };
-    private final BroadcastReceiver catalogUpdatedReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            catalogRequestTimedOut = false;
-            requestExpiresAt = 0;
-            mainHandler.removeCallbacks(catalogTimeout);
-            renderCached();
-        }
-    };
+    private final CatalogUpdates.Listener catalogUpdateListener = event -> mainHandler.post(() -> {
+        if (!event.nonce().equals(requestNonce)) return;
+        catalogRequestTimedOut = !event.success();
+        requestNonce = null;
+        requestExpiresAt = 0;
+        mainHandler.removeCallbacks(catalogTimeout);
+        renderCatalogAndHealth();
+    });
 
     private CatalogRepository catalogRepository;
     private UpdateChecker updateChecker;
@@ -107,6 +111,7 @@ public final class MainActivity extends Activity {
     private TextView frameworkStatusText;
     private TextView telegramStatusDot;
     private TextView telegramStatusText;
+    private TextView protectionDetails;
     private EditText searchInput;
     private ListView dialogList;
     private ArrayAdapter<String> dialogAdapter;
@@ -117,10 +122,23 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            Object saved = savedInstanceState.getSerializable(DRAFT_STATE);
+            if (saved instanceof ConfigurationDraft.State) {
+                draft = ConfigurationDraft.restore((ConfigurationDraft.State) saved);
+            }
+        }
         catalogRepository = new CatalogRepository(this);
         updateChecker = new UpdateChecker(mainHandler);
         setContentView(buildContentView());
+        renderCached();
         XposedPreferenceService.subscribe(preferenceListener);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putSerializable(DRAFT_STATE, draft.snapshot());
+        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -135,7 +153,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        registerCatalogUpdates();
+        CatalogUpdates.shared().subscribe(catalogUpdateListener);
         renderCached();
         requestCatalog();
         maybeCheckForUpdate();
@@ -144,10 +162,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onPause() {
         mainHandler.removeCallbacks(catalogTimeout);
-        if (catalogUpdatesRegistered) {
-            unregisterReceiver(catalogUpdatedReceiver);
-            catalogUpdatesRegistered = false;
-        }
+        CatalogUpdates.shared().unsubscribe(catalogUpdateListener);
         super.onPause();
     }
 
@@ -216,6 +231,8 @@ public final class MainActivity extends Activity {
         telegramStatusText = createText(0, 14, R.color.royalty_text, Typeface.BOLD);
         statusRows.addView(createConnectionRow(
                 telegramStatusDot, telegramStatusText), withTopMargin(matchWrap(), 6));
+        protectionDetails = createText(0, 12, R.color.royalty_text_muted, Typeface.NORMAL);
+        statusRows.addView(protectionDetails, withTopMargin(matchWrap(), 8));
         statusCard.addView(statusRows, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
@@ -263,6 +280,9 @@ public final class MainActivity extends Activity {
         notificationSwitch.setContentDescription(getString(R.string.suppress_notifications));
         notificationSwitch.setShowText(false);
         notificationSwitch.setMinimumHeight(dp(48));
+        notificationSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (!renderingSettings) draft.setSuppressNotifications(checked);
+        });
         notificationCard.addView(notificationSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(notificationCard, withTopMargin(matchWrap(), 12));
@@ -283,6 +303,9 @@ public final class MainActivity extends Activity {
         premiumSwitch.setContentDescription(getString(R.string.local_premium));
         premiumSwitch.setShowText(false);
         premiumSwitch.setMinimumHeight(dp(48));
+        premiumSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (!renderingSettings) draft.setLocalPremium(checked);
+        });
         premiumCard.addView(premiumSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(premiumCard, withTopMargin(matchWrap(), 12));
@@ -341,10 +364,8 @@ public final class MainActivity extends Activity {
         dialogList.setAdapter(dialogAdapter);
         dialogList.setOnItemClickListener((parent, view, position, id) -> {
             DialogKey key = visibleCatalog.get(position).key();
-            if (dialogList.isItemChecked(position)) {
-                selectedDialogs.add(key);
-            } else {
-                selectedDialogs.remove(key);
+            if (!draft.setHidden(key, dialogList.isItemChecked(position))) {
+                dialogList.setItemChecked(position, draft.current().isHidden(key));
             }
         });
         LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
@@ -355,6 +376,12 @@ public final class MainActivity extends Activity {
         saveButton = createPrimaryButton(R.string.save);
         saveButton.setOnClickListener(view -> saveConfiguration());
         root.addView(saveButton, withTopMargin(matchWrap(), 12));
+        Button discardButton = createSecondaryButton(R.string.discard);
+        discardButton.setOnClickListener(view -> {
+            draft.discard();
+            renderCached();
+        });
+        root.addView(discardButton, withTopMargin(matchWrap(), 8));
 
         TextView hint = createText(
                 R.string.refresh_hint, 12, R.color.royalty_text_muted, Typeface.NORMAL);
@@ -365,37 +392,21 @@ public final class MainActivity extends Activity {
         return scrollView;
     }
 
-    private void registerCatalogUpdates() {
-        if (catalogUpdatesRegistered) {
-            return;
-        }
-        IntentFilter filter = new IntentFilter(CatalogProtocol.ACTION_UPDATED);
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(catalogUpdatedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerLegacyCatalogReceiver(filter);
-        }
-        catalogUpdatesRegistered = true;
-    }
-
-    @SuppressWarnings("deprecation")
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
-    private void registerLegacyCatalogReceiver(IntentFilter filter) {
-        registerReceiver(catalogUpdatedReceiver, filter);
-    }
-
     private void requestCatalog() {
         catalogRequestTimedOut = false;
-        renderCached();
+        renderCatalogAndHealth();
         mainHandler.removeCallbacks(catalogTimeout);
         try {
-            requestExpiresAt = CatalogRequestClient.request(this);
+            PendingRequestStore.Request request = CatalogRequestClient.request(this);
+            requestNonce = request.nonce();
+            requestExpiresAt = request.expiresAtElapsedRealtime();
             long delay = Math.max(0, requestExpiresAt - SystemClock.elapsedRealtime());
             mainHandler.postDelayed(catalogTimeout, delay + 100);
         } catch (RuntimeException error) {
+            requestNonce = null;
             requestExpiresAt = 0;
             catalogRequestTimedOut = true;
-            renderCached();
+            renderCatalogAndHealth();
         }
     }
 
@@ -474,28 +485,37 @@ public final class MainActivity extends Activity {
     }
 
     private void renderCached() {
-        HiddenConfig config = HiddenConfig.empty();
+        renderSettings();
+        renderCatalogAndHealth();
+    }
+
+    private void renderSettings() {
         preferencesAvailable = preferences != null;
         if (preferencesAvailable) {
             try {
-                config = ConfigStore.load(preferences);
+                draft.loadSaved(ConfigStore.load(preferences));
             } catch (RuntimeException error) {
                 preferencesAvailable = false;
             }
         }
 
+        renderingSettings = true;
+        setSuppressNotifications(draft.current().suppressNotifications());
+        setLocalPremium(draft.current().localPremium());
+        renderingSettings = false;
+        boolean editable = draft.initialized() && preferencesAvailable;
+        notificationSwitch.setEnabled(editable);
+        premiumSwitch.setEnabled(editable);
+        dialogList.setEnabled(editable);
+        saveButton.setEnabled(editable);
+    }
+
+    private void renderCatalogAndHealth() {
         catalog.clear();
         catalog.addAll(catalogRepository.loadCatalog());
-        addMissingSelections(config.hiddenDialogs());
+        addMissingSelections(draft.current().hiddenDialogs());
         java.util.Collections.sort(catalog);
-
-        selectedDialogs.clear();
-        selectedDialogs.addAll(config.hiddenDialogs());
         applyCatalogFilter(searchInput.getText().toString());
-
-        setSuppressNotifications(config.suppressNotifications());
-        setLocalPremium(config.localPremium());
-        saveButton.setEnabled(preferencesAvailable);
         updateConnectionStatus(catalogRepository.loadHookStatuses());
     }
 
@@ -512,18 +532,25 @@ public final class MainActivity extends Activity {
     }
 
     private void saveConfiguration() {
+        if (!preferencesAvailable || preferences == null || !draft.canSave()) {
+            showError(getString(R.string.framework_inactive));
+            return;
+        }
         try {
+            HiddenConfig current = draft.current();
             boolean saved = ConfigStore.save(
                     preferences,
-                    new HashSet<>(selectedDialogs),
-                    notificationSwitch.isChecked(),
-                    premiumSwitch.isChecked());
+                    current.hiddenDialogs(),
+                    current.suppressNotifications(),
+                    current.localPremium());
+            draft.markSaved(saved);
             if (!saved) {
                 showError(getString(R.string.save_failed));
                 return;
             }
             Toast.makeText(this, "Changes saved", Toast.LENGTH_SHORT).show();
         } catch (RuntimeException error) {
+            draft.markSaved(false);
             preferencesAvailable = false;
             saveButton.setEnabled(false);
             showError(getString(R.string.framework_inactive));
@@ -558,19 +585,21 @@ public final class MainActivity extends Activity {
         dialogAdapter.notifyDataSetChanged();
         dialogList.clearChoices();
         for (int index = 0; index < visibleCatalog.size(); index++) {
-            dialogList.setItemChecked(index, selectedDialogs.contains(visibleCatalog.get(index).key()));
+            dialogList.setItemChecked(index, draft.current().isHidden(visibleCatalog.get(index).key()));
         }
     }
 
     private void updateConnectionStatus(Map<String, String> statuses) {
-        boolean telegramWorking = !catalogRequestTimedOut && !statuses.isEmpty();
-        for (String status : statuses.values()) {
-            if (!"installed".equals(status)) {
-                telegramWorking = false;
-                break;
-            }
+        ProtectionStatus protection = ProtectionStatus.evaluate(statuses,
+                catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
+                System.currentTimeMillis(), catalogRequestTimedOut);
+        StringBuilder lines = new StringBuilder();
+        for (Map.Entry<String, ProtectionStatus.State> surface : protection.surfaces().entrySet()) {
+            if (lines.length() > 0) lines.append(" · ");
+            lines.append(surface.getKey()).append(": ").append(surface.getValue().name().toLowerCase(Locale.ROOT));
         }
-        boolean unsupportedVersion = statuses.containsValue("unsupported_version");
+        lines.append("\nPremium: ").append(protection.premium().name().toLowerCase(Locale.ROOT));
+        protectionDetails.setText(lines.toString());
         setConnectionStatus(
                 frameworkStatusDot,
                 frameworkStatusText,
@@ -579,8 +608,8 @@ public final class MainActivity extends Activity {
         setConnectionStatus(
                 telegramStatusDot,
                 telegramStatusText,
-                unsupportedVersion ? R.string.telegram_unsupported : R.string.telegram_connection,
-                telegramWorking);
+                protection.unsupported() ? R.string.telegram_unsupported : R.string.telegram_connection,
+                protection.working());
     }
 
     private void setConnectionStatus(

@@ -24,6 +24,7 @@
     <string name="open_telegram_first">Open Telegram once, then return here and refresh.</string>
     <string name="refresh">Refresh</string>
     <string name="save">Save</string>
+    <string name="discard">Discard edits</string>
     <string name="suppress_notifications">Suppress new-message notifications for hidden dialogs</string>
     <string name="refresh_hint">Open Telegram to refresh the catalog. Switch folders or restart Telegram to redraw the list after saving.</string>
     <string name="catalog_refresh_timeout">No response from Telegram. Open Telegram, then refresh.</string>
