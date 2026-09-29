@@ -4,6 +4,18 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.0] - pending release
+
+### Added
+
+- Stable owner-bound selections with migration review, account filters and labels, actionable diagnostics, and draft selection controls.
+- Optional background, screen-off, and timed re-concealment with device credential protection for settings and reveal.
+- On-device encrypted configuration export and import with owner-aware preview and explicit Save.
+
+### Changed
+
+- Release metadata now declares version 3.1.0 (code 18). Physical-device acceptance and publication remain pending.
+
 ## [3.0.5] - 2026-09-26
 
 ### Added

@@ -27,7 +27,7 @@ class ReleaseVerificationTests(unittest.TestCase):
             archive.writestr("META-INF/xposed/scope.list", "org.telegram.messenger\n")
             archive.writestr("META-INF/xposed/module.prop", "minApiVersion=101\ntargetApiVersion=101\nstaticScope=true\n")
         self.command(tools / "apksigner", f"printf '%s\\n' 'Number of signers: 1' 'Signer #1 certificate SHA-256 digest: {SIGNER}'")
-        self.command(tools / "aapt", "if [[ $1 == dump && $2 == badging ]]; then echo \"package: name='io.github.cepeter.royalty' versionCode='17' versionName='3.0.5'\"; else echo 'manifest'; fi")
+        self.command(tools / "aapt", "if [[ $1 == dump && $2 == badging ]]; then echo \"package: name='io.github.cepeter.royalty' versionCode='18' versionName='3.1.0'\"; else echo 'manifest'; fi")
         self.command(analyzer / "apkanalyzer", "echo 'P d io.github.cepeter.royalty'")
 
     def command(self, path, body):
@@ -51,6 +51,21 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.command(self.sdk / "cmdline-tools/latest/bin/apkanalyzer", "exit 7")
         self.assert_rejected_without_manifest(self.verify())
 
+    def test_wrong_version_separators_are_rejected(self):
+        self.command(self.sdk / "build-tools/36.0.0/aapt", "if [[ $2 == badging ]]; then echo \"package: name='io.github.cepeter.royalty' versionCode='18' versionName='3x1y0'\"; else echo manifest; fi")
+        self.assert_rejected_without_manifest(self.verify("v3.1.0"))
+
+    def test_explicit_inspection_command_failures(self):
+        for tool, body in (("apksigner", "exit 9"),
+                           ("aapt", "if [[ $2 == badging ]]; then exit 8; fi"),
+                           ("aapt", "if [[ $2 == xmltree ]]; then exit 7; else echo \"package: name='io.github.cepeter.royalty' versionCode='18' versionName='3.1.0'\"; fi")):
+            with self.subTest(tool=tool, body=body):
+                path = self.sdk / "build-tools/36.0.0" / tool
+                original = path.read_text()
+                self.command(path, body)
+                self.assert_rejected_without_manifest(self.verify())
+                path.write_text(original)
+
     def test_tag_must_match_inspected_apk_version(self):
         self.assert_rejected_without_manifest(self.verify("v99.0.0"))
 
@@ -73,10 +88,10 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assert_rejected_without_manifest(self.verify())
 
     def test_valid_tag_produces_verified_metadata_and_checksum(self):
-        result = self.verify("v3.0.5")
+        result = self.verify("v3.1.0")
         self.assertEqual(0, result.returncode, result.stderr)
         metadata = json.loads(pathlib.Path(str(self.apk) + ".release.json").read_text())
-        self.assertEqual({"versionName": "3.0.5", "versionCode": 17, "tag": "v3.0.5", "signerSha256": SIGNER},
+        self.assertEqual({"versionName": "3.1.0", "versionCode": 18, "tag": "v3.1.0", "signerSha256": SIGNER},
                          {key: metadata[key] for key in ("versionName", "versionCode", "tag", "signerSha256")})
         self.assertTrue(pathlib.Path(str(self.apk) + ".sha256").exists())
 

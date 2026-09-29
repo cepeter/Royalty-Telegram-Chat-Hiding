@@ -1,14 +1,28 @@
 package io.github.cepeter.royalty.xposed;
 
 import android.content.Context;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.app.Activity;
+import android.app.Application;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
 import io.github.cepeter.royalty.config.ConfigStore;
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface;
-import io.github.cepeter.royalty.core.CatalogSubmission;
 import io.github.cepeter.royalty.core.DialogFilter;
+import io.github.cepeter.royalty.core.ActivityVisibility;
+import io.github.cepeter.royalty.core.AuthenticationProtocol;
+import io.github.cepeter.royalty.core.AuthenticationRoute;
+import io.github.cepeter.royalty.core.RevealSession;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
 import io.github.cepeter.royalty.core.PressAndHoldGesture;
@@ -40,7 +54,12 @@ public final class TelegramHook extends XposedModule {
     private static XposedConfigRepository CONFIG;
     private static String processName;
     private static final CatalogSnapshotStore CATALOGS = new CatalogSnapshotStore();
-    private static final AtomicBoolean REVEALED = new AtomicBoolean(false);
+    private static final RevealSession REVEAL = new RevealSession();
+    private static final ActivityVisibility VISIBILITY = new ActivityVisibility();
+    private static final AdapterRefreshRegistry ADAPTERS = new AdapterRefreshRegistry();
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static String modulePackage;
+    private static Object lastDialogsFragment;
     private static final AtomicBoolean RUNTIME_HOOKS_INSTALLED = new AtomicBoolean(false);
     private static final PressAndHoldGesture REVEAL_GESTURE =
             new PressAndHoldGesture(REVEAL_HOLD_DURATION_MS);
@@ -57,6 +76,7 @@ public final class TelegramHook extends XposedModule {
     public void onModuleLoaded(XposedModuleInterface.ModuleLoadedParam param) {
         ModernHookBridge.attach(this);
         processName = param.getProcessName();
+        modulePackage = getModuleApplicationInfo().packageName;
         CONFIG = new XposedConfigRepository(getRemotePreferences(ConfigStore.PREFERENCES_NAME));
     }
 
@@ -91,7 +111,7 @@ public final class TelegramHook extends XposedModule {
         }
 
         try {
-            CatalogRequestBridge.register(context, CATALOGS);
+            CatalogRequestBridge.register(context, CATALOGS, CONFIG::inventory);
             reportStatus("bridge", "installed", "");
         } catch (RuntimeException error) {
             reportStatus("bridge", "missing", error.getClass().getSimpleName());
@@ -110,20 +130,30 @@ public final class TelegramHook extends XposedModule {
             return;
         }
         install("compatibility", () -> TelegramCompatibilityProbe.verify(classLoader));
+        try {
+            CONFIG.setOwnerResolver(new UserConfigOwnerResolver(classLoader),
+                    (status, detail) -> reportStatus("ownership", status, detail));
+            CONFIG.inventory();
+        } catch (RuntimeException error) {
+            reportStatus("ownership", "missing", error.getClass().getSimpleName());
+        }
         install("search", () -> TelegramSearchHook.install(
                 classLoader,
                 CONFIG::current,
-                REVEALED::get,
+                TelegramHook::revealState,
+                ADAPTERS::track,
                 (status, detail) -> reportStatus("search", status, detail)));
         install("share", () -> TelegramShareHook.install(
                 classLoader,
                 CONFIG::current,
-                REVEALED::get,
+                TelegramHook::revealState,
+                ADAPTERS::track,
                 (status, detail) -> reportStatus("share", status, detail)));
         install("contacts", () -> TelegramContactHook.install(
                 classLoader,
                 CONFIG::current,
-                REVEALED::get,
+                TelegramHook::revealState,
+                ADAPTERS::track,
                 (status, detail) -> reportStatus("contacts", status, detail)));
         install("dialogs", () -> installDialogHook(classLoader));
         install("notifications", () -> installNotificationHook(classLoader));
@@ -131,7 +161,15 @@ public final class TelegramHook extends XposedModule {
                 classLoader,
                 CONFIG::localPremiumEnabled,
                 (status, detail) -> reportStatus("premium", status, detail)));
-        install("reveal", () -> installRevealHook(classLoader));
+        RevealInstallation.install(() -> installRevealHook(classLoader),
+                () -> installRevealAdapters((Application) context.getApplicationContext()),
+                (installed, error) -> {
+                    if (installed) reportStatus("reveal", "installed", "");
+                    else {
+                        reportStatus("reveal", "missing", error.getClass().getSimpleName());
+                        ModernHookBridge.log("TelegramChatHider: reveal prerequisites unavailable: " + error);
+                    }
+                });
     }
 
     private static void installDialogHook(ClassLoader classLoader) {
@@ -161,7 +199,7 @@ public final class TelegramHook extends XposedModule {
                                             account,
                                             ModernHookBridge.getLongField(dialog, "id")),
                                     config,
-                                    REVEALED.get());
+                                    revealState());
                             param.setResult(filtered);
                         } catch (Throwable error) {
                             reportRuntimeError("dialogs", error);
@@ -316,13 +354,25 @@ public final class TelegramHook extends XposedModule {
             if (fragment != expectedFragment) {
                 return;
             }
-            boolean revealed = toggleReveal();
+            lastDialogsFragment = fragment;
+            REVEAL.configure(CONFIG.saved());
+            boolean revealed;
+            if (!REVEAL.revealed() && REVEAL.authenticationRequired()) {
+                String nonce = REVEAL.beginChallenge(SystemClock.elapsedRealtime());
+                if (nonce == null || !launchCredential(actionBar.getContext(), nonce)) {
+                    REVEAL.cancelChallenge();
+                    Toast.makeText(actionBar.getContext(), "Device credential unavailable; hidden chats remain concealed", Toast.LENGTH_LONG).show();
+                }
+                return;
+            }
+            revealed = REVEAL.toggle(SystemClock.elapsedRealtime());
+            scheduleRevealTimeout();
             Toast.makeText(
                             actionBar.getContext(),
                             revealed ? "Hidden chats revealed" : "Hidden chats concealed",
                             Toast.LENGTH_SHORT)
                     .show();
-            requestDialogsReload(fragment);
+            refreshRevealedViews();
         } catch (Throwable error) {
             cancelRevealGesture();
             reportRuntimeError("reveal", error);
@@ -477,29 +527,14 @@ public final class TelegramHook extends XposedModule {
             LAST_CATALOG_PUBLISH.put(account, now);
         }
 
-        int count = Math.min(dialogs.size(), CatalogSubmission.MAX_ENTRIES);
-        long[] ids = new long[count];
-        String[] titles = new String[count];
-        int added = 0;
-        for (int index = 0; index < count; index++) {
-            Object dialog = dialogs.get(index);
-            try {
-                long id = ModernHookBridge.getLongField(dialog, "id");
-                if (id == 0) {
-                    continue;
-                }
-                ids[added] = id;
-                titles[added] = resolveDialogTitle(messagesController, id);
-                added++;
-            } catch (Throwable ignored) {
-                // Telegram may add synthetic rows; they are not hideable dialogs.
+        CatalogOwnerPublisher.publish(account, dialogs, new CatalogOwnerPublisher.RowReader<Object>() {
+            @Override public long id(Object row) {
+                return ModernHookBridge.getLongField(row, "id");
             }
-        }
-        if (added != count) {
-            ids = java.util.Arrays.copyOf(ids, added);
-            titles = java.util.Arrays.copyOf(titles, added);
-        }
-        CATALOGS.replaceAccount(account, ids, titles);
+            @Override public String title(Object row, long id) {
+                return resolveDialogTitle(messagesController, id);
+            }
+        }, CONFIG::inventory, CATALOGS);
     }
 
     private static String resolveDialogTitle(Object messagesController, long dialogId) {
@@ -539,14 +574,128 @@ public final class TelegramHook extends XposedModule {
         return value instanceof String ? (String) value : "";
     }
 
-    private static boolean toggleReveal() {
-        for (;;) {
-            boolean current = REVEALED.get();
-            boolean next = !current;
-            if (REVEALED.compareAndSet(current, next)) {
-                return next;
-            }
+    private static boolean revealState() {
+        try {
+            boolean wasRevealed = REVEAL.revealed();
+            REVEAL.configure(CONFIG.saved());
+            REVEAL.onTime(SystemClock.elapsedRealtime());
+            if (wasRevealed && !REVEAL.revealed()) MAIN.post(TelegramHook::refreshRevealedViews);
+            return REVEAL.revealed();
+        } catch (RuntimeException error) {
+            REVEAL.configure(HiddenConfig.empty());
+            return false;
         }
+    }
+
+    private static boolean launchCredential(Context context, String nonce) {
+        try {
+            Intent intent = new Intent().setComponent(new ComponentName(
+                    AuthenticationRoute.packageName(modulePackage), AuthenticationRoute.className()))
+                    .putExtra(AuthenticationProtocol.EXTRA_NONCE, nonce)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+            return true;
+        } catch (RuntimeException error) {
+            reportRuntimeError("reveal", error);
+            return false;
+        }
+    }
+
+    private static void installRevealAdapters(Application application) {
+        java.util.function.BooleanSupplier active = ModernHookBridge.installationActive();
+        Application.ActivityLifecycleCallbacks lifecycle = new Application.ActivityLifecycleCallbacks() {
+            @Override public void onActivityCreated(Activity activity, Bundle state) {}
+            @Override public void onActivityStarted(Activity activity) {
+                if (!active.getAsBoolean()) return;
+                VISIBILITY.started(activity);
+                boolean wasRevealed = REVEAL.revealed();
+                revealState();
+                REVEAL.onForeground(SystemClock.elapsedRealtime());
+                if (wasRevealed != REVEAL.revealed()) {
+                    refreshRevealedViews();
+                    scheduleRevealTimeout();
+                }
+            }
+            @Override public void onActivityResumed(Activity activity) {}
+            @Override public void onActivityPaused(Activity activity) {}
+            @Override public void onActivityStopped(Activity activity) {
+                if (!active.getAsBoolean()) return;
+                if (VISIBILITY.stopped(activity, activity.isChangingConfigurations())) {
+                    if (REVEAL.onBackground(REVEAL.credentialHandoff())) refreshRevealedViews();
+                } else {
+                    long generation = VISIBILITY.pendingGeneration();
+                    if (generation >= 0) MAIN.postDelayed(() -> {
+                        if (active.getAsBoolean() && VISIBILITY.reconcile(generation)
+                                && REVEAL.onBackground(REVEAL.credentialHandoff())) refreshRevealedViews();
+                    }, ActivityVisibility.RECREATION_GRACE_MS);
+                }
+            }
+            @Override public void onActivitySaveInstanceState(Activity activity, Bundle state) {}
+            @Override public void onActivityDestroyed(Activity activity) {}
+        };
+        ModernHookBridge.trackCleanup(() -> application.unregisterActivityLifecycleCallbacks(lifecycle));
+        application.registerActivityLifecycleCallbacks(lifecycle);
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context ignored, Intent intent) {
+                if (!active.getAsBoolean()) return;
+                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                    if (REVEAL.onScreenOff()) refreshRevealedViews();
+                    return;
+                }
+                if (!AuthenticationProtocol.ACTION_RESULT.equals(intent.getAction())
+                        || !intent.getBooleanExtra(AuthenticationProtocol.EXTRA_SUCCESS, false)) return;
+                try {
+                    REVEAL.configure(CONFIG.saved());
+                    if (REVEAL.authorize(intent.getStringExtra(AuthenticationProtocol.EXTRA_NONCE),
+                            SystemClock.elapsedRealtime())) {
+                        refreshRevealedViews();
+                        scheduleRevealTimeout();
+                    }
+                } catch (RuntimeException error) {
+                    REVEAL.cancelChallenge();
+                    reportRuntimeError("reveal", error);
+                }
+            }
+        };
+        // One receiver identity owns both registrations; unregister removes both filters.
+        ModernHookBridge.trackCleanup(() -> application.unregisterReceiver(receiver));
+        application.registerReceiver(receiver, new IntentFilter(Intent.ACTION_SCREEN_OFF));
+        IntentFilter response = new IntentFilter(AuthenticationProtocol.ACTION_RESULT);
+        if (Build.VERSION.SDK_INT >= 33) {
+            application.registerReceiver(receiver, response,
+                    AuthenticationProtocol.SIGNATURE_PERMISSION, null, Context.RECEIVER_EXPORTED);
+        } else {
+            registerLegacyAuthReceiver(application, receiver, response);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private static void registerLegacyAuthReceiver(Context context, BroadcastReceiver receiver, IntentFilter filter) {
+        context.registerReceiver(receiver, filter, AuthenticationProtocol.SIGNATURE_PERMISSION, null);
+    }
+
+    private static void scheduleRevealTimeout() {
+        int timeout = REVEAL.timeoutMs();
+        if (!REVEAL.revealed() || timeout == 0) return;
+        long generation = REVEAL.generation();
+        MAIN.postDelayed(() -> {
+            if (REVEAL.onTimeout(generation, SystemClock.elapsedRealtime())) refreshRevealedViews();
+        }, timeout);
+    }
+
+    private static void refreshRevealedViews() {
+        Object fragment = lastDialogsFragment;
+        if (fragment != null) {
+            try { requestDialogsReload(fragment); }
+            catch (Throwable error) { reportRuntimeError("reveal", error); }
+        }
+        TelegramSearchHook.invalidatePositions();
+        TelegramContactHook.invalidateSections();
+        ADAPTERS.refreshAll(adapter -> {
+            try { AdapterRefreshRegistry.refresh(adapter); }
+            catch (Throwable error) { reportRuntimeError("reveal", error); }
+        });
     }
 
     private static void requestDialogsReload(Object fragment) {
@@ -574,7 +723,7 @@ public final class TelegramHook extends XposedModule {
                 + TelegramVersionGuard.SUPPORTED_VERSION_NAME + " ("
                 + TelegramVersionGuard.SUPPORTED_VERSION_CODE + ")";
         String[] hooks = {
-            "compatibility", "search", "share", "contacts", "dialogs", "notifications", "premium", "reveal"
+            "compatibility", "search", "share", "contacts", "dialogs", "notifications", "premium", "reveal", "ownership"
         };
         for (String hook : hooks) {
             reportStatus(hook, "unsupported_version", detail);

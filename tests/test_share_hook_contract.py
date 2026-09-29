@@ -28,13 +28,21 @@ class ShareHookContractTests(unittest.TestCase):
         self.assertNotIn('setObjectField(outer, "T"', self.share)
         self.assertIn("error.addSuppressed(rollbackError)", self.share)
 
-    def test_reveal_restore_and_stale_selection_guard_are_present(self):
+    def test_reveal_restore_and_complete_selected_collection_guard_are_present(self):
         self.assertIn("FilteredListState.capture", self.share)
         self.assertNotIn("private static final class ListState", self.share)
-        self.assertIn("LAST_REVEAL", self.share)
-        self.assertIn("guardSelection", self.share)
-        self.assertIn("config.isHidden", self.share)
-        self.assertIn("replaceMapContents(selected", self.share)
+        self.assertNotIn("LAST_REVEAL", self.share)
+        self.assertNotIn("SelectionMarker", self.share)
+        guard = self.share[
+            self.share.index("private static void guardSelection") :
+            self.share.index("private static void safely")
+        ]
+        # Wiring contract; repeated concealed calls and rollback behavior are
+        # exercised by TelegramShareSelectionTest on the actual Java guard.
+        self.assertIn("SelectedMapSnapshot.read(selected, account)", guard)
+        self.assertIn("config.isHidden(DialogKey.of(account, entry.id))", guard)
+        self.assertIn("retained.add(entry.value)", guard)
+        self.assertIn("replaceMapContents(selected, retained, account)", guard)
         self.assertIn('status.report("runtime_error"', self.share)
 
 

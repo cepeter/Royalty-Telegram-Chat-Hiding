@@ -9,6 +9,21 @@ import java.util.Map;
 import org.junit.Test;
 
 public final class CatalogRepositoryTest {
+    @Test public void storesCompleteOwnerInventoryWithActiveEmptyAccount() {
+        MemoryPreferences memory = new MemoryPreferences();
+        CatalogRepository repository = new CatalogRepository(memory.preferences());
+        CatalogBatch batch = new CatalogBatch("owners");
+        assertTrue(batch.begin("owners", new int[] {0, 1}, new long[] {101, 202},
+                new String[] {"Alice", "Bob"}, true, "session"));
+        assertTrue(batch.account("owners", 0, 101, new long[] {42}, new String[] {"Chat"}));
+        assertTrue(batch.account("owners", 1, 202, new long[0], new String[0]));
+        assertTrue(batch.status("owners", new String[0], new String[0], new String[0], "session", 100));
+        assertTrue(repository.replaceSnapshot(batch.complete("owners").get()));
+        assertEquals(101, repository.loadCatalog().get(0).ownerId());
+        assertTrue(repository.loadInventory().complete());
+        assertEquals(202, repository.loadInventory().owner(1).id());
+    }
+
     @Test public void checkedCommitPreservesLastGoodOnFailureAndReplacesItOnSuccess() {
         MemoryPreferences memory = new MemoryPreferences();
         CatalogRepository repository = new CatalogRepository(memory.preferences());
@@ -43,9 +58,53 @@ public final class CatalogRepositoryTest {
         assertTrue(repository.loadHookStatuses().isEmpty());
     }
 
+    @Test public void incompleteSuccessRepairsFailedCompletePreferenceImage() {
+        MemoryPreferences memory = new MemoryPreferences();
+        CatalogRepository repository = new CatalogRepository(memory.preferences());
+        assertTrue(repository.replaceSnapshot(ownerSnapshot("a", 101, true)));
+        memory.failCommit = true;
+        assertFalse(repository.replaceSnapshot(ownerSnapshot("b", 202, true)));
+        memory.failCommit = false;
+        assertTrue(repository.replaceSnapshot(ownerSnapshot("c", 0, false)));
+        assertEquals(101L, repository.loadInventory().owner(0).id());
+        // A new preference identity represents a fresh process reading the persisted image.
+        memory.instance = null;
+        repository = new CatalogRepository(memory.preferences());
+        assertEquals(101L, repository.loadInventory().owner(0).id());
+        assertEquals(101L, repository.loadCatalog().get(0).ownerId());
+        assertEquals("0:101", repository.loadCatalog().get(0).key().toString());
+        assertFalse(memory.values.containsKey("dialog.0:202"));
+        assertFalse(repository.loadInventory().complete());
+    }
+    @Test public void throwingCompleteFailureIsNotPersistedByLaterIncompleteSuccess() {
+        MemoryPreferences memory = new MemoryPreferences();
+        CatalogRepository repository = new CatalogRepository(memory.preferences());
+        assertTrue(repository.replaceSnapshot(ownerSnapshot("a", 101, true)));
+        memory.throwCommit = true;
+        assertFalse(repository.replaceSnapshot(ownerSnapshot("b", 202, true)));
+        memory.throwCommit = false;
+        assertTrue(repository.replaceSnapshot(ownerSnapshot("c", 0, false)));
+        memory.instance = null;
+        repository = new CatalogRepository(memory.preferences());
+        assertEquals(101L, repository.loadInventory().owner(0).id());
+        assertEquals("0:101", repository.loadCatalog().get(0).key().toString());
+        assertFalse(memory.values.containsKey("dialog.0:202"));
+    }
+
+    private static CatalogBatch.Snapshot ownerSnapshot(String nonce, long owner, boolean complete) {
+        CatalogBatch batch = new CatalogBatch(nonce);
+        assertTrue(batch.begin(nonce, complete ? new int[] {0} : new int[0],
+                complete ? new long[] {owner} : new long[0],
+                complete ? new String[] {"Owner"} : new String[0], complete, nonce));
+        if (complete) assertTrue(batch.account(nonce, 0, owner, new long[] {owner}, new String[] {"Chat"}));
+        assertTrue(batch.status(nonce, new String[0], new String[0], new String[0], nonce, 100));
+        return batch.complete(nonce).get();
+    }
+
     private static final class MemoryPreferences {
         private final Map<String, Object> values = new HashMap<>();
         private boolean failCommit;
+        private boolean throwCommit;
         private SharedPreferences instance;
         SharedPreferences preferences() {
             if (instance != null) return instance;
@@ -74,6 +133,7 @@ public final class CatalogRepositoryTest {
                                     if (entry.getValue() == null) values.remove(entry.getKey());
                                     else values.put(entry.getKey(), entry.getValue());
                                 }
+                                if (throwCommit) throw new IllegalStateException("commit failed after memory mutation");
                                 return !failCommit;
                             default: throw new UnsupportedOperationException(method.getName());
                         }

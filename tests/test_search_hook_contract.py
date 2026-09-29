@@ -14,7 +14,7 @@ class SearchHookContractTests(unittest.TestCase):
     def test_search_hook_is_installed_with_reveal_and_config_state(self):
         self.assertIn('install("search"', self.hook)
         self.assertIn("CONFIG::current", self.hook)
-        self.assertIn("REVEALED::get", self.hook)
+        self.assertIn("TelegramHook::revealState", self.hook)
 
     def test_search_rows_are_position_mapped_without_mutating_telegram_lists(self):
         self.assertIn('Class.forName("we.b0"', self.search)

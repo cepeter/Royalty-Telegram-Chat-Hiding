@@ -54,7 +54,8 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("CatalogRequestBridge.register", self.source)
         self.assertIn("CatalogProtocol.ACTION_REQUEST", bridge)
         self.assertNotIn("bindService", bridge)
-        self.assertIn("CatalogSubmission.MAX_ENTRIES", self.source)
+        owner_publisher = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogOwnerPublisher.java").read_text()
+        self.assertIn("CatalogSubmission.MAX_ENTRIES", owner_publisher)
 
     def test_old_binding_bridge_is_removed(self):
         publisher = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/CatalogPublisher.java"
@@ -84,9 +85,30 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn('install("contacts"', self.source)
         self.assertIn('install("dialogs"', self.source)
         self.assertIn('install("notifications"', self.source)
-        self.assertIn('install("reveal"', self.source)
         self.assertIn('reportStatus(hook, "installed"', self.source)
         self.assertIn('reportStatus(hook, "missing"', self.source)
+        reveal = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/RevealInstallation.java").read_text()
+        runtime = self.source[
+            self.source.index("private static void installRuntimeHooks") :
+            self.source.index("private static void installDialogHook")
+        ]
+        # Reveal has one readiness decision spanning gesture and Android adapters.
+        # RevealInstallationTest exercises failed prerequisites and rollback.
+        self.assertNotIn('install("reveal"', runtime)
+        self.assertIn("RevealInstallation.install(() -> installRevealHook(classLoader)", runtime)
+        self.assertIn("() -> installRevealAdapters(", runtime)
+        self.assertIn('if (installed) reportStatus("reveal", "installed"', runtime)
+        self.assertIn('reportStatus("reveal", "missing"', runtime)
+        self.assertRegex(
+            reveal,
+            r"ModernHookBridge\.installAtomically\(\(\)\s*->\s*\{\s*"
+            r"gestures\.install\(\);\s*adapters\.install\(\);\s*\}\);\s*"
+            r"reporter\.report\(true,\s*null\)",
+        )
+        self.assertRegex(
+            reveal,
+            r"catch\s*\(Throwable failure\)\s*\{\s*reporter\.report\(false,\s*failure\)",
+        )
 
 
 if __name__ == "__main__":

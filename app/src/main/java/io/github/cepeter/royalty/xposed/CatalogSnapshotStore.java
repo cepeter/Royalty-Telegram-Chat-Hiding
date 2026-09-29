@@ -2,6 +2,7 @@ package io.github.cepeter.royalty.xposed;
 
 import io.github.cepeter.royalty.catalog.CatalogProtocol;
 import io.github.cepeter.royalty.core.CatalogEntry;
+import io.github.cepeter.royalty.core.AccountInventory;
 import io.github.cepeter.royalty.core.CatalogSubmission;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -12,9 +13,15 @@ import java.util.TreeMap;
 public final class CatalogSnapshotStore {
     private final String processSession = java.util.UUID.randomUUID().toString();
     private final Map<Integer, AccountSnapshot> accounts = new LinkedHashMap<>();
+    private AccountInventory inventory = AccountInventory.incomplete("no inventory yet");
     private final Map<String, StatusSnapshot> statuses = new TreeMap<>();
 
     public synchronized void replaceAccount(int account, long[] ids, String[] titles) {
+        replaceAccount(account, 0, ids, titles);
+    }
+
+    public synchronized void replaceAccount(int account, long ownerId, long[] ids, String[] titles) {
+        if (inventory.complete() && !inventory.matches(account, ownerId)) return;
         List<CatalogEntry> entries = CatalogSubmission.sanitize(account, ids, titles);
         long[] cleanIds = new long[entries.size()];
         String[] cleanTitles = new String[entries.size()];
@@ -23,7 +30,18 @@ public final class CatalogSnapshotStore {
             cleanIds[index] = entry.key().dialogId();
             cleanTitles[index] = entry.title();
         }
-        accounts.put(account, new AccountSnapshot(cleanIds, cleanTitles));
+        accounts.put(account, new AccountSnapshot(ownerId, cleanIds, cleanTitles));
+    }
+
+    public synchronized void setInventory(AccountInventory current) {
+        inventory = current;
+        if (!current.complete()) return;
+        accounts.keySet().removeIf(slot -> !current.owners().containsKey(slot));
+        for (Map.Entry<Integer, AccountInventory.Owner> entry : current.owners().entrySet()) {
+            AccountSnapshot cached = accounts.get(entry.getKey());
+            if (cached == null || cached.ownerId != entry.getValue().id())
+                accounts.put(entry.getKey(), new AccountSnapshot(entry.getValue().id(), new long[0], new String[0]));
+        }
     }
 
     public synchronized void recordStatus(String hook, String status, String detail) {
@@ -44,7 +62,7 @@ public final class CatalogSnapshotStore {
         for (Map.Entry<Integer, AccountSnapshot> entry : accounts.entrySet()) {
             accountCopy.put(entry.getKey(), entry.getValue().copy());
         }
-        return new Snapshot(accountCopy, new TreeMap<>(statuses), processSession,
+        return new Snapshot(accountCopy, new TreeMap<>(statuses), inventory, processSession,
                 System.currentTimeMillis());
     }
 
@@ -64,19 +82,23 @@ public final class CatalogSnapshotStore {
 
     public static final class Snapshot {
         private final Map<Integer, AccountSnapshot> accounts;
+        private final AccountInventory inventory;
         private final Map<String, StatusSnapshot> statuses;
         private final String processSession;
         private final long observedAtMillis;
 
         private Snapshot(
                 Map<Integer, AccountSnapshot> accounts,
-                Map<String, StatusSnapshot> statuses, String processSession, long observedAtMillis) {
+                Map<String, StatusSnapshot> statuses, AccountInventory inventory, String processSession, long observedAtMillis) {
             this.accounts = Collections.unmodifiableMap(accounts);
+            this.inventory = inventory;
             this.statuses = Collections.unmodifiableMap(statuses);
             this.processSession = processSession;
             this.observedAtMillis = observedAtMillis;
         }
 
+        public AccountInventory inventory() { return inventory; }
+        public boolean inventoryComplete() { return inventory.complete(); }
         public Map<Integer, AccountSnapshot> accounts() {
             return accounts;
         }
@@ -90,14 +112,17 @@ public final class CatalogSnapshotStore {
     }
 
     public static final class AccountSnapshot {
+        private final long ownerId;
         private final long[] ids;
         private final String[] titles;
 
-        private AccountSnapshot(long[] ids, String[] titles) {
+        private AccountSnapshot(long ownerId, long[] ids, String[] titles) {
+            this.ownerId = ownerId;
             this.ids = java.util.Arrays.copyOf(ids, ids.length);
             this.titles = java.util.Arrays.copyOf(titles, titles.length);
         }
 
+        public long ownerId() { return ownerId; }
         public long[] ids() {
             return java.util.Arrays.copyOf(ids, ids.length);
         }
@@ -107,7 +132,7 @@ public final class CatalogSnapshotStore {
         }
 
         private AccountSnapshot copy() {
-            return new AccountSnapshot(ids, titles);
+            return new AccountSnapshot(ownerId, ids, titles);
         }
     }
 

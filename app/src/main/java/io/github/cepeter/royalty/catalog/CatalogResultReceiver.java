@@ -31,38 +31,43 @@ public final class CatalogResultReceiver extends BroadcastReceiver {
                 String type = intent.getStringExtra(CatalogProtocol.EXTRA_TYPE);
                 if (CatalogProtocol.TYPE_BEGIN.equals(type)) {
                     if (!batch.begin(nonce, intent.getIntArrayExtra(CatalogProtocol.EXTRA_EXPECTED_ACCOUNTS),
-                            intent.getStringExtra(CatalogProtocol.EXTRA_PROCESS_SESSION))) fail(pending, nonce);
+                            intent.getLongArrayExtra(CatalogProtocol.EXTRA_OWNER_IDS),
+                            intent.getStringArrayExtra(CatalogProtocol.EXTRA_OWNER_LABELS),
+                            intent.getBooleanExtra(CatalogProtocol.EXTRA_INVENTORY_COMPLETE, false),
+                            intent.getStringExtra(CatalogProtocol.EXTRA_PROCESS_SESSION))) fail(pending, nonce, "Invalid catalog frame: " + type);
                 } else if (CatalogProtocol.TYPE_ACCOUNT.equals(type)) {
                     if (!batch.account(nonce, intent.getIntExtra(CatalogProtocol.EXTRA_ACCOUNT, -1),
+                            intent.getLongExtra(CatalogProtocol.EXTRA_OWNER_ID, 0),
                             intent.getLongArrayExtra(CatalogProtocol.EXTRA_IDS),
-                            intent.getStringArrayExtra(CatalogProtocol.EXTRA_TITLES))) fail(pending, nonce);
+                            intent.getStringArrayExtra(CatalogProtocol.EXTRA_TITLES))) fail(pending, nonce, "Invalid catalog frame: " + type);
                 } else if (CatalogProtocol.TYPE_STATUS.equals(type)) {
                     if (!batch.status(nonce,
                             intent.getStringArrayExtra(CatalogProtocol.EXTRA_STATUS_HOOKS),
                             intent.getStringArrayExtra(CatalogProtocol.EXTRA_STATUS_VALUES),
                             intent.getStringArrayExtra(CatalogProtocol.EXTRA_STATUS_DETAILS),
                             intent.getStringExtra(CatalogProtocol.EXTRA_PROCESS_SESSION),
-                            intent.getLongExtra(CatalogProtocol.EXTRA_OBSERVED_AT, 0))) fail(pending, nonce);
+                            intent.getLongExtra(CatalogProtocol.EXTRA_OBSERVED_AT, 0))) fail(pending, nonce, "Invalid catalog frame: " + type);
                 } else if (CatalogProtocol.TYPE_COMPLETE.equals(type)) {
                     Optional<CatalogBatch.Snapshot> snapshot = batch.complete(nonce);
                     boolean saved = snapshot.isPresent()
                             && new CatalogRepository(context).replaceSnapshot(snapshot.get());
                     boolean consumed = pending.complete(nonce);
-                    CatalogUpdates.shared().complete(nonce, saved && consumed);
+                    CatalogUpdates.shared().complete(nonce, saved && consumed,
+                            saved && consumed ? "" : "Incomplete catalog response or storage failure");
                     batch = null;
                 } else {
-                    fail(pending, nonce);
+                    fail(pending, nonce, "Invalid catalog frame: " + type);
                 }
             } catch (RuntimeException error) {
-                fail(pending, nonce);
+                fail(pending, nonce, "Catalog callback error: " + error.getClass().getSimpleName());
             }
         }
     }
 
-    private static void fail(PendingRequestStore pending, String nonce) {
+    private static void fail(PendingRequestStore pending, String nonce, String reason) {
         if (batch == null || !nonce.equals(CatalogUpdates.shared().activeNonce())) return;
         pending.complete(nonce);
-        CatalogUpdates.shared().complete(nonce, false);
+        CatalogUpdates.shared().complete(nonce, false, reason);
         batch = null;
     }
 }

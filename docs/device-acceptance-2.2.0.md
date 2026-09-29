@@ -45,3 +45,14 @@ Run on the exact Telegram build above when a device is connected:
 3. Text, media, and forwarded-message share targets and stale-selection behavior.
 4. New group, add member, contact invite, username search, and name search.
 5. Signed APK upgrade, Vector activation, catalog refresh, and per-surface status cards.
+
+## Wave 4A account binding and diagnostics acceptance (pending device)
+
+The following checks remain **pending physical-device execution** on the exact supported Telegram build. JVM and static checks do not establish that the installed Telegram APK exposes the expected runtime members or that every UI surface redraws correctly.
+
+1. Sign into two accounts with distinguishable chats. Refresh Royalty; confirm both account labels, account filter, per-row account/owner context, and selected count. Hide one chat in each account, save, restart Telegram, and verify list, search, share, contacts and notification behavior for each owner.
+2. On a fresh Royalty upgrade with legacy hidden keys, verify they are shown as needing review and are not concealed until explicitly rebound to the displayed owner. Check Remove selection and Discard, then rebind and save.
+3. Log out of one account and refresh after Telegram finishes loading configuration. Confirm an empty or absent slot is distinguished from an incomplete inventory. The old owner's hidden keys must remain recoverable but have no runtime effect on the replacement account.
+4. Replace an account in the same slot while Royalty has an edited draft. Before refreshing Royalty, verify old keys do not conceal the new owner's content. Refresh, review binding, and confirm a stale draft cannot silently bind old keys to the new owner on Save.
+5. Use an active account with no current dialog rows. Refresh and verify the account still appears in the account filter. Test search plus account plus hidden-only views, scoped Select matching, Undo, Save, and Discard; check count across filter changes.
+6. Trigger a fresh check while Telegram is closed and while the module is disabled. Inspect checking/last-known age, the exact response error, per-surface status/detail, installed and supported versions, and the manual-check guidance. A missing owner inventory must degrade the overall privacy-health indication. A fresh check must not imply physical-device validation of untested hooks.

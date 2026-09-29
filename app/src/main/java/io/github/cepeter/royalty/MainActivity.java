@@ -2,10 +2,13 @@ package io.github.cepeter.royalty;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.KeyguardManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -28,6 +31,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckedTextView;
@@ -45,10 +49,16 @@ import io.github.cepeter.royalty.catalog.PendingRequestStore;
 import io.github.cepeter.royalty.config.ConfigStore;
 import io.github.cepeter.royalty.config.XposedPreferenceService;
 import io.github.cepeter.royalty.core.CatalogEntry;
+import io.github.cepeter.royalty.core.CatalogSelection;
+import io.github.cepeter.royalty.core.AccountInventory;
+import io.github.cepeter.royalty.core.AccountBindingPresentation;
 import io.github.cepeter.royalty.core.ConfigurationDraft;
 import io.github.cepeter.royalty.core.DialogKey;
+import io.github.cepeter.royalty.core.DiagnosticsFormatter;
 import io.github.cepeter.royalty.core.HiddenConfig;
 import io.github.cepeter.royalty.core.ProtectionStatus;
+import io.github.cepeter.royalty.core.ProtectedModalController;
+import io.github.cepeter.royalty.core.SettingsAccess;
 import io.github.cepeter.royalty.update.UpdateChecker;
 import io.github.cepeter.royalty.update.UpdateRelease;
 import java.util.ArrayList;
@@ -70,9 +80,19 @@ public final class MainActivity extends Activity {
     private final List<CatalogEntry> visibleCatalog = new ArrayList<>();
     private static final String DRAFT_STATE = "configuration_draft";
     private ConfigurationDraft draft = new ConfigurationDraft();
+    private SettingsAccess settingsAccess = new SettingsAccess();
+    private ProtectedModalController protectedModals;
+    private BackupController backupController;
+    private boolean contentBuilt;
+    private boolean credentialPending;
+    private Switch backgroundSwitch, screenOffSwitch, authenticationSwitch;
+    private Button timeoutButton;
+    private static final int SETTINGS_CREDENTIAL_REQUEST = 90;
+    private static final int[] TIMEOUTS = {0, 30000, 60000, 300000};
     private boolean preferencesAvailable;
-    private boolean renderingSettings;
+    private final SettingsDraftControls draftControls = new SettingsDraftControls();
     private boolean catalogRequestTimedOut;
+    private String catalogError = "";
     private String requestNonce;
     private long requestExpiresAt;
 
@@ -81,12 +101,14 @@ public final class MainActivity extends Activity {
             mainHandler.post(() -> {
                 preferences = current;
                 renderCached();
+                if (settingsAccess.allowed()) requestCatalog();
             });
     private final Runnable catalogTimeout = () -> {
         if (requestNonce != null && requestExpiresAt != 0
                 && SystemClock.elapsedRealtime() >= requestExpiresAt) {
             catalogRequestTimedOut = true;
-            CatalogUpdates.shared().complete(requestNonce, false);
+            catalogError = "Catalog response timed out";
+            CatalogUpdates.shared().complete(requestNonce, false, catalogError);
             requestNonce = null;
             requestExpiresAt = 0;
             renderCatalogAndHealth();
@@ -95,6 +117,7 @@ public final class MainActivity extends Activity {
     private final CatalogUpdates.Listener catalogUpdateListener = event -> mainHandler.post(() -> {
         if (!event.nonce().equals(requestNonce)) return;
         catalogRequestTimedOut = !event.success();
+        catalogError = event.detail();
         requestNonce = null;
         requestExpiresAt = 0;
         mainHandler.removeCallbacks(catalogTimeout);
@@ -118,21 +141,48 @@ public final class MainActivity extends Activity {
     private Switch notificationSwitch;
     private Switch premiumSwitch;
     private Button saveButton;
+    private CatalogSelectionControls selectionControls;
+    private AccountInventory accountInventory = AccountInventory.incomplete("no catalog");
+    private final Runnable freshnessTick = new Runnable() {
+        @Override public void run() {
+            if (catalogRepository != null && protectionDetails != null)
+                updateConnectionStatus(catalogRepository.loadHookStatuses());
+            mainHandler.postDelayed(this, 15_000);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (savedInstanceState != null) {
+        Object retained = getLastNonConfigurationInstance();
+        if (retained instanceof Retained) {
+            draft = ((Retained) retained).draft;
+            settingsAccess = ((Retained) retained).access;
+        } else if (savedInstanceState != null) {
             Object saved = savedInstanceState.getSerializable(DRAFT_STATE);
-            if (saved instanceof ConfigurationDraft.State) {
+            if (saved instanceof ConfigurationDraft.State)
                 draft = ConfigurationDraft.restore((ConfigurationDraft.State) saved);
-            }
         }
+        protectedModals = new ProtectedModalController(settingsAccess);
+        backupController = new BackupController(this, settingsAccess, protectedModals);
         catalogRepository = new CatalogRepository(this);
         updateChecker = new UpdateChecker(mainHandler);
-        setContentView(buildContentView());
-        renderCached();
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        showGate();
         XposedPreferenceService.subscribe(preferenceListener);
+    }
+
+    @Override
+    public Object onRetainNonConfigurationInstance() {
+        return new Retained(draft, settingsAccess);
+    }
+
+    private static final class Retained {
+        final ConfigurationDraft draft;
+        final SettingsAccess access;
+        Retained(ConfigurationDraft draft, SettingsAccess access) {
+            this.draft = draft; this.access = access;
+        }
     }
 
     @Override
@@ -143,6 +193,8 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (protectedModals != null) protectedModals.closeAll();
+        if (backupController != null) backupController.destroy();
         if (updateChecker != null) {
             updateChecker.close();
         }
@@ -155,15 +207,84 @@ public final class MainActivity extends Activity {
         super.onResume();
         CatalogUpdates.shared().subscribe(catalogUpdateListener);
         renderCached();
-        requestCatalog();
-        maybeCheckForUpdate();
+        if (settingsAccess.allowed()) {
+            requestCatalog();
+            maybeCheckForUpdate();
+        }
+        mainHandler.removeCallbacks(freshnessTick);
+        mainHandler.postDelayed(freshnessTick, 15_000);
     }
 
     @Override
     protected void onPause() {
         mainHandler.removeCallbacks(catalogTimeout);
+        mainHandler.removeCallbacks(freshnessTick);
         CatalogUpdates.shared().unsubscribe(catalogUpdateListener);
         super.onPause();
+    }
+
+    @Override protected void onStop() {
+        if (!isChangingConfigurations()) {
+            settingsAccess.background();
+            if (settingsAccess.authenticationRequired()) showGate();
+        }
+        super.onStop();
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == BackupController.CREATE_REQUEST || requestCode == BackupController.OPEN_REQUEST) {
+            backupController.onDocument(requestCode, resultCode, data);
+            return;
+        }
+        if (requestCode != SETTINGS_CREDENTIAL_REQUEST) return;
+        credentialPending = false;
+        if (resultCode == RESULT_OK) settingsAccess.authenticated();
+        else Toast.makeText(this, "Authentication cancelled; settings remain locked", Toast.LENGTH_SHORT).show();
+        renderCached();
+        backupController.resumeIfAllowed();
+        if (settingsAccess.allowed()) requestCatalog();
+    }
+
+    private void showGate() {
+        applyScreenshotPolicy();
+        if (!settingsAccess.allowed() && protectedModals != null) protectedModals.closeAll();
+        if (isFinishing()) return;
+        contentBuilt = false;
+        LinearLayout gate = new LinearLayout(this);
+        gate.setOrientation(LinearLayout.VERTICAL);
+        gate.setGravity(Gravity.CENTER);
+        gate.setPadding(dp(24), dp(24), dp(24), dp(24));
+        gate.setBackgroundColor(getColor(R.color.royalty_background));
+        TextView message = createText(0, 18, R.color.royalty_text, Typeface.BOLD);
+        message.setText(settingsAccess.known() ? "Confirm your device screen lock to open settings"
+                : "Waiting for saved privacy settings…");
+        gate.addView(message, matchWrap());
+        if (settingsAccess.known() && settingsAccess.authenticationRequired()) {
+            Button unlock = createPrimaryButton(R.string.app_name);
+            unlock.setText("Unlock settings");
+            unlock.setOnClickListener(v -> requestSettingsCredential());
+            gate.addView(unlock, withTopMargin(matchWrap(), 16));
+        }
+        setContentView(gate);
+    }
+
+    @SuppressWarnings("deprecation")
+    private void requestSettingsCredential() {
+        if (credentialPending || !settingsAccess.known() || !settingsAccess.authenticationRequired()) return;
+        KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+        if (manager == null || !manager.isDeviceSecure()) {
+            showError("Set a device screen lock to access protected settings.");
+            return;
+        }
+        Intent intent = manager.createConfirmDeviceCredentialIntent("Unlock settings", "Confirm your device screen lock");
+        if (intent == null) { showError("Device credential is unavailable."); return; }
+        credentialPending = true;
+        try { startActivityForResult(intent, SETTINGS_CREDENTIAL_REQUEST); }
+        catch (RuntimeException error) {
+            credentialPending = false;
+            showError("Device credential is unavailable.");
+        }
     }
 
     private View buildContentView() {
@@ -281,7 +402,10 @@ public final class MainActivity extends Activity {
         notificationSwitch.setShowText(false);
         notificationSwitch.setMinimumHeight(dp(48));
         notificationSwitch.setOnCheckedChangeListener((button, checked) -> {
-            if (!renderingSettings) draft.setSuppressNotifications(checked);
+            if (!draftControls.rendering()) {
+                draft.setSuppressNotifications(checked);
+                renderCatalogAndHealth();
+            }
         });
         notificationCard.addView(notificationSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -304,11 +428,62 @@ public final class MainActivity extends Activity {
         premiumSwitch.setShowText(false);
         premiumSwitch.setMinimumHeight(dp(48));
         premiumSwitch.setOnCheckedChangeListener((button, checked) -> {
-            if (!renderingSettings) draft.setLocalPremium(checked);
+            if (!draftControls.rendering()) {
+                draft.setLocalPremium(checked);
+                renderCatalogAndHealth();
+            }
         });
         premiumCard.addView(premiumSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(premiumCard, withTopMargin(matchWrap(), 12));
+
+        backgroundSwitch = privacySwitch("Conceal when Telegram backgrounds", draft.current().concealOnBackground(),
+                checked -> draft.setConcealOnBackground(checked));
+        root.addView(backgroundSwitch, withTopMargin(matchWrap(), 12));
+        screenOffSwitch = privacySwitch("Conceal when screen turns off", draft.current().concealOnScreenOff(),
+                checked -> draft.setConcealOnScreenOff(checked));
+        root.addView(screenOffSwitch, withTopMargin(matchWrap(), 12));
+        authenticationSwitch = privacySwitch("Require device screen lock to reveal", draft.current().authenticate(),
+                checked -> {
+                    if (checked) {
+                        KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+                        if (manager == null || !manager.isDeviceSecure()) {
+                            paintDraftControls();
+                            showError("Set a device screen lock before enabling authentication.");
+                            return;
+                        }
+                    }
+                    draft.setAuthenticate(checked);
+                });
+        root.addView(authenticationSwitch, withTopMargin(matchWrap(), 12));
+        timeoutButton = createSecondaryButton(R.string.app_name);
+        timeoutButton.setOnClickListener(v -> {
+            int current = draft.current().revealTimeoutMs();
+            int next = 0;
+            for (int i = 0; i < TIMEOUTS.length; i++) if (TIMEOUTS[i] == current) {
+                next = TIMEOUTS[(i + 1) % TIMEOUTS.length]; break;
+            }
+            draft.setRevealTimeoutMs(next);
+            renderCatalogAndHealth();
+        });
+        root.addView(timeoutButton, withTopMargin(matchWrap(), 12));
+
+        LinearLayout backupCard = createCard(LinearLayout.VERTICAL);
+        TextView backupTitle = createText(0, 16, R.color.royalty_text, Typeface.BOLD);
+        backupTitle.setText("Encrypted configuration backup");
+        backupCard.addView(backupTitle, matchWrap());
+        TextView backupHint = createText(0, 13, R.color.royalty_text_muted, Typeface.NORMAL);
+        backupHint.setText("Export confirmed saved settings. Import previews owner matches, then edits the draft until you Save.");
+        backupCard.addView(backupHint, withTopMargin(matchWrap(), 4));
+        Button exportButton = createSecondaryButton(R.string.app_name);
+        exportButton.setText("Export saved configuration");
+        exportButton.setOnClickListener(v -> backupController.exportSaved());
+        backupCard.addView(exportButton, withTopMargin(matchWrap(), 8));
+        Button importButton = createSecondaryButton(R.string.app_name);
+        importButton.setText("Import encrypted backup");
+        importButton.setOnClickListener(v -> backupController.importFile());
+        backupCard.addView(importButton, withTopMargin(matchWrap(), 8));
+        root.addView(backupCard, withTopMargin(matchWrap(), 16));
 
         root.addView(createSectionLabel(R.string.hidden_chats_section), withTopMargin(matchWrap(), 20));
         TextView chatsSubtitle = createText(
@@ -350,6 +525,12 @@ public final class MainActivity extends Activity {
         clearSearchParams.setMarginStart(dp(8));
         searchRow.addView(clearSearchButton, clearSearchParams);
         root.addView(searchRow, withTopMargin(matchWrap(), 10));
+        selectionControls = new CatalogSelectionControls(this,
+                () -> applyCatalogFilter(searchInput.getText().toString()),
+                this::selectMatching, () -> {
+                    if (draft.undo()) renderCatalogAndHealth();
+                });
+        root.addView(selectionControls, withTopMargin(matchWrap(), 8));
 
         dialogList = new ListView(this);
         dialogList.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
@@ -364,9 +545,29 @@ public final class MainActivity extends Activity {
         dialogList.setAdapter(dialogAdapter);
         dialogList.setOnItemClickListener((parent, view, position, id) -> {
             DialogKey key = visibleCatalog.get(position).key();
-            if (!draft.setHidden(key, dialogList.isItemChecked(position))) {
-                dialogList.setItemChecked(position, draft.current().isHidden(key));
+            boolean selecting = dialogList.isItemChecked(position);
+            CatalogEntry entry = visibleCatalog.get(position);
+            Long oldOwner = draft.current().boundOwner(key);
+            boolean needsReview = draft.current().isHidden(key)
+                    && (oldOwner == null || !accountInventory.matches(key.account(), oldOwner));
+            if (needsReview) {
+                dialogList.setItemChecked(position, true);
+                promptRebind(entry);
+                return;
             }
+            if (!selecting) {
+                draft.setHidden(key, false);
+                renderCatalogAndHealth();
+                return;
+            }
+            dialogList.setItemChecked(position, draft.current().isHidden(key));
+            if (!accountInventory.complete() || entry.ownerId() <= 0
+                    || !accountInventory.matches(key.account(), entry.ownerId())) {
+                showError("Account ownership is not confirmed. Refresh after opening Telegram.");
+                return;
+            }
+            draft.setHidden(key, true, entry.ownerId());
+            renderCatalogAndHealth();
         });
         LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(360));
@@ -392,20 +593,67 @@ public final class MainActivity extends Activity {
         return scrollView;
     }
 
+    private Switch privacySwitch(String label, boolean checked, java.util.function.Consumer<Boolean> onChange) {
+        Switch control = new Switch(this);
+        control.setText(label);
+        control.setTextColor(getColor(R.color.royalty_text));
+        control.setMinimumHeight(dp(48));
+        control.setChecked(checked);
+        control.setOnCheckedChangeListener((button, value) -> {
+            draftControls.edit(() -> onChange.accept(value), this::renderCatalogAndHealth);
+        });
+        return control;
+    }
+
+    private String timeoutLabel(int value) {
+        if (value == 0) return "Reveal timeout: Off";
+        return "Reveal timeout: " + (value / 1000) + " seconds";
+    }
+
+    private void promptRebind(CatalogEntry entry) {
+        if (!settingsAccess.allowed()) return;
+        DialogKey key = entry.key();
+        boolean canBind = accountInventory.complete() && entry.ownerId() > 0
+                && accountInventory.matches(key.account(), entry.ownerId());
+        Object modalToken = new Object();
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Review account binding")
+                .setMessage(AccountBindingPresentation.reviewPrompt(entry,
+                        draft.current(), accountInventory))
+                .setNeutralButton("Remove selection", (ignored, which) -> {
+                    if (!protectedModals.consume(modalToken)) return;
+                    draft.setHidden(key, false);
+                    renderCatalogAndHealth();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(canBind ? "Bind" : "Refresh", (ignored, which) -> {
+                    if (!protectedModals.consume(modalToken)) return;
+                    if (!canBind) { requestCatalog(); return; }
+                    if (!draft.rebind(key, entry.ownerId(), accountInventory))
+                        showError("Account changed. Refresh and review again.");
+                    renderCatalogAndHealth();
+                }).create();
+        dialog.setOnDismissListener(ignored -> protectedModals.closed(modalToken));
+        dialog.show();
+        protectedModals.open(modalToken, dialog::dismiss);
+    }
+
     private void requestCatalog() {
         catalogRequestTimedOut = false;
+        catalogError = "";
         renderCatalogAndHealth();
         mainHandler.removeCallbacks(catalogTimeout);
         try {
             PendingRequestStore.Request request = CatalogRequestClient.request(this);
             requestNonce = request.nonce();
             requestExpiresAt = request.expiresAtElapsedRealtime();
+            renderCatalogAndHealth();
             long delay = Math.max(0, requestExpiresAt - SystemClock.elapsedRealtime());
             mainHandler.postDelayed(catalogTimeout, delay + 100);
         } catch (RuntimeException error) {
             requestNonce = null;
             requestExpiresAt = 0;
             catalogRequestTimedOut = true;
+            catalogError = "Catalog request failed: " + error.getClass().getSimpleName();
             renderCatalogAndHealth();
         }
     }
@@ -485,8 +733,21 @@ public final class MainActivity extends Activity {
     }
 
     private void renderCached() {
+        if (preferences != null) {
+            try {
+                draft.loadSaved(ConfigStore.load(preferences));
+                if (draft.initialized()) settingsAccess.learn(draft.baseline());
+            } catch (RuntimeException error) { preferencesAvailable = false; }
+        }
+        applyScreenshotPolicy();
+        if (!settingsAccess.allowed()) { showGate(); return; }
+        if (!contentBuilt) {
+            setContentView(buildContentView());
+            contentBuilt = true;
+        }
         renderSettings();
         renderCatalogAndHealth();
+        backupController.resumeIfAllowed();
     }
 
     private void renderSettings() {
@@ -499,22 +760,47 @@ public final class MainActivity extends Activity {
             }
         }
 
-        renderingSettings = true;
-        setSuppressNotifications(draft.current().suppressNotifications());
-        setLocalPremium(draft.current().localPremium());
-        renderingSettings = false;
         boolean editable = draft.initialized() && preferencesAvailable;
         notificationSwitch.setEnabled(editable);
         premiumSwitch.setEnabled(editable);
+        backgroundSwitch.setEnabled(editable);
+        screenOffSwitch.setEnabled(editable);
+        authenticationSwitch.setEnabled(editable);
+        timeoutButton.setEnabled(editable);
         dialogList.setEnabled(editable);
         saveButton.setEnabled(editable);
     }
 
+    private void applyScreenshotPolicy() {
+        if (!settingsAccess.known() || settingsAccess.authenticationRequired())
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+    }
+
+    private void paintDraftControls() {
+        draftControls.render(draft, new SettingsDraftControls.Controls() {
+            public void notifications(boolean value) { setSuppressNotifications(value); }
+            public void premium(boolean value) { setLocalPremium(value); }
+            public void background(boolean value) { backgroundSwitch.setChecked(value); }
+            public void screenOff(boolean value) { screenOffSwitch.setChecked(value); }
+            public void authentication(boolean value) { authenticationSwitch.setChecked(value); }
+            public void timeout(int milliseconds) { timeoutButton.setText(timeoutLabel(milliseconds)); }
+        }, () -> selectionControls.update(accountInventory, catalog,
+                CatalogSelection.selectedCount(draft.current()), draft.undoSize(),
+                draft.initialized() && preferencesAvailable));
+    }
+
     private void renderCatalogAndHealth() {
+        applyScreenshotPolicy();
+        if (!contentBuilt || !settingsAccess.allowed()) return;
+        paintDraftControls();
         catalog.clear();
         catalog.addAll(catalogRepository.loadCatalog());
         addMissingSelections(draft.current().hiddenDialogs());
         java.util.Collections.sort(catalog);
+        accountInventory = catalogRepository.loadInventory();
+        selectionControls.update(accountInventory, catalog, CatalogSelection.selectedCount(draft.current()),
+                draft.undoSize(), draft.initialized() && preferencesAvailable);
         applyCatalogFilter(searchInput.getText().toString());
         updateConnectionStatus(catalogRepository.loadHookStatuses());
     }
@@ -538,16 +824,27 @@ public final class MainActivity extends Activity {
         }
         try {
             HiddenConfig current = draft.current();
-            boolean saved = ConfigStore.save(
-                    preferences,
-                    current.hiddenDialogs(),
-                    current.suppressNotifications(),
-                    current.localPremium());
+            if (current.authenticate()) {
+                KeyguardManager manager = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+                if (manager == null || !manager.isDeviceSecure()) {
+                    showError("Set a device screen lock before saving authentication.");
+                    return;
+                }
+            }
+            accountInventory = catalogRepository.loadInventory();
+            if (!draft.canSaveAgainst(accountInventory)) {
+                showError("Account ownership changed or is incomplete. Refresh and review selections before saving.");
+                return;
+            }
+            boolean saved = ConfigStore.save(preferences, current);
             draft.markSaved(saved);
             if (!saved) {
                 showError(getString(R.string.save_failed));
                 return;
             }
+            settingsAccess.learn(draft.baseline());
+            if (settingsAccess.allowed()) renderCatalogAndHealth();
+            else showGate();
             Toast.makeText(this, "Changes saved", Toast.LENGTH_SHORT).show();
         } catch (RuntimeException error) {
             draft.markSaved(false);
@@ -556,6 +853,11 @@ public final class MainActivity extends Activity {
             showError(getString(R.string.framework_inactive));
         }
     }
+
+    ConfigurationDraft backupDraft() { return draft; }
+    AccountInventory backupInventory() { return accountInventory; }
+    AccountInventory refreshBackupInventory() { accountInventory = catalogRepository.loadInventory(); return accountInventory; }
+    void renderBackupDraft() { if (settingsAccess.allowed()) { renderSettings(); renderCatalogAndHealth(); } }
 
     private void setSuppressNotifications(boolean enabled) {
         notificationSwitch.setChecked(enabled);
@@ -566,40 +868,42 @@ public final class MainActivity extends Activity {
     }
 
     private String formatEntry(CatalogEntry entry) {
-        return entry.title() + "\nID " + entry.key().dialogId();
+        return AccountBindingPresentation.row(entry, draft.current(), accountInventory);
+    }
+
+    private void selectMatching() {
+        List<CatalogEntry> eligible = new ArrayList<>();
+        for (CatalogEntry entry : visibleCatalog) {
+            if (accountInventory.complete() && entry.ownerId() > 0
+                    && accountInventory.matches(entry.key().account(), entry.ownerId())
+                    && !draft.current().isHidden(entry.key())) eligible.add(entry);
+        }
+        CatalogSelection.selectMatching(draft, eligible, true);
+        renderCatalogAndHealth();
     }
 
     private void applyCatalogFilter(String rawQuery) {
-        String query = rawQuery.trim().toLowerCase(Locale.ROOT);
         visibleCatalog.clear();
+        visibleCatalog.addAll(CatalogSelection.filter(catalog, draft.current(), rawQuery,
+                selectionControls.accountFilter(), selectionControls.hiddenOnly()));
         dialogAdapter.clear();
-        for (CatalogEntry entry : catalog) {
-            String title = entry.title().toLowerCase(Locale.ROOT);
-            String dialogId = Long.toString(entry.key().dialogId());
-            if (!query.isEmpty() && !title.contains(query) && !dialogId.contains(query)) {
-                continue;
-            }
-            visibleCatalog.add(entry);
-            dialogAdapter.add(formatEntry(entry));
-        }
+        for (CatalogEntry entry : visibleCatalog) dialogAdapter.add(formatEntry(entry));
         dialogAdapter.notifyDataSetChanged();
         dialogList.clearChoices();
-        for (int index = 0; index < visibleCatalog.size(); index++) {
+        for (int index = 0; index < visibleCatalog.size(); index++)
             dialogList.setItemChecked(index, draft.current().isHidden(visibleCatalog.get(index).key()));
-        }
+        selectionControls.update(accountInventory, catalog, CatalogSelection.selectedCount(draft.current()),
+                draft.undoSize(), draft.initialized() && preferencesAvailable);
     }
 
     private void updateConnectionStatus(Map<String, String> statuses) {
         ProtectionStatus protection = ProtectionStatus.evaluate(statuses,
                 catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
                 System.currentTimeMillis(), catalogRequestTimedOut);
-        StringBuilder lines = new StringBuilder();
-        for (Map.Entry<String, ProtectionStatus.State> surface : protection.surfaces().entrySet()) {
-            if (lines.length() > 0) lines.append(" · ");
-            lines.append(surface.getKey()).append(": ").append(surface.getValue().name().toLowerCase(Locale.ROOT));
-        }
-        lines.append("\nPremium: ").append(protection.premium().name().toLowerCase(Locale.ROOT));
-        protectionDetails.setText(lines.toString());
+        protectionDetails.setText(DiagnosticsFormatter.describe(statuses,
+                catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
+                System.currentTimeMillis(), requestNonce != null, catalogError,
+                installedTelegramVersion(), catalogRepository.processSession()));
         setConnectionStatus(
                 frameworkStatusDot,
                 frameworkStatusText,
@@ -609,7 +913,19 @@ public final class MainActivity extends Activity {
                 telegramStatusDot,
                 telegramStatusText,
                 protection.unsupported() ? R.string.telegram_unsupported : R.string.telegram_connection,
-                protection.working());
+                requestNonce == null && protection.working());
+        if (requestNonce != null) telegramStatusText.setText("Telegram: checking…");
+    }
+
+    @SuppressWarnings("deprecation")
+    private String installedTelegramVersion() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo("org.telegram.messenger", 0);
+            long code = Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+            return (info.versionName == null ? "unknown" : info.versionName) + " (" + code + ")";
+        } catch (PackageManager.NameNotFoundException | RuntimeException error) {
+            return "not found (" + error.getClass().getSimpleName() + ")";
+        }
     }
 
     private void setConnectionStatus(
@@ -622,11 +938,19 @@ public final class MainActivity extends Activity {
     }
 
     private void showError(String message) {
-        new AlertDialog.Builder(this)
+        if (!settingsAccess.allowed()) {
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            return;
+        }
+        Object modalToken = new Object();
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.app_name)
                 .setMessage(message)
                 .setPositiveButton(android.R.string.ok, null)
-                .show();
+                .create();
+        dialog.setOnDismissListener(ignored -> protectedModals.closed(modalToken));
+        dialog.show();
+        protectedModals.open(modalToken, dialog::dismiss);
     }
 
     private void applySystemInsets(View root) {

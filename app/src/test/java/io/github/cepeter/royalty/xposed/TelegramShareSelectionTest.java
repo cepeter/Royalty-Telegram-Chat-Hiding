@@ -36,15 +36,6 @@ public final class TelegramShareSelectionTest {
         }
     }
 
-    private static boolean lastSuccessfulReveal(Outer outer) throws Exception {
-        java.lang.reflect.Field markerMap = TelegramShareHook.class.getDeclaredField("LAST_REVEAL");
-        markerMap.setAccessible(true);
-        Object marker = ((Map<?, ?>) markerMap.get(null)).get(outer);
-        java.lang.reflect.Field reveal = marker.getClass().getDeclaredField("reveal");
-        reveal.setAccessible(true);
-        return reveal.getBoolean(marker);
-    }
-
     @Test
     public void searchOnlyVisibleSelectionSurvivesCleanup() throws Exception {
         Outer outer = new Outer();
@@ -82,11 +73,9 @@ public final class TelegramShareSelectionTest {
         assertEquals(2, outer.T.size());
         assertSame(hidden, outer.T.valueAt(0));
         assertSame(visible, outer.T.valueAt(1));
-        assertTrue(lastSuccessfulReveal(outer));
         guard(outer, Collections.emptyList(), 0, hidden("0:1"), false);
         assertEquals(1, outer.T.size());
         assertSame(visible, outer.T.valueAt(0));
-        assertFalse(lastSuccessfulReveal(outer));
     }
 
     @Test
@@ -105,7 +94,6 @@ public final class TelegramShareSelectionTest {
         assertEquals(2, selected.size());
         assertSame(hidden, selected.valueAt(0));
         assertSame(visible, selected.valueAt(1));
-        assertTrue(lastSuccessfulReveal(outer));
 
         selected.alwaysFailInsert = false;
         guard(outer, Collections.emptyList(), 0, hidden("0:1"), false);

@@ -76,3 +76,20 @@ The retained activity constructs `mt` and `nt` directly in `createView`. Search/
 - Static APK identity and DEX mapping: **passed**.
 - JVM paired-copy and object-key contracts: implemented; GitHub Android CI is the executable gate.
 - Physical-device reflection probe: required before Checkpoint A closes.
+
+## Name-independent adapter refresh prerequisite (final integration fix)
+
+The historical DEX table above establishes the listed surface aliases. It does **not** establish that the root RecyclerView method is literally named `notifyDataSetChanged` in the supported compiled APK. No supported APK/DEX was available during this final integration pass, and no new compiled method-name claim is made here.
+
+The validated structural alternative is derived from the complete root `RecyclerView.Adapter` declaration and `AdapterDataObservable` in the [pinned Telegram RecyclerView source](https://github.com/DrKLO/Telegram/blob/9552e5541e1274b9557c9832b204dbfcaf44b3dc/TMessagesProj/src/main/java/androidx/recyclerview/widget/RecyclerView.java). The examined Adapter declaration begins at source line 6990; the observable begins at line 12251. These source facts were checked together:
+
+| Property | Source evidence and runtime requirement |
+|---|---|
+| Declaring class | Abstract root Adapter directly extends Object; concrete host adapters inherit through it. |
+| Observable field | The root declares one private final nonstatic AdapterDataObservable field. Its type directly extends the stable framework class `android.database.Observable`. |
+| No-argument methods declared by root | `getItemCount():int`, `hasStableIds():boolean`, `hasObservers():boolean`, and the single public nonstatic `notifyDataSetChanged():void`. Other root void methods take arguments. Object methods and concrete-subclass methods are excluded from root uniqueness. |
+| Invocation contract | The root no-argument void body calls the observable's change notification, which visits registered observers. Reflective invocation of the resolved root Method preserves normal virtual dispatch to host overrides. |
+| Rejection | Missing root/field/method, multiple matching observable fields, multiple public instance no-argument void methods, or abstract/synthetic/bridge candidates reject installation. No guessed alias is attempted. |
+| Cache and use | The resolved Method is cached per concrete class. The same resolver verifies install prerequisites and supplies every observed adapter's reveal/conceal refresh invocation. |
+
+`PinnedRecyclerAdapterShape` is a source-derived descriptor fixture: it preserves the root inheritance/field shape, all root no-argument return descriptors and the parameterized overload families, while deliberately renaming methods. Its names are **not** APK aliases. Tests reject ambiguity/static-only decoys, verify caching and virtual dispatch, and exercise reveal/re-conceal refresh on observed adapters. This proves the resolver against the validated structural contract, not that any uninspected obfuscator output preserves that contract. Runtime validation therefore remains mandatory and rejects altered/ambiguous shapes safely; the exact-APK reflection and visual-redraw acceptance gates remain pending.

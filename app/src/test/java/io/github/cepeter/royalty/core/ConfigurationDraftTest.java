@@ -113,6 +113,24 @@ public final class ConfigurationDraftTest {
         assertTrue(recreated.baseline().suppressNotifications());
     }
 
+    @Test public void acceptingNewBaselineClearsCleanHistory() {
+        ConfigurationDraft draft = new ConfigurationDraft();
+        draft.loadSaved(HiddenConfig.empty());
+        draft.setSuppressNotifications(true); draft.setSuppressNotifications(false);
+        assertFalse(draft.dirty()); assertTrue(draft.undoSize() > 0);
+        draft.loadSaved(HiddenConfig.fromStrings(Collections.singleton("0:10"), false));
+        assertFalse(draft.undo()); assertTrue(draft.current().isHidden(ONE));
+    }
+    @Test public void acceptingNewBaselinePreservesDirtyDraftButExpiresPriorHistory() {
+        ConfigurationDraft draft = new ConfigurationDraft(); draft.loadSaved(HiddenConfig.empty());
+        draft.setLocalPremium(true);
+        HiddenConfig editing = draft.current();
+        draft.loadSaved(HiddenConfig.fromStrings(Collections.singleton("0:10"), false));
+        assertEquals(editing, draft.current()); assertFalse(draft.undo());
+        draft.setAuthenticate(true); assertTrue(draft.undo()); assertEquals(editing, draft.current());
+        draft.discard(); assertTrue(draft.current().isHidden(ONE));
+    }
+
     private static ConfigurationDraft.State roundTrip(ConfigurationDraft.State state) throws Exception {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {

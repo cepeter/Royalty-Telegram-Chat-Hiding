@@ -10,16 +10,23 @@ import android.content.IntentFilter;
 import android.os.Build;
 import io.github.cepeter.royalty.catalog.CatalogProtocol;
 import java.util.Map;
+import java.util.function.Supplier;
+import io.github.cepeter.royalty.core.AccountInventory;
 
 public final class CatalogRequestBridge {
     private CatalogRequestBridge() {}
 
     public static BroadcastReceiver register(Context context, CatalogSnapshotStore store) {
+        return register(context, store, () -> AccountInventory.incomplete("owner inventory unavailable"));
+    }
+
+    public static BroadcastReceiver register(Context context, CatalogSnapshotStore store,
+            Supplier<AccountInventory> inventory) {
         Context applicationContext = context.getApplicationContext();
         BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context ignored, Intent request) {
-                handleRequest(applicationContext, store, request);
+                handleRequest(applicationContext, store, inventory, request);
             }
         };
         IntentFilter filter = new IntentFilter(CatalogProtocol.ACTION_REQUEST);
@@ -45,26 +52,42 @@ public final class CatalogRequestBridge {
     }
 
     private static void handleRequest(
-            Context context, CatalogSnapshotStore store, Intent request) {
+            Context context, CatalogSnapshotStore store, Supplier<AccountInventory> inventory, Intent request) {
         PendingIntent callback = getCallback(request);
         if (callback == null) {
             ModernHookBridge.log("TelegramChatHider: rejected malformed catalog request");
             return;
         }
 
+        try { store.setInventory(inventory.get()); }
+        catch (RuntimeException error) { store.setInventory(AccountInventory.incomplete(
+                "owner inventory: " + error.getClass().getSimpleName())); }
         CatalogSnapshotStore.Snapshot snapshot = store.snapshot();
         try {
             int[] expectedAccounts = new int[snapshot.accounts().size()];
+            long[] ownerIds = new long[expectedAccounts.length];
+            String[] ownerLabels = new String[expectedAccounts.length];
             int expectedIndex = 0;
-            for (Integer account : snapshot.accounts().keySet()) expectedAccounts[expectedIndex++] = account;
+            for (Integer account : snapshot.accounts().keySet()) {
+                expectedAccounts[expectedIndex] = account;
+                AccountInventory.Owner owner = snapshot.inventory().owner(account);
+                ownerIds[expectedIndex] = snapshot.accounts().get(account).ownerId();
+                ownerLabels[expectedIndex] = owner == null || owner.id() != ownerIds[expectedIndex]
+                        ? "Account " + (account + 1) : owner.label();
+                expectedIndex++;
+            }
             callback.send(context, Activity.RESULT_OK, result(CatalogProtocol.TYPE_BEGIN)
                     .putExtra(CatalogProtocol.EXTRA_EXPECTED_ACCOUNTS, expectedAccounts)
+                    .putExtra(CatalogProtocol.EXTRA_OWNER_IDS, ownerIds)
+                    .putExtra(CatalogProtocol.EXTRA_OWNER_LABELS, ownerLabels)
+                    .putExtra(CatalogProtocol.EXTRA_INVENTORY_COMPLETE, snapshot.inventoryComplete())
                     .putExtra(CatalogProtocol.EXTRA_PROCESS_SESSION, snapshot.processSession()));
             for (Map.Entry<Integer, CatalogSnapshotStore.AccountSnapshot> entry
                     : snapshot.accounts().entrySet()) {
                 CatalogSnapshotStore.AccountSnapshot account = entry.getValue();
                 Intent result = result(CatalogProtocol.TYPE_ACCOUNT)
                         .putExtra(CatalogProtocol.EXTRA_ACCOUNT, entry.getKey())
+                        .putExtra(CatalogProtocol.EXTRA_OWNER_ID, account.ownerId())
                         .putExtra(CatalogProtocol.EXTRA_IDS, account.ids())
                         .putExtra(CatalogProtocol.EXTRA_TITLES, account.titles());
                 callback.send(context, Activity.RESULT_OK, result);

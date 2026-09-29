@@ -2,7 +2,8 @@
 
 `version.properties` is the single source of Royalty's `versionName` and
 `versionCode`. Both the Android build and signed APK verifier read it. The
-version remains `3.0.5` / code `17` until the planned feature release.
+current source is `3.1.0` / code `18`. This is build metadata, not evidence
+of a published release or physical-device acceptance.
 
 The verifier checks the actual APK package and version, its production signing
 certificate, modern Xposed resources, manifest, and dex package list. Failed
@@ -19,6 +20,13 @@ releases carry `royalty-v<version>.apk.release.json` beside the APK and checksum
 Older pre-bootstrap versions are retained, but their metadata is not used as
 the comparison baseline.
 An already-published tag cannot be reused, even with a higher version code.
+
+Before any 3.1.0 publication, run the [current device acceptance matrix](device-acceptance-3.1.0.md)
+on the exact supported Telegram build and complete the protected release CI
+gates. If an installed build must be rolled back, retain its encrypted backup,
+review older release compatibility and Android's version-code downgrade rules,
+and restore configuration through a supported installed build. Never delete
+prior release assets as part of normal publication.
 
 ## Production signer evidence
 
