@@ -2,6 +2,10 @@ package io.github.cepeter.royalty.core;
 
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import java.util.ArrayDeque;
 import java.util.Set;
 
 /** An editable configuration whose saved baseline is independent of catalog refreshes. */
@@ -10,6 +14,7 @@ public final class ConfigurationDraft {
     private HiddenConfig current = HiddenConfig.empty();
     private boolean requireVerifiedBaseline;
     private boolean initialized;
+    private final ArrayDeque<HiddenConfig> undo = new ArrayDeque<>();
 
     public boolean initialized() { return initialized; }
     public boolean dirty() { return initialized && !baseline.equals(current); }
@@ -30,22 +35,67 @@ public final class ConfigurationDraft {
 
     public boolean setHidden(DialogKey key, boolean hidden) {
         if (!initialized || key == null) return false;
-        Set<String> keys = encoded(current);
-        if (hidden) keys.add(key.toString()); else keys.remove(key.toString());
-        current = HiddenConfig.fromStrings(keys, current.suppressNotifications(), current.localPremium());
+        remember();
+        current = current.withSelection(key, hidden, null);
         return true;
     }
 
     public boolean setSuppressNotifications(boolean value) {
         if (!initialized) return false;
-        current = HiddenConfig.fromStrings(encoded(current), value, current.localPremium());
+        remember();
+        current = current.withOptions(value, current.localPremium());
         return true;
     }
 
     public boolean setLocalPremium(boolean value) {
         if (!initialized) return false;
-        current = HiddenConfig.fromStrings(encoded(current), current.suppressNotifications(), value);
+        remember();
+        current = current.withOptions(current.suppressNotifications(), value);
         return true;
+    }
+
+    public boolean setHidden(DialogKey key, boolean hidden, long owner) {
+        if (!initialized || key == null || owner <= 0) return false;
+        remember();
+        current = current.withSelection(key, hidden, owner);
+        return true;
+    }
+
+    public boolean setHiddenBatch(List<CatalogEntry> entries, boolean hidden) {
+        if (!initialized || entries == null || entries.isEmpty()) return false;
+        remember();
+        for (CatalogEntry entry : entries) {
+            Long owner = hidden && entry.ownerId() > 0 ? entry.ownerId() : null;
+            current = current.withSelection(entry.key(), hidden, owner);
+        }
+        return true;
+    }
+
+    public boolean rebind(DialogKey key, long expectedOwner, AccountInventory inventory) {
+        if (!initialized || key == null || inventory == null || !current.isHidden(key)
+                || !inventory.complete() || !inventory.matches(key.account(), expectedOwner)) return false;
+        return setHidden(key, true, expectedOwner);
+    }
+
+    public boolean canSaveAgainst(AccountInventory inventory) {
+        if (!initialized || inventory == null) return false;
+        for (Map.Entry<DialogKey, Long> binding : current.bindings().entrySet()) {
+            Long old = baseline.boundOwner(binding.getKey());
+            if (!binding.getValue().equals(old)
+                    && (!inventory.complete() || !inventory.matches(binding.getKey().account(), binding.getValue()))) return false;
+        }
+        return true;
+    }
+
+    public int undoSize() { return undo.size(); }
+    public boolean undo() {
+        if (undo.isEmpty()) return false;
+        current = undo.removeLast();
+        return true;
+    }
+    private void remember() {
+        if (undo.size() == 50) undo.removeFirst();
+        undo.addLast(current);
     }
 
     public boolean markSaved(boolean persisted) {
@@ -55,25 +105,26 @@ public final class ConfigurationDraft {
             return false;
         }
         baseline = current;
+        undo.clear();
         return true;
     }
 
     public void discard() {
-        if (initialized) current = baseline;
+        if (initialized) { current = baseline; undo.clear(); }
     }
 
     public State snapshot() {
         return new State(initialized, encoded(baseline), baseline.suppressNotifications(),
                 baseline.localPremium(), encoded(current), current.suppressNotifications(),
-                current.localPremium(), requireVerifiedBaseline);
+                current.localPremium(), requireVerifiedBaseline, encodeBindings(baseline), encodeBindings(current));
     }
 
     public static ConfigurationDraft restore(State state) {
         ConfigurationDraft draft = new ConfigurationDraft();
         if (state != null && state.initialized) {
-            draft.baseline = HiddenConfig.fromStrings(state.baselineKeys,
+            draft.baseline = decode(state.baselineKeys, state.baselineBindings,
                     state.baselineNotifications, state.baselinePremium);
-            draft.current = HiddenConfig.fromStrings(state.currentKeys,
+            draft.current = decode(state.currentKeys, state.currentBindings,
                     state.currentNotifications, state.currentPremium);
             draft.requireVerifiedBaseline = state.requireVerifiedBaseline;
             draft.initialized = true;
@@ -81,6 +132,24 @@ public final class ConfigurationDraft {
         return draft;
     }
 
+    private static Map<String, Long> encodeBindings(HiddenConfig config) {
+        Map<String, Long> encoded = new HashMap<>();
+        for (Map.Entry<DialogKey, Long> entry : config.bindings().entrySet())
+            encoded.put(entry.getKey().toString(), entry.getValue());
+        return encoded;
+    }
+    private static HiddenConfig decode(Set<String> keys, Map<String, Long> encodedBindings,
+            boolean notifications, boolean premium) {
+        Map<DialogKey, Long> bindings = new HashMap<>();
+        if (encodedBindings != null) for (Map.Entry<String, Long> entry : encodedBindings.entrySet())
+            DialogKey.tryParse(entry.getKey()).ifPresent(key -> {
+                if (entry.getValue() != null && entry.getValue() > 0) bindings.put(key, entry.getValue());
+            });
+        Set<DialogKey> unbound = new HashSet<>();
+        for (String key : keys) DialogKey.tryParse(key).ifPresent(unbound::add);
+        unbound.removeAll(bindings.keySet());
+        return HiddenConfig.fromBindings(bindings, unbound, notifications, premium);
+    }
     private static Set<String> encoded(HiddenConfig config) {
         Set<String> keys = new HashSet<>();
         for (DialogKey key : config.hiddenDialogs()) keys.add(key.toString());
@@ -97,10 +166,13 @@ public final class ConfigurationDraft {
         private final boolean currentNotifications;
         private final boolean currentPremium;
         private final boolean requireVerifiedBaseline;
+        private final Map<String, Long> baselineBindings;
+        private final Map<String, Long> currentBindings;
 
         private State(boolean initialized, Set<String> baselineKeys, boolean baselineNotifications,
                 boolean baselinePremium, Set<String> currentKeys, boolean currentNotifications,
-                boolean currentPremium, boolean requireVerifiedBaseline) {
+                boolean currentPremium, boolean requireVerifiedBaseline,
+                Map<String, Long> baselineBindings, Map<String, Long> currentBindings) {
             this.initialized = initialized;
             this.baselineKeys = new HashSet<>(baselineKeys);
             this.baselineNotifications = baselineNotifications;
@@ -109,6 +181,8 @@ public final class ConfigurationDraft {
             this.currentNotifications = currentNotifications;
             this.currentPremium = currentPremium;
             this.requireVerifiedBaseline = requireVerifiedBaseline;
+            this.baselineBindings = new HashMap<>(baselineBindings);
+            this.currentBindings = new HashMap<>(currentBindings);
         }
     }
 }

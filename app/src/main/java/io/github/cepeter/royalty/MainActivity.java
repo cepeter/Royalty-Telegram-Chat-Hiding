@@ -6,6 +6,8 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -45,8 +47,11 @@ import io.github.cepeter.royalty.catalog.PendingRequestStore;
 import io.github.cepeter.royalty.config.ConfigStore;
 import io.github.cepeter.royalty.config.XposedPreferenceService;
 import io.github.cepeter.royalty.core.CatalogEntry;
+import io.github.cepeter.royalty.core.CatalogSelection;
+import io.github.cepeter.royalty.core.AccountInventory;
 import io.github.cepeter.royalty.core.ConfigurationDraft;
 import io.github.cepeter.royalty.core.DialogKey;
+import io.github.cepeter.royalty.core.DiagnosticsFormatter;
 import io.github.cepeter.royalty.core.HiddenConfig;
 import io.github.cepeter.royalty.core.ProtectionStatus;
 import io.github.cepeter.royalty.update.UpdateChecker;
@@ -73,6 +78,7 @@ public final class MainActivity extends Activity {
     private boolean preferencesAvailable;
     private boolean renderingSettings;
     private boolean catalogRequestTimedOut;
+    private String catalogError = "";
     private String requestNonce;
     private long requestExpiresAt;
 
@@ -86,7 +92,8 @@ public final class MainActivity extends Activity {
         if (requestNonce != null && requestExpiresAt != 0
                 && SystemClock.elapsedRealtime() >= requestExpiresAt) {
             catalogRequestTimedOut = true;
-            CatalogUpdates.shared().complete(requestNonce, false);
+            catalogError = "Catalog response timed out";
+            CatalogUpdates.shared().complete(requestNonce, false, catalogError);
             requestNonce = null;
             requestExpiresAt = 0;
             renderCatalogAndHealth();
@@ -95,6 +102,7 @@ public final class MainActivity extends Activity {
     private final CatalogUpdates.Listener catalogUpdateListener = event -> mainHandler.post(() -> {
         if (!event.nonce().equals(requestNonce)) return;
         catalogRequestTimedOut = !event.success();
+        catalogError = event.detail();
         requestNonce = null;
         requestExpiresAt = 0;
         mainHandler.removeCallbacks(catalogTimeout);
@@ -118,21 +126,37 @@ public final class MainActivity extends Activity {
     private Switch notificationSwitch;
     private Switch premiumSwitch;
     private Button saveButton;
+    private CatalogSelectionControls selectionControls;
+    private AccountInventory accountInventory = AccountInventory.incomplete("no catalog");
+    private final Runnable freshnessTick = new Runnable() {
+        @Override public void run() {
+            if (catalogRepository != null && protectionDetails != null)
+                updateConnectionStatus(catalogRepository.loadHookStatuses());
+            mainHandler.postDelayed(this, 15_000);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (savedInstanceState != null) {
+        Object retained = getLastNonConfigurationInstance();
+        if (retained instanceof ConfigurationDraft) {
+            draft = (ConfigurationDraft) retained;
+        } else if (savedInstanceState != null) {
             Object saved = savedInstanceState.getSerializable(DRAFT_STATE);
-            if (saved instanceof ConfigurationDraft.State) {
+            if (saved instanceof ConfigurationDraft.State)
                 draft = ConfigurationDraft.restore((ConfigurationDraft.State) saved);
-            }
         }
         catalogRepository = new CatalogRepository(this);
         updateChecker = new UpdateChecker(mainHandler);
         setContentView(buildContentView());
         renderCached();
         XposedPreferenceService.subscribe(preferenceListener);
+    }
+
+    @Override
+    public Object onRetainNonConfigurationInstance() {
+        return draft;
     }
 
     @Override
@@ -157,11 +181,14 @@ public final class MainActivity extends Activity {
         renderCached();
         requestCatalog();
         maybeCheckForUpdate();
+        mainHandler.removeCallbacks(freshnessTick);
+        mainHandler.postDelayed(freshnessTick, 15_000);
     }
 
     @Override
     protected void onPause() {
         mainHandler.removeCallbacks(catalogTimeout);
+        mainHandler.removeCallbacks(freshnessTick);
         CatalogUpdates.shared().unsubscribe(catalogUpdateListener);
         super.onPause();
     }
@@ -281,7 +308,10 @@ public final class MainActivity extends Activity {
         notificationSwitch.setShowText(false);
         notificationSwitch.setMinimumHeight(dp(48));
         notificationSwitch.setOnCheckedChangeListener((button, checked) -> {
-            if (!renderingSettings) draft.setSuppressNotifications(checked);
+            if (!renderingSettings) {
+                draft.setSuppressNotifications(checked);
+                renderCatalogAndHealth();
+            }
         });
         notificationCard.addView(notificationSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -304,7 +334,10 @@ public final class MainActivity extends Activity {
         premiumSwitch.setShowText(false);
         premiumSwitch.setMinimumHeight(dp(48));
         premiumSwitch.setOnCheckedChangeListener((button, checked) -> {
-            if (!renderingSettings) draft.setLocalPremium(checked);
+            if (!renderingSettings) {
+                draft.setLocalPremium(checked);
+                renderCatalogAndHealth();
+            }
         });
         premiumCard.addView(premiumSwitch, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -350,6 +383,12 @@ public final class MainActivity extends Activity {
         clearSearchParams.setMarginStart(dp(8));
         searchRow.addView(clearSearchButton, clearSearchParams);
         root.addView(searchRow, withTopMargin(matchWrap(), 10));
+        selectionControls = new CatalogSelectionControls(this,
+                () -> applyCatalogFilter(searchInput.getText().toString()),
+                this::selectMatching, () -> {
+                    if (draft.undo()) renderCatalogAndHealth();
+                });
+        root.addView(selectionControls, withTopMargin(matchWrap(), 8));
 
         dialogList = new ListView(this);
         dialogList.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
@@ -364,9 +403,29 @@ public final class MainActivity extends Activity {
         dialogList.setAdapter(dialogAdapter);
         dialogList.setOnItemClickListener((parent, view, position, id) -> {
             DialogKey key = visibleCatalog.get(position).key();
-            if (!draft.setHidden(key, dialogList.isItemChecked(position))) {
-                dialogList.setItemChecked(position, draft.current().isHidden(key));
+            boolean selecting = dialogList.isItemChecked(position);
+            CatalogEntry entry = visibleCatalog.get(position);
+            Long oldOwner = draft.current().boundOwner(key);
+            boolean needsReview = draft.current().isHidden(key)
+                    && (oldOwner == null || !accountInventory.matches(key.account(), oldOwner));
+            if (needsReview) {
+                dialogList.setItemChecked(position, true);
+                promptRebind(entry);
+                return;
             }
+            if (!selecting) {
+                draft.setHidden(key, false);
+                renderCatalogAndHealth();
+                return;
+            }
+            dialogList.setItemChecked(position, draft.current().isHidden(key));
+            if (!accountInventory.complete() || entry.ownerId() <= 0
+                    || !accountInventory.matches(key.account(), entry.ownerId())) {
+                showError("Account ownership is not confirmed. Refresh after opening Telegram.");
+                return;
+            }
+            draft.setHidden(key, true, entry.ownerId());
+            renderCatalogAndHealth();
         });
         LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(360));
@@ -392,20 +451,44 @@ public final class MainActivity extends Activity {
         return scrollView;
     }
 
+    private void promptRebind(CatalogEntry entry) {
+        DialogKey key = entry.key();
+        boolean canBind = accountInventory.complete() && entry.ownerId() > 0
+                && accountInventory.matches(key.account(), entry.ownerId());
+        new AlertDialog.Builder(this).setTitle("Review account binding")
+                .setMessage(canBind ? "Bind this saved selection to "
+                        + accountInventory.owner(key.account()).label() + "?"
+                        : "This saved selection belongs to an unavailable or changed account. Refresh after opening Telegram, or remove it.")
+                .setNeutralButton("Remove selection", (ignored, which) -> {
+                    draft.setHidden(key, false);
+                    renderCatalogAndHealth();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(canBind ? "Bind" : "Refresh", (ignored, which) -> {
+                    if (!canBind) { requestCatalog(); return; }
+                    if (!draft.rebind(key, entry.ownerId(), accountInventory))
+                        showError("Account changed. Refresh and review again.");
+                    renderCatalogAndHealth();
+                }).show();
+    }
+
     private void requestCatalog() {
         catalogRequestTimedOut = false;
+        catalogError = "";
         renderCatalogAndHealth();
         mainHandler.removeCallbacks(catalogTimeout);
         try {
             PendingRequestStore.Request request = CatalogRequestClient.request(this);
             requestNonce = request.nonce();
             requestExpiresAt = request.expiresAtElapsedRealtime();
+            renderCatalogAndHealth();
             long delay = Math.max(0, requestExpiresAt - SystemClock.elapsedRealtime());
             mainHandler.postDelayed(catalogTimeout, delay + 100);
         } catch (RuntimeException error) {
             requestNonce = null;
             requestExpiresAt = 0;
             catalogRequestTimedOut = true;
+            catalogError = "Catalog request failed: " + error.getClass().getSimpleName();
             renderCatalogAndHealth();
         }
     }
@@ -515,6 +598,9 @@ public final class MainActivity extends Activity {
         catalog.addAll(catalogRepository.loadCatalog());
         addMissingSelections(draft.current().hiddenDialogs());
         java.util.Collections.sort(catalog);
+        accountInventory = catalogRepository.loadInventory();
+        selectionControls.update(accountInventory, catalog, CatalogSelection.selectedCount(draft.current()),
+                draft.undoSize(), draft.initialized() && preferencesAvailable);
         applyCatalogFilter(searchInput.getText().toString());
         updateConnectionStatus(catalogRepository.loadHookStatuses());
     }
@@ -538,16 +624,17 @@ public final class MainActivity extends Activity {
         }
         try {
             HiddenConfig current = draft.current();
-            boolean saved = ConfigStore.save(
-                    preferences,
-                    current.hiddenDialogs(),
-                    current.suppressNotifications(),
-                    current.localPremium());
+            if (!draft.canSaveAgainst(accountInventory)) {
+                showError("Account ownership changed or is incomplete. Refresh and review selections before saving.");
+                return;
+            }
+            boolean saved = ConfigStore.save(preferences, current);
             draft.markSaved(saved);
             if (!saved) {
                 showError(getString(R.string.save_failed));
                 return;
             }
+            renderCatalogAndHealth();
             Toast.makeText(this, "Changes saved", Toast.LENGTH_SHORT).show();
         } catch (RuntimeException error) {
             draft.markSaved(false);
@@ -566,40 +653,52 @@ public final class MainActivity extends Activity {
     }
 
     private String formatEntry(CatalogEntry entry) {
-        return entry.title() + "\nID " + entry.key().dialogId();
+        AccountInventory.Owner activeOwner = accountInventory.owner(entry.key().account());
+        Long savedOwner = entry.ownerId() > 0 ? entry.ownerId()
+                : draft.current().boundOwner(entry.key());
+        String owner = activeOwner != null && savedOwner != null && activeOwner.id() == savedOwner
+                ? activeOwner.label() : "Account " + (entry.key().account() + 1)
+                + " · saved owner " + (savedOwner != null ? savedOwner : "unbound");
+        String review = draft.current().isHidden(entry.key())
+                && (entry.ownerId() == 0 || draft.current().boundOwner(entry.key()) == null
+                || !accountInventory.matches(entry.key().account(), draft.current().boundOwner(entry.key())))
+                ? " · review binding" : "";
+        return entry.title() + "\n" + owner + " · ID " + entry.key().dialogId() + review;
+    }
+
+    private void selectMatching() {
+        List<CatalogEntry> eligible = new ArrayList<>();
+        for (CatalogEntry entry : visibleCatalog) {
+            if (accountInventory.complete() && entry.ownerId() > 0
+                    && accountInventory.matches(entry.key().account(), entry.ownerId())
+                    && !draft.current().isHidden(entry.key())) eligible.add(entry);
+        }
+        CatalogSelection.selectMatching(draft, eligible, true);
+        renderCatalogAndHealth();
     }
 
     private void applyCatalogFilter(String rawQuery) {
-        String query = rawQuery.trim().toLowerCase(Locale.ROOT);
         visibleCatalog.clear();
+        visibleCatalog.addAll(CatalogSelection.filter(catalog, draft.current(), rawQuery,
+                selectionControls.accountFilter(), selectionControls.hiddenOnly()));
         dialogAdapter.clear();
-        for (CatalogEntry entry : catalog) {
-            String title = entry.title().toLowerCase(Locale.ROOT);
-            String dialogId = Long.toString(entry.key().dialogId());
-            if (!query.isEmpty() && !title.contains(query) && !dialogId.contains(query)) {
-                continue;
-            }
-            visibleCatalog.add(entry);
-            dialogAdapter.add(formatEntry(entry));
-        }
+        for (CatalogEntry entry : visibleCatalog) dialogAdapter.add(formatEntry(entry));
         dialogAdapter.notifyDataSetChanged();
         dialogList.clearChoices();
-        for (int index = 0; index < visibleCatalog.size(); index++) {
+        for (int index = 0; index < visibleCatalog.size(); index++)
             dialogList.setItemChecked(index, draft.current().isHidden(visibleCatalog.get(index).key()));
-        }
+        selectionControls.update(accountInventory, catalog, CatalogSelection.selectedCount(draft.current()),
+                draft.undoSize(), draft.initialized() && preferencesAvailable);
     }
 
     private void updateConnectionStatus(Map<String, String> statuses) {
         ProtectionStatus protection = ProtectionStatus.evaluate(statuses,
                 catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
                 System.currentTimeMillis(), catalogRequestTimedOut);
-        StringBuilder lines = new StringBuilder();
-        for (Map.Entry<String, ProtectionStatus.State> surface : protection.surfaces().entrySet()) {
-            if (lines.length() > 0) lines.append(" · ");
-            lines.append(surface.getKey()).append(": ").append(surface.getValue().name().toLowerCase(Locale.ROOT));
-        }
-        lines.append("\nPremium: ").append(protection.premium().name().toLowerCase(Locale.ROOT));
-        protectionDetails.setText(lines.toString());
+        protectionDetails.setText(DiagnosticsFormatter.describe(statuses,
+                catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
+                System.currentTimeMillis(), requestNonce != null, catalogError,
+                installedTelegramVersion()));
         setConnectionStatus(
                 frameworkStatusDot,
                 frameworkStatusText,
@@ -610,6 +709,17 @@ public final class MainActivity extends Activity {
                 telegramStatusText,
                 protection.unsupported() ? R.string.telegram_unsupported : R.string.telegram_connection,
                 protection.working());
+    }
+
+    @SuppressWarnings("deprecation")
+    private String installedTelegramVersion() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo("org.telegram.messenger", 0);
+            long code = Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+            return (info.versionName == null ? "unknown" : info.versionName) + " (" + code + ")";
+        } catch (PackageManager.NameNotFoundException | RuntimeException error) {
+            return "not found (" + error.getClass().getSimpleName() + ")";
+        }
     }
 
     private void setConnectionStatus(

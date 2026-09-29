@@ -17,7 +17,7 @@ class ConfigurationUiContractTests(unittest.TestCase):
         self.assertIn("telegramStatusDot", self.source)
         self.assertIn("R.color.royalty_success", self.source)
         self.assertIn("R.color.royalty_error", self.source)
-        self.assertNotIn('"Account "', self.source)
+        self.assertIn("CatalogSelectionControls", self.source)
 
     def test_dashboard_scrolls_and_chat_picker_has_search_and_useful_height(self):
         strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()

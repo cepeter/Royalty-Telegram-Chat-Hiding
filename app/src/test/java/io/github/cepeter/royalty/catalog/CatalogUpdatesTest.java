@@ -7,6 +7,15 @@ import java.util.List;
 import org.junit.Test;
 
 public final class CatalogUpdatesTest {
+    @Test public void failureEventPreservesCause() {
+        CatalogUpdates updates = new CatalogUpdates();
+        final String[] detail = {""};
+        updates.subscribe(event -> detail[0] = event.detail());
+        updates.begin("reason", 100);
+        assertTrue(updates.complete("reason", false, "invalid account frame"));
+        assertEquals("invalid account frame", detail[0]);
+    }
+
     @Test public void completionOfSupersededRequestDoesNotCancelCurrentRequest() {
         CatalogUpdates updates = new CatalogUpdates();
         List<CatalogUpdates.Event> received = new ArrayList<>();

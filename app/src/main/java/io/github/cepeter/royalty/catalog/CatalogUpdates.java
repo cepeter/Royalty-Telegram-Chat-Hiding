@@ -8,9 +8,13 @@ public final class CatalogUpdates {
     public static final class Event {
         private final String nonce;
         private final boolean success;
-        private Event(String nonce, boolean success) { this.nonce = nonce; this.success = success; }
+        private final String detail;
+        private Event(String nonce, boolean success, String detail) {
+            this.nonce = nonce; this.success = success; this.detail = detail;
+        }
         public String nonce() { return nonce; }
         public boolean success() { return success; }
+        public String detail() { return detail; }
     }
 
     private static final CatalogUpdates SHARED = new CatalogUpdates();
@@ -28,12 +32,15 @@ public final class CatalogUpdates {
     public synchronized String activeNonce() { return activeNonce; }
     public synchronized long expiresAtElapsedRealtime() { return expiresAtElapsedRealtime; }
     public boolean complete(String nonce, boolean success) {
+        return complete(nonce, success, success ? "" : "Catalog response failed");
+    }
+    public boolean complete(String nonce, boolean success, String detail) {
         synchronized (this) {
             if (nonce == null || !nonce.equals(activeNonce)) return false;
             activeNonce = null;
             expiresAtElapsedRealtime = 0;
         }
-        Event event = new Event(nonce, success);
+        Event event = new Event(nonce, success, detail == null ? "" : detail);
         for (Listener listener : listeners) listener.onCompleted(event);
         return true;
     }

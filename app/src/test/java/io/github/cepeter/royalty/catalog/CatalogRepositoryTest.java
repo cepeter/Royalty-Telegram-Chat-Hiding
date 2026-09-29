@@ -9,6 +9,21 @@ import java.util.Map;
 import org.junit.Test;
 
 public final class CatalogRepositoryTest {
+    @Test public void storesCompleteOwnerInventoryWithActiveEmptyAccount() {
+        MemoryPreferences memory = new MemoryPreferences();
+        CatalogRepository repository = new CatalogRepository(memory.preferences());
+        CatalogBatch batch = new CatalogBatch("owners");
+        assertTrue(batch.begin("owners", new int[] {0, 1}, new long[] {101, 202},
+                new String[] {"Alice", "Bob"}, true, "session"));
+        assertTrue(batch.account("owners", 0, 101, new long[] {42}, new String[] {"Chat"}));
+        assertTrue(batch.account("owners", 1, 202, new long[0], new String[0]));
+        assertTrue(batch.status("owners", new String[0], new String[0], new String[0], "session", 100));
+        assertTrue(repository.replaceSnapshot(batch.complete("owners").get()));
+        assertEquals(101, repository.loadCatalog().get(0).ownerId());
+        assertTrue(repository.loadInventory().complete());
+        assertEquals(202, repository.loadInventory().owner(1).id());
+    }
+
     @Test public void checkedCommitPreservesLastGoodOnFailureAndReplacesItOnSuccess() {
         MemoryPreferences memory = new MemoryPreferences();
         CatalogRepository repository = new CatalogRepository(memory.preferences());

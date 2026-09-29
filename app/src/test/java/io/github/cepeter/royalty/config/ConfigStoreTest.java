@@ -11,9 +11,24 @@ import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 
 public final class ConfigStoreTest {
+    @Test public void boundOwnerRoundTripsAndLegacyRemainsUnbound() {
+        Map<String, Object> values = new HashMap<>();
+        SharedPreferences preferences = preferences(values);
+        DialogKey key = DialogKey.of(0, 42);
+        HiddenConfig bound = HiddenConfig.fromBindings(Collections.singletonMap(key, 101L),
+                Collections.emptySet(), false, false);
+        assertTrue(ConfigStore.save(preferences, bound));
+        assertTrue(ConfigStore.load(preferences).isHidden(key));
+        assertTrue(ConfigStore.load(preferences).eligible(new io.github.cepeter.royalty.core.AccountInventory(
+                Collections.singletonMap(0, new io.github.cepeter.royalty.core.AccountInventory.Owner(101, "A")), true, "")).isHidden(key));
+        values.remove(ConfigStore.OWNER_BINDINGS);
+        assertTrue(ConfigStore.load(preferences).unbound().contains(key));
+    }
+
     @Test
     public void localPremiumRoundTripsAndDefaultsOff() {
         Map<String, Object> values = new HashMap<>();

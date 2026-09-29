@@ -11,6 +11,10 @@ public final class CatalogProtocol {
     public static final String EXTRA_TYPE = "type";
     public static final String EXTRA_ACCOUNT = "account";
     public static final String EXTRA_EXPECTED_ACCOUNTS = "expected_accounts";
+    public static final String EXTRA_OWNER_IDS = "owner_ids";
+    public static final String EXTRA_OWNER_LABELS = "owner_labels";
+    public static final String EXTRA_INVENTORY_COMPLETE = "inventory_complete";
+    public static final String EXTRA_OWNER_ID = "owner_id";
     public static final String EXTRA_IDS = "ids";
     public static final String EXTRA_TITLES = "titles";
     public static final String EXTRA_STATUS_HOOKS = "status_hooks";

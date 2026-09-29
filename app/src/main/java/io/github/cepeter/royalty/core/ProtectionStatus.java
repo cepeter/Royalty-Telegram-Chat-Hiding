@@ -8,7 +8,7 @@ import java.util.Map;
 public final class ProtectionStatus {
     public static final long MAX_AGE_MILLIS = 60_000L;
     public static final String[] REQUIRED = {"bridge", "compatibility", "dialogs", "search",
-            "contacts", "share", "notifications", "reveal"};
+            "contacts", "share", "notifications", "reveal", "ownership"};
     public enum State { HEALTHY, MISSING, DEGRADED, STALE, UNSUPPORTED }
 
     private final Map<String, State> surfaces;

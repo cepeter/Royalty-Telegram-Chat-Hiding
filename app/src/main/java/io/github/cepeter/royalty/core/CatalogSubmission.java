@@ -12,6 +12,10 @@ public final class CatalogSubmission {
     private CatalogSubmission() {}
 
     public static List<CatalogEntry> sanitize(int account, long[] ids, String[] titles) {
+        return sanitize(account, 0, ids, titles);
+    }
+
+    public static List<CatalogEntry> sanitize(int account, long ownerId, long[] ids, String[] titles) {
         if (ids == null || titles == null || ids.length != titles.length) {
             throw new IllegalArgumentException("ids and titles must be non-null and equal length");
         }
@@ -27,7 +31,7 @@ public final class CatalogSubmission {
             }
             DialogKey key = DialogKey.of(account, ids[index]);
             String title = sanitizeTitle(titles[index], key.toString());
-            entries.put(key, new CatalogEntry(key, title));
+            entries.put(key, new CatalogEntry(key, title, ownerId));
         }
         return new ArrayList<>(entries.values());
     }

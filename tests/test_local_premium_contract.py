@@ -33,7 +33,8 @@ class LocalPremiumContractTests(unittest.TestCase):
         self.assertIn("getBoolean(LOCAL_PREMIUM, false)", store)
         self.assertIn("putBoolean(LOCAL_PREMIUM, localPremium)", store)
         self.assertIn("draft.setLocalPremium(checked)", activity)
-        self.assertIn("current.localPremium()", activity)
+        self.assertIn("ConfigStore.save(preferences, current)", activity)
+        self.assertIn("config.localPremium()", store)
         self.assertIn("Local Premium", strings)
         self.assertIn("Server-side limits remain unchanged", strings)
 

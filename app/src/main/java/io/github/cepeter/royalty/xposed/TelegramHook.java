@@ -91,7 +91,7 @@ public final class TelegramHook extends XposedModule {
         }
 
         try {
-            CatalogRequestBridge.register(context, CATALOGS);
+            CatalogRequestBridge.register(context, CATALOGS, CONFIG::inventory);
             reportStatus("bridge", "installed", "");
         } catch (RuntimeException error) {
             reportStatus("bridge", "missing", error.getClass().getSimpleName());
@@ -110,6 +110,13 @@ public final class TelegramHook extends XposedModule {
             return;
         }
         install("compatibility", () -> TelegramCompatibilityProbe.verify(classLoader));
+        try {
+            CONFIG.setOwnerResolver(new UserConfigOwnerResolver(classLoader),
+                    (status, detail) -> reportStatus("ownership", status, detail));
+            CONFIG.inventory();
+        } catch (RuntimeException error) {
+            reportStatus("ownership", "missing", error.getClass().getSimpleName());
+        }
         install("search", () -> TelegramSearchHook.install(
                 classLoader,
                 CONFIG::current,
@@ -499,7 +506,11 @@ public final class TelegramHook extends XposedModule {
             ids = java.util.Arrays.copyOf(ids, added);
             titles = java.util.Arrays.copyOf(titles, added);
         }
-        CATALOGS.replaceAccount(account, ids, titles);
+        io.github.cepeter.royalty.core.AccountInventory inventory = CONFIG.inventory();
+        CATALOGS.setInventory(inventory);
+        io.github.cepeter.royalty.core.AccountInventory.Owner owner = inventory.owner(account);
+        if (inventory.complete() && owner != null)
+            CATALOGS.replaceAccount(account, owner.id(), ids, titles);
     }
 
     private static String resolveDialogTitle(Object messagesController, long dialogId) {
@@ -574,7 +585,7 @@ public final class TelegramHook extends XposedModule {
                 + TelegramVersionGuard.SUPPORTED_VERSION_NAME + " ("
                 + TelegramVersionGuard.SUPPORTED_VERSION_CODE + ")";
         String[] hooks = {
-            "compatibility", "search", "share", "contacts", "dialogs", "notifications", "premium", "reveal"
+            "compatibility", "search", "share", "contacts", "dialogs", "notifications", "premium", "reveal", "ownership"
         };
         for (String hook : hooks) {
             reportStatus(hook, "unsupported_version", detail);

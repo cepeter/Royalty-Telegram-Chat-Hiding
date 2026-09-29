@@ -10,7 +10,7 @@ public final class ProtectionStatusTest {
     private static Map<String, String> healthy() {
         Map<String, String> statuses = new HashMap<>();
         for (String key : new String[] {"bridge", "compatibility", "dialogs", "search",
-                "contacts", "share", "notifications", "reveal"}) {
+                "contacts", "share", "notifications", "reveal", "ownership"}) {
             statuses.put(key, "installed");
         }
         return statuses;
@@ -20,6 +20,12 @@ public final class ProtectionStatusTest {
         ProtectionStatus status = ProtectionStatus.evaluate(healthy(), new HashMap<>(), 1000, 1100, false);
         assertTrue(status.working());
         assertEquals(ProtectionStatus.State.MISSING, status.premium());
+    }
+
+    @Test public void incompleteOwnerInventoryDegradesWholeProtection() {
+        Map<String, String> statuses = healthy();
+        statuses.put("ownership", "runtime_error");
+        assertFalse(ProtectionStatus.evaluate(statuses, new HashMap<>(), 1000, 1100, false).working());
     }
 
     @Test public void partialStaleUnknownAndUnsupportedAreNeverGreen() {

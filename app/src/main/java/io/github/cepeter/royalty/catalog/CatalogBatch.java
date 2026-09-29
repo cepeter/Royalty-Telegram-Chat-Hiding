@@ -1,6 +1,7 @@
 package io.github.cepeter.royalty.catalog;
 
 import io.github.cepeter.royalty.core.CatalogEntry;
+import io.github.cepeter.royalty.core.AccountInventory;
 import io.github.cepeter.royalty.core.CatalogSubmission;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,8 +19,10 @@ public final class CatalogBatch {
     private final Map<Integer, List<CatalogEntry>> accounts = new LinkedHashMap<>();
     private final Map<String, Status> statuses = new TreeMap<>();
     private boolean statusReceived;
+    private boolean legacyProtocol;
     private boolean begun;
     private final Set<Integer> expectedAccounts = new HashSet<>();
+    private AccountInventory inventory = AccountInventory.incomplete("legacy catalog frame");
     private boolean invalid;
     private boolean completed;
     private String processSession;
@@ -31,24 +34,46 @@ public final class CatalogBatch {
     }
 
     public boolean begin(String receivedNonce, int[] expected, String session) {
+        legacyProtocol = true;
+        return begin(receivedNonce, expected, new long[expected == null ? 0 : expected.length],
+                new String[expected == null ? 0 : expected.length], false, session);
+    }
+
+    public boolean begin(String receivedNonce, int[] expected, long[] ownerIds, String[] labels,
+            boolean inventoryComplete, String session) {
         if (!accepts(receivedNonce)) return false;
-        if (begun || expected == null || expected.length > 16 || session == null
+        if (begun || expected == null || ownerIds == null || labels == null
+                || expected.length != ownerIds.length || expected.length != labels.length
+                || expected.length > AccountInventory.MAX_ACCOUNTS || session == null
                 || session.isEmpty() || session.length() > 64) return invalidate();
-        for (int account : expected) {
-            if (account < 0 || account > 15 || !expectedAccounts.add(account)) return invalidate();
+        Map<Integer, AccountInventory.Owner> owners = new LinkedHashMap<>();
+        for (int index = 0; index < expected.length; index++) {
+            int account = expected[index];
+            if (account < 0 || account >= AccountInventory.MAX_ACCOUNTS
+                    || !expectedAccounts.add(account)) return invalidate();
+            if (ownerIds[index] > 0) owners.put(account, new AccountInventory.Owner(ownerIds[index], labels[index]));
+            else if (inventoryComplete) return invalidate();
         }
+        inventory = new AccountInventory(owners, inventoryComplete,
+                inventoryComplete ? "" : "owner inventory incomplete");
         processSession = session;
         begun = true;
         return true;
     }
 
     public boolean account(String receivedNonce, int account, long[] ids, String[] titles) {
+        return account(receivedNonce, account, 0, ids, titles);
+    }
+
+    public boolean account(String receivedNonce, int account, long ownerId, long[] ids, String[] titles) {
         if (!accepts(receivedNonce)) return false;
         if (!begun || statusReceived || !expectedAccounts.contains(account)
                 || accounts.containsKey(account) || ids == null || titles == null
-                || ids.length > CatalogSubmission.MAX_ENTRIES) return invalidate();
+                || ids.length > CatalogSubmission.MAX_ENTRIES
+                || (inventory.owner(account) != null && inventory.owner(account).id() != ownerId)
+                || (inventory.complete() && ownerId <= 0)) return invalidate();
         try {
-            accounts.put(account, Collections.unmodifiableList(CatalogSubmission.sanitize(account, ids, titles)));
+            accounts.put(account, Collections.unmodifiableList(CatalogSubmission.sanitize(account, ownerId, ids, titles)));
             return true;
         } catch (IllegalArgumentException error) {
             return invalidate();
@@ -83,7 +108,7 @@ public final class CatalogBatch {
         if (!accepts(receivedNonce)) return Optional.empty();
         completed = true;
         return begun && statusReceived && accounts.keySet().equals(expectedAccounts)
-                ? Optional.of(new Snapshot(accounts, statuses, processSession,
+                ? Optional.of(new Snapshot(accounts, statuses, inventory, legacyProtocol, processSession,
                 observedAtMillis)) : Optional.empty();
     }
 
@@ -107,16 +132,22 @@ public final class CatalogBatch {
     public static final class Snapshot {
         private final Map<Integer, List<CatalogEntry>> accounts;
         private final Map<String, Status> statuses;
+        private final AccountInventory inventory;
+        private final boolean legacyProtocol;
         private final String processSession;
         private final long observedAtMillis;
 
         private Snapshot(Map<Integer, List<CatalogEntry>> accounts, Map<String, Status> statuses,
-                String processSession, long observedAtMillis) {
+                AccountInventory inventory, boolean legacyProtocol, String processSession, long observedAtMillis) {
             this.accounts = Collections.unmodifiableMap(new LinkedHashMap<>(accounts));
             this.statuses = Collections.unmodifiableMap(new TreeMap<>(statuses));
+            this.inventory = inventory;
+            this.legacyProtocol = legacyProtocol;
             this.processSession = processSession;
             this.observedAtMillis = observedAtMillis;
         }
+        public AccountInventory inventory() { return inventory; }
+        public boolean legacyProtocol() { return legacyProtocol; }
         public Map<Integer, List<CatalogEntry>> accounts() { return accounts; }
         public Map<String, Status> statuses() { return statuses; }
         public String processSession() { return processSession; }

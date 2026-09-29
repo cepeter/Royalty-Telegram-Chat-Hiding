@@ -6,6 +6,19 @@ import java.util.Optional;
 import org.junit.Test;
 
 public final class CatalogBatchTest {
+    @Test public void completedInventoryCarriesOwnerOfRowsAndEmptyAccounts() {
+        CatalogBatch batch = new CatalogBatch("owner");
+        assertTrue(batch.begin("owner", new int[] {0, 1}, new long[] {101, 202},
+                new String[] {"Alice", "Bob"}, true, "session"));
+        assertTrue(batch.account("owner", 0, 101, new long[] {42}, new String[] {"Chat"}));
+        assertTrue(batch.account("owner", 1, 202, new long[0], new String[0]));
+        assertTrue(batch.status("owner", new String[0], new String[0], new String[0], "session", 100));
+        CatalogBatch.Snapshot snapshot = batch.complete("owner").get();
+        assertTrue(snapshot.inventory().complete());
+        assertEquals(101, snapshot.accounts().get(0).get(0).ownerId());
+        assertTrue(snapshot.accounts().get(1).isEmpty());
+    }
+
     @Test public void partialBatchCannotPublish() {
         CatalogBatch batch = new CatalogBatch("a");
         assertTrue(batch.begin("a", new int[] {0}, "session"));
