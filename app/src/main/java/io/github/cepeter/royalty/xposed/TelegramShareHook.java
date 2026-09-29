@@ -28,25 +28,25 @@ final class TelegramShareHook {
         Class<?> search = Class.forName("org.telegram.ui.Components.sq0", false, loader);
         AdapterRefreshRegistry.verifyRefreshMethod(main);
         AdapterRefreshRegistry.verifyRefreshMethod(search);
-        ModernHookBridge.hookMethod(main.getDeclaredMethod("E"), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(main, "E"), new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
                     applyMain(p.thisObject, config, revealed, status); });
             }
         });
-        ModernHookBridge.hookMethod(main.getDeclaredMethod("h"), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(main, "h"), new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
                     applyMain(p.thisObject, config, revealed, status); });
             }
         });
-        ModernHookBridge.hookMethod(search.getDeclaredMethod("E", String.class), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(search, "E", String.class), new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
                     applySearch(p.thisObject, config, revealed, status); });
             }
         });
-        ModernHookBridge.hookMethod(search.getDeclaredMethod("h"), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(search, "h"), new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
                     applySearch(p.thisObject, config, revealed, status); });

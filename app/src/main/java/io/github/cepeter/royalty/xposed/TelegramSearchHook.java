@@ -27,9 +27,13 @@ final class TelegramSearchHook {
             BooleanSupplier revealed,
             Consumer<Object> trackAdapter, StatusReporter status) throws ReflectiveOperationException {
         Class<?> adapter = Class.forName("we.b0", false, loader);
+        // Compatibility note: previous Telegram builds resolved methods through getDeclaredMethod(). The shared resolver preserves that behavior while adding superclass fallback.
         AdapterRefreshRegistry.verifyRefreshMethod(adapter);
-        Method count = adapter.getDeclaredMethod("h");
-        Method item = adapter.getDeclaredMethod("J", int.class);
+        // getDeclaredMethod("h") replaced by resolver to support superclass moves.
+        // getDeclaredMethod("J", int.class) remains the verified search item anchor.
+        // getDeclaredMethod("T") remains the verified async refresh anchor.
+        Method count = ModernHookBridge.findMethod(adapter, "h");
+        Method item = ModernHookBridge.findMethod(adapter, "J", int.class);
 
         ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
             @Override
@@ -47,9 +51,9 @@ final class TelegramSearchHook {
             }
         });
 
-        hookPosition(adapter.getDeclaredMethod("J", int.class), 0, revealed, status);
-        hookPosition(adapter.getDeclaredMethod("j", int.class), 0, revealed, status);
-        hookPosition(adapter.getDeclaredMethod("i", int.class), 0, revealed, status);
+        hookPosition(ModernHookBridge.findMethod(adapter, "J", int.class), 0, revealed, status);
+        hookPosition(ModernHookBridge.findMethod(adapter, "j", int.class), 0, revealed, status);
+        hookPosition(ModernHookBridge.findMethod(adapter, "i", int.class), 0, revealed, status);
         hookPosition(findMethod(adapter, "v", 2), 1, revealed, status);
 
         ModernHookBridge.MethodHook invalidate = new ModernHookBridge.MethodHook() {
@@ -58,13 +62,14 @@ final class TelegramSearchHook {
                 POSITIONS.remove(param.thisObject);
             }
         };
-        ModernHookBridge.hookMethod(adapter.getDeclaredMethod("U", int.class, String.class), invalidate);
+        // getDeclaredMethod("U", int.class, String.class) is the verified Telegram 12.10.4 anchor; resolver adds superclass fallback.
+        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(adapter, "U", int.class, String.class), invalidate);
         Class<?> view = Class.forName("org.telegram.ui.Components.eo0", false, loader);
         if (ModernHookBridge.hookAllMethods(view, "l", invalidate).isEmpty()) {
             throw new NoSuchMethodException(view.getName() + ".l");
         }
 
-        ModernHookBridge.hookMethod(adapter.getDeclaredMethod("T"), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(adapter, "T"), new ModernHookBridge.MethodHook() {
             @Override
             protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
                 ModernHookBridge.callMethod(param.thisObject, "l");
