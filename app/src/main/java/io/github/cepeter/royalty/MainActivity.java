@@ -57,6 +57,7 @@ import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.DiagnosticsFormatter;
 import io.github.cepeter.royalty.core.HiddenConfig;
 import io.github.cepeter.royalty.core.ProtectionStatus;
+import io.github.cepeter.royalty.core.ProtectedModalController;
 import io.github.cepeter.royalty.core.SettingsAccess;
 import io.github.cepeter.royalty.update.UpdateChecker;
 import io.github.cepeter.royalty.update.UpdateRelease;
@@ -80,6 +81,7 @@ public final class MainActivity extends Activity {
     private static final String DRAFT_STATE = "configuration_draft";
     private ConfigurationDraft draft = new ConfigurationDraft();
     private SettingsAccess settingsAccess = new SettingsAccess();
+    private ProtectedModalController protectedModals;
     private boolean contentBuilt;
     private boolean credentialPending;
     private Switch backgroundSwitch, screenOffSwitch, authenticationSwitch;
@@ -160,6 +162,7 @@ public final class MainActivity extends Activity {
             if (saved instanceof ConfigurationDraft.State)
                 draft = ConfigurationDraft.restore((ConfigurationDraft.State) saved);
         }
+        protectedModals = new ProtectedModalController(settingsAccess);
         catalogRepository = new CatalogRepository(this);
         updateChecker = new UpdateChecker(mainHandler);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
@@ -188,6 +191,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (protectedModals != null) protectedModals.closeAll();
         if (updateChecker != null) {
             updateChecker.close();
         }
@@ -235,6 +239,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showGate() {
+        if (!settingsAccess.allowed() && protectedModals != null) protectedModals.closeAll();
         if (isFinishing()) return;
         contentBuilt = false;
         LinearLayout gate = new LinearLayout(this);
@@ -582,23 +587,30 @@ public final class MainActivity extends Activity {
     }
 
     private void promptRebind(CatalogEntry entry) {
+        if (!settingsAccess.allowed()) return;
         DialogKey key = entry.key();
         boolean canBind = accountInventory.complete() && entry.ownerId() > 0
                 && accountInventory.matches(key.account(), entry.ownerId());
-        new AlertDialog.Builder(this).setTitle("Review account binding")
+        Object modalToken = new Object();
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Review account binding")
                 .setMessage(AccountBindingPresentation.reviewPrompt(entry,
                         draft.current(), accountInventory))
                 .setNeutralButton("Remove selection", (ignored, which) -> {
+                    if (!protectedModals.consume(modalToken)) return;
                     draft.setHidden(key, false);
                     renderCatalogAndHealth();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(canBind ? "Bind" : "Refresh", (ignored, which) -> {
+                    if (!protectedModals.consume(modalToken)) return;
                     if (!canBind) { requestCatalog(); return; }
                     if (!draft.rebind(key, entry.ownerId(), accountInventory))
                         showError("Account changed. Refresh and review again.");
                     renderCatalogAndHealth();
-                }).show();
+                }).create();
+        dialog.setOnDismissListener(ignored -> protectedModals.closed(modalToken));
+        dialog.show();
+        protectedModals.open(modalToken, dialog::dismiss);
     }
 
     private void requestCatalog() {
@@ -880,11 +892,19 @@ public final class MainActivity extends Activity {
     }
 
     private void showError(String message) {
-        new AlertDialog.Builder(this)
+        if (!settingsAccess.allowed()) {
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            return;
+        }
+        Object modalToken = new Object();
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(R.string.app_name)
                 .setMessage(message)
                 .setPositiveButton(android.R.string.ok, null)
-                .show();
+                .create();
+        dialog.setOnDismissListener(ignored -> protectedModals.closed(modalToken));
+        dialog.show();
+        protectedModals.open(modalToken, dialog::dismiss);
     }
 
     private void applySystemInsets(View root) {
