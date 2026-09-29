@@ -210,7 +210,20 @@ final class ModernHookBridge {
         return current;
     }
 
-    private static Method findMethod(Class<?> type, String name, Class<?>[] parameters) {
+    static Method findMethod(Class<?> type, String name, Class<?>... parameters) {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                Method method = current.getDeclaredMethod(name, parameters);
+                method.setAccessible(true);
+                return method;
+            } catch (NoSuchMethodException ignored) {
+                // Telegram moves methods between obfuscated adapter base classes.
+            }
+        }
+        throw new NoSuchMethodError(type.getName() + "." + name + java.util.Arrays.toString(parameters));
+    }
+
+    private static Method findExactMethod(Class<?> type, String name, Class<?>[] parameters) {
         for (Class<?> current = type; current != null; current = current.getSuperclass()) {
             try {
                 Method method = current.getDeclaredMethod(name, parameters);
