@@ -4,6 +4,7 @@
         android:name="io.github.cepeter.royalty.permission.CATALOG_REQUEST"
         android:protectionLevel="signature" />
     <uses-permission android:name="io.github.cepeter.royalty.permission.CATALOG_REQUEST" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <queries>
         <package android:name="org.telegram.messenger" />

@@ -3,6 +3,7 @@ package io.github.cepeter.royalty;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -16,6 +17,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -47,6 +49,8 @@ import io.github.cepeter.royalty.config.XposedPreferenceService;
 import io.github.cepeter.royalty.core.CatalogEntry;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
+import io.github.cepeter.royalty.update.UpdateChecker;
+import io.github.cepeter.royalty.update.UpdateRelease;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +59,13 @@ import java.util.Map;
 import java.util.Set;
 
 public final class MainActivity extends Activity {
+    private static final long UPDATE_CHECK_INTERVAL_MILLIS = 24L * 60 * 60 * 1_000;
+    private static final String UPDATE_PREFERENCES = "update_checks";
+    private static final String LAST_UPDATE_CHECK = "last_update_check";
+    private static final String DISMISSED_UPDATE_TAG = "dismissed_update_tag";
+    private static final String CACHED_UPDATE_TAG = "cached_update_tag";
+    private static final String CACHED_UPDATE_URL = "cached_update_url";
+
     private final List<CatalogEntry> catalog = new ArrayList<>();
     private final List<CatalogEntry> visibleCatalog = new ArrayList<>();
     private final Set<DialogKey> selectedDialogs = new HashSet<>();
@@ -87,7 +98,11 @@ public final class MainActivity extends Activity {
     };
 
     private CatalogRepository catalogRepository;
+    private UpdateChecker updateChecker;
     private SharedPreferences preferences;
+    private LinearLayout updateCard;
+    private TextView updateMessage;
+    private UpdateRelease availableUpdate;
     private TextView frameworkStatusDot;
     private TextView frameworkStatusText;
     private TextView telegramStatusDot;
@@ -103,12 +118,16 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         catalogRepository = new CatalogRepository(this);
+        updateChecker = new UpdateChecker(mainHandler);
         setContentView(buildContentView());
         XposedPreferenceService.subscribe(preferenceListener);
     }
 
     @Override
     protected void onDestroy() {
+        if (updateChecker != null) {
+            updateChecker.close();
+        }
         XposedPreferenceService.unsubscribe(preferenceListener);
         super.onDestroy();
     }
@@ -119,6 +138,7 @@ public final class MainActivity extends Activity {
         registerCatalogUpdates();
         renderCached();
         requestCatalog();
+        maybeCheckForUpdate();
     }
 
     @Override
@@ -204,6 +224,28 @@ public final class MainActivity extends Activity {
         statusCard.addView(refreshButton, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(statusCard, withTopMargin(matchWrap(), 8));
+
+        updateCard = createCard(LinearLayout.VERTICAL);
+        updateCard.setVisibility(View.GONE);
+        updateCard.addView(createText(
+                R.string.update_available, 16, R.color.royalty_text, Typeface.BOLD), matchWrap());
+        updateMessage = createText(0, 13, R.color.royalty_text_muted, Typeface.NORMAL);
+        updateCard.addView(updateMessage, withTopMargin(matchWrap(), 3));
+
+        LinearLayout updateActions = new LinearLayout(this);
+        updateActions.setOrientation(LinearLayout.HORIZONTAL);
+        Button viewReleaseButton = createPrimaryButton(R.string.view_release);
+        viewReleaseButton.setOnClickListener(view -> openAvailableRelease());
+        updateActions.addView(viewReleaseButton, new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        Button dismissUpdateButton = createSecondaryButton(R.string.dismiss_update);
+        dismissUpdateButton.setOnClickListener(view -> dismissAvailableUpdate());
+        LinearLayout.LayoutParams dismissParams = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
+        dismissParams.setMarginStart(dp(8));
+        updateActions.addView(dismissUpdateButton, dismissParams);
+        updateCard.addView(updateActions, withTopMargin(matchWrap(), 10));
+        root.addView(updateCard, withTopMargin(matchWrap(), 12));
 
         LinearLayout notificationCard = createCard(LinearLayout.HORIZONTAL);
         notificationCard.setGravity(Gravity.CENTER_VERTICAL);
@@ -355,6 +397,80 @@ public final class MainActivity extends Activity {
             catalogRequestTimedOut = true;
             renderCached();
         }
+    }
+
+    private void maybeCheckForUpdate() {
+        SharedPreferences updatePreferences = getSharedPreferences(
+                UPDATE_PREFERENCES, Context.MODE_PRIVATE);
+        showAvailableUpdate(UpdateRelease.fromStored(
+                updatePreferences.getString(CACHED_UPDATE_TAG, ""),
+                updatePreferences.getString(CACHED_UPDATE_URL, "")));
+
+        long now = System.currentTimeMillis();
+        long lastCheck = updatePreferences.getLong(LAST_UPDATE_CHECK, 0);
+        if (lastCheck > now) {
+            updatePreferences.edit().putLong(LAST_UPDATE_CHECK, now).apply();
+            return;
+        }
+        if (lastCheck != 0 && now - lastCheck < UPDATE_CHECK_INTERVAL_MILLIS) {
+            return;
+        }
+
+        updatePreferences.edit().putLong(LAST_UPDATE_CHECK, now).apply();
+        updateChecker.check(BuildConfig.VERSION_NAME, this::handleUpdateResult);
+    }
+
+    private void handleUpdateResult(UpdateRelease release) {
+        if (release == null) {
+            return;
+        }
+        getSharedPreferences(UPDATE_PREFERENCES, Context.MODE_PRIVATE)
+                .edit()
+                .putString(CACHED_UPDATE_TAG, release.tag())
+                .putString(CACHED_UPDATE_URL, release.url())
+                .apply();
+        showAvailableUpdate(release);
+    }
+
+    private void showAvailableUpdate(UpdateRelease release) {
+        if (release == null || !release.isNewerThan(BuildConfig.VERSION_NAME)) {
+            return;
+        }
+        SharedPreferences updatePreferences = getSharedPreferences(
+                UPDATE_PREFERENCES, Context.MODE_PRIVATE);
+        if (release.tag().equals(updatePreferences.getString(DISMISSED_UPDATE_TAG, ""))) {
+            return;
+        }
+
+        availableUpdate = release;
+        updateMessage.setText(getString(
+                R.string.update_available_message,
+                release.version(),
+                BuildConfig.VERSION_NAME));
+        updateCard.setVisibility(View.VISIBLE);
+    }
+
+    private void openAvailableRelease() {
+        if (availableUpdate == null) {
+            return;
+        }
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(availableUpdate.url())));
+        } catch (ActivityNotFoundException error) {
+            Toast.makeText(this, R.string.release_page_unavailable, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void dismissAvailableUpdate() {
+        if (availableUpdate == null) {
+            return;
+        }
+        getSharedPreferences(UPDATE_PREFERENCES, Context.MODE_PRIVATE)
+                .edit()
+                .putString(DISMISSED_UPDATE_TAG, availableUpdate.tag())
+                .apply();
+        availableUpdate = null;
+        updateCard.setVisibility(View.GONE);
     }
 
     private void renderCached() {

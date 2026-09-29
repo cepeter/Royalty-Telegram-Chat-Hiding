@@ -29,4 +29,9 @@
     <string name="catalog_refresh_timeout">No response from Telegram. Open Telegram, then refresh.</string>
     <string name="framework_inactive">Vector or LSPosed is not active for this module. Enable the module, scope Telegram, and restart both apps.</string>
     <string name="save_failed">Configuration could not be saved.</string>
+    <string name="update_available">Update available</string>
+    <string name="update_available_message">Royalty %1$s is available. You have %2$s.</string>
+    <string name="view_release">View release</string>
+    <string name="dismiss_update">Dismiss</string>
+    <string name="release_page_unavailable">No browser can open the release page.</string>
 </resources>
