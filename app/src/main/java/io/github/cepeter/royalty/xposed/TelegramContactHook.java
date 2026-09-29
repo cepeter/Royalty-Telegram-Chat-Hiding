@@ -45,6 +45,8 @@ final class TelegramContactHook {
     private static void installSections(ClassLoader loader, Supplier<HiddenConfig> config,
             BooleanSupplier revealed, StatusReporter status) throws Exception {
         Class<?> base = Class.forName("we.d", false, loader);
+        Class<?> concrete = Class.forName("org.telegram.ui.nt", false, loader);
+        Method refresh = concrete.getDeclaredMethod("l");
         Method count = base.getDeclaredMethod("M", int.class);
         Method item = base.getDeclaredMethod("O", int.class, int.class);
         ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
@@ -59,8 +61,7 @@ final class TelegramContactHook {
                     hookSectionPosition(method, revealed, status);
             }
         }
-        Class<?> concrete = Class.forName("org.telegram.ui.nt", false, loader);
-        ModernHookBridge.hookAllMethods(concrete, "l", new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(refresh, new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 SECTIONS.remove(p.thisObject);
             }
@@ -134,8 +135,11 @@ final class TelegramContactHook {
                 items.raw(), names.raw(),
                 value -> TelegramObjectKey.fromPickerResult(account, value).orElse(null),
                 config, reveal);
-        apply(owner, itemsField, items, result.items());
-        apply(owner, namesField, names, result.metadata());
+        ArrayList<Object> itemCopy = new ArrayList<>(result.items());
+        ArrayList<Object> nameCopy = new ArrayList<>(result.metadata());
+        FieldWriteTransaction.writePair(owner, itemsField, itemCopy, namesField, nameCopy);
+        items.markApplied(itemCopy);
+        names.markApplied(nameCopy);
     }
 
     private static void filterField(Object owner, String field,

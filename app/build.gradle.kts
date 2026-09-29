@@ -83,5 +83,6 @@ tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.co
 dependencies {
     compileOnly("io.github.libxposed:api:101.0.1")
     implementation("io.github.libxposed:service:101.0.0")
+    testImplementation("io.github.libxposed:api:101.0.1")
     testImplementation("junit:junit:4.13.2")
 }

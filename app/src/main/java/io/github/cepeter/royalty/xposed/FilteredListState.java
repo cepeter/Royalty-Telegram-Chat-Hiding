@@ -34,14 +34,69 @@ final class FilteredListState {
     }
 
     private void reconcile(List<?> current) {
-        // Telegram rows are identity-owned; value equality can merge distinct rows.
-        IdentityHashMap<Object, Integer> removals = identityCounts(snapshot);
-        consumeAll(removals, current);
-        retainWithout(removals);
+        // Identify the old visible occurrences in the full baseline, leaving concealed
+        // occurrences available for reveal. All matching is by reference, including null.
+        boolean[] oldVisible = new boolean[raw.size()];
+        int visibleIndex = 0;
+        for (int index = 0; index < raw.size() && visibleIndex < snapshot.size(); index++) {
+            if (raw.get(index) == snapshot.get(visibleIndex)) {
+                oldVisible[index] = true;
+                visibleIndex++;
+            }
+        }
+        if (visibleIndex != snapshot.size()) {
+            throw new IllegalStateException("applied rows no longer match the baseline");
+        }
 
-        IdentityHashMap<Object, Integer> additions = identityCounts(current);
-        consumeAll(additions, snapshot);
-        appendFrom(current, additions);
+        IdentityHashMap<Object, Integer> oldCounts = identityCounts(snapshot);
+        IdentityHashMap<Object, Integer> currentCounts = identityCounts(current);
+        IdentityHashMap<Object, Integer> restored = new IdentityHashMap<>();
+        for (Object value : currentCounts.keySet()) {
+            int excess = currentCounts.get(value) - oldCounts.getOrDefault(value, 0);
+            if (excess > 0) restored.put(value, excess);
+        }
+
+        List<List<Object>> anchored = new ArrayList<>(snapshot.size());
+        for (int index = 0; index < snapshot.size(); index++) anchored.add(new ArrayList<>());
+        List<Object> orphaned = new ArrayList<>();
+        int nextVisible = -1;
+        int[] nextAnchors = new int[raw.size()];
+        int ordinal = snapshot.size();
+        for (int index = raw.size() - 1; index >= 0; index--) {
+            if (oldVisible[index]) nextVisible = --ordinal;
+            nextAnchors[index] = nextVisible;
+        }
+        for (int index = 0; index < raw.size(); index++) {
+            if (oldVisible[index] || consume(restored, raw.get(index))) continue;
+            int anchor = nextAnchors[index];
+            if (anchor < 0) orphaned.add(raw.get(index));
+            else anchored.get(anchor).add(raw.get(index));
+        }
+
+        IdentityHashMap<Object, List<Integer>> oldPositions = new IdentityHashMap<>();
+        for (int index = 0; index < snapshot.size(); index++) {
+            oldPositions.computeIfAbsent(snapshot.get(index), ignored -> new ArrayList<>()).add(index);
+        }
+        IdentityHashMap<Object, Integer> used = new IdentityHashMap<>();
+        List<Object> reordered = new ArrayList<>(raw.size() + current.size());
+        boolean[] anchorEmitted = new boolean[snapshot.size()];
+        for (Object value : current) {
+            int occurrence = used.getOrDefault(value, 0);
+            used.put(value, occurrence + 1);
+            List<Integer> positions = oldPositions.get(value);
+            if (positions != null && occurrence < positions.size()) {
+                int position = positions.get(occurrence);
+                reordered.addAll(anchored.get(position));
+                anchorEmitted[position] = true;
+            }
+            reordered.add(value);
+        }
+        for (int index = 0; index < anchored.size(); index++) {
+            if (!anchorEmitted[index]) reordered.addAll(anchored.get(index));
+        }
+        reordered.addAll(orphaned);
+        raw.clear();
+        raw.addAll(reordered);
         snapshot = new ArrayList<>(current);
     }
 
@@ -61,13 +116,6 @@ final class FilteredListState {
         return counts;
     }
 
-    private static void consumeAll(
-            IdentityHashMap<Object, Integer> counts, List<?> values) {
-        for (Object value : values) {
-            consume(counts, value);
-        }
-    }
-
     private static boolean consume(IdentityHashMap<Object, Integer> counts, Object value) {
         Integer count = counts.get(value);
         if (count == null) return false;
@@ -76,18 +124,4 @@ final class FilteredListState {
         return true;
     }
 
-    private void retainWithout(IdentityHashMap<Object, Integer> removals) {
-        List<Object> retained = new ArrayList<>(raw.size());
-        for (Object value : raw) {
-            if (!consume(removals, value)) retained.add(value);
-        }
-        raw.clear();
-        raw.addAll(retained);
-    }
-
-    private void appendFrom(List<?> current, IdentityHashMap<Object, Integer> additions) {
-        for (Object value : current) {
-            if (consume(additions, value)) raw.add(value);
-        }
-    }
 }
