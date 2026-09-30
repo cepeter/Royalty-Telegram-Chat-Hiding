@@ -18,7 +18,7 @@ An Xposed module for the official Telegram Android app.
 Royalty started as a personal replacement for [Loyalty](https://github.com/Xposed-Modules-Repo/ru.mike.loyalty) after it stopped working on my setup. It keeps chosen chats out of Telegram’s dialog lists, search results, share targets, and people pickers, with optional notification suppression.
 
 > [!IMPORTANT]
-> Royalty supports only official Telegram **12.10.4** (`versionCode 70992`, package `org.telegram.messenger`). Both the displayed version and versionCode must match; other builds are rejected before hooks are installed.
+> Royalty's tested profile is official Telegram **12.10.4** (`versionCode 70992`, package `org.telegram.messenger`). Other builds are accepted only when Royalty's semantic resolver validates every required hook surface; ambiguous or missing targets fail open.
 
 ## What it does
 
@@ -43,7 +43,7 @@ Royalty does not delete chats, modify messages, or change Telegram’s stored di
 |---|---|
 | Android | 8.1 or newer |
 | Hook framework | Vector/LSPosed with Modern Xposed API 101 support |
-| Telegram | Official app, `versionName 12.10.4`, `versionCode 70992` |
+| Telegram | Official app; 12.10.4 / 70992 is the tested profile; other builds require successful semantic validation |
 | Telegram package | `org.telegram.messenger` |
 
 > [!WARNING]
@@ -102,7 +102,7 @@ Historical 2.2.0 repository and APK checks are recorded in [`docs/device-accepta
 ## If something is not working
 
 1. Confirm that Royalty is enabled and scoped only to `org.telegram.messenger`.
-2. Confirm that Telegram reports **versionName 12.10.4** and **versionCode 70992**; both must match.
+2. Prefer the tested **versionName 12.10.4 / versionCode 70992** profile. On another build, check that every required hook surface reports healthy semantic resolution.
 3. Restart the device after enabling or updating the module.
 4. Open Telegram before tapping **Refresh** in Royalty.
 5. Check the hook-status cards for `missing` or `runtime_error`.
@@ -155,7 +155,7 @@ app/src/test/                    JVM contract tests
 
 ## Compatibility notes
 
-The runtime aliases are checked directly against the official Telegram **12.10.4** APK (`versionCode 70992`, SHA-256 `146ec03c20ce4c73ccfa12399f143c0db5992a3419d30ec0f17ef547b3eaba8d`). Telegram source commit [`9552e554`](https://github.com/DrKLO/Telegram/commit/9552e5541e1274b9557c9832b204dbfcaf44b3dc) is used only as a readable reference. Check Royalty’s hook-status panel after every Telegram update.
+The fast-path runtime aliases are checked directly against the official Telegram **12.10.4** APK (`versionCode 70992`, SHA-256 `146ec03c20ce4c73ccfa12399f143c0db5992a3419d30ec0f17ef547b3eaba8d`). When those aliases do not validate, Royalty can use DexKit semantic fingerprints and structural checks, cache the validated descriptors per Telegram/module version, and fail open on ambiguous results. Telegram source commit [`9552e554`](https://github.com/DrKLO/Telegram/commit/9552e5541e1274b9557c9832b204dbfcaf44b3dc) is used only as a readable reference. Check Royalty’s hook-status panel after every Telegram update.
 
 ## License
 
