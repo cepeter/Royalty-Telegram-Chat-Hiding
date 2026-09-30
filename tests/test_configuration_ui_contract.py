@@ -104,6 +104,11 @@ class ConfigurationUiContractTests(unittest.TestCase):
         self.assertIn("postDelayed", self.source)
         self.assertIn("Open Telegram, then refresh", strings)
 
+    def test_inactive_telegram_keeps_last_verified_hook_health_neutral(self):
+        strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
+        self.assertIn("protection.inactive()", self.source)
+        self.assertIn("Last verified", strings)
+
     def test_missing_selected_dialogs_remain_manageable(self):
         self.assertIn("addMissingSelections", self.source)
         self.assertIn("Unavailable from current catalog", self.source)
