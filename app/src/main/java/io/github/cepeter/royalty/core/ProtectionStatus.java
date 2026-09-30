@@ -35,11 +35,11 @@ public final class ProtectionStatus {
     private static State classify(String value, String detail, boolean stale, boolean waiting) {
         if ("unsupported_version".equals(value)) return State.UNSUPPORTED;
         if (value == null) return waiting ? State.WAITING : State.MISSING;
-        if (stale) return State.STALE;
         if (!"installed".equals(value)
                 || (detail != null && detail.contains("unknown_rows_visible"))) {
             return State.DEGRADED;
         }
+        if (stale) return State.STALE;
         return State.HEALTHY;
     }
 
@@ -47,6 +47,11 @@ public final class ProtectionStatus {
     public State surface(String key) { return surfaces.get(key); }
     public State premium() { return premium; }
     public boolean waiting() { return surfaces.containsValue(State.WAITING); }
+    public boolean inactive() {
+        if (surfaces.isEmpty()) return false;
+        for (State state : surfaces.values()) if (state != State.STALE) return false;
+        return true;
+    }
     public boolean working() { return !surfaces.containsValue(State.WAITING)
             && !surfaces.containsValue(State.MISSING)
             && !surfaces.containsValue(State.DEGRADED) && !surfaces.containsValue(State.STALE)
