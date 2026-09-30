@@ -121,51 +121,74 @@ public final class TelegramHook extends XposedModule {
             ModernHookBridge.log("TelegramChatHider: Telegram version unavailable: " + error);
             return;
         }
-        if (!TelegramVersionGuard.isSupported(version)) {
-            reportUnsupportedVersion(version);
-            return;
-        }
-        install("compatibility", () -> TelegramCompatibilityProbe.verify(classLoader));
+        TelegramSemanticResolver symbols =
+                TelegramSemanticResolver.create(context, classLoader, version);
         try {
-            CONFIG.setOwnerResolver(new UserConfigOwnerResolver(classLoader),
-                    (status, detail) -> reportStatus("ownership", status, detail));
-            CONFIG.inventory();
-        } catch (RuntimeException error) {
-            reportStatus("ownership", "missing", error.getClass().getSimpleName());
+            boolean testedProfile = TelegramVersionGuard.isSupported(version);
+            try {
+                TelegramCompatibilityProbe.verify(symbols);
+                TelegramObjectKey.configure(symbols);
+                reportStatus("compatibility", "installed",
+                        testedProfile
+                                ? "tested profile " + version.describe() + "; semantic cache active"
+                                : "semantic profile for " + version.describe());
+            } catch (Throwable error) {
+                reportStatus("compatibility",
+                        testedProfile ? "missing" : "unsupported_version",
+                        error.getClass().getSimpleName()
+                                + (testedProfile ? "" : "; semantic resolution failed for "
+                                        + version.describe()));
+                ModernHookBridge.log(
+                        "TelegramChatHider: compatibility resolution unavailable: " + error);
+            }
+
+            try {
+                CONFIG.setOwnerResolver(new UserConfigOwnerResolver(classLoader),
+                        (status, detail) -> reportStatus("ownership", status, detail));
+                CONFIG.inventory();
+            } catch (RuntimeException error) {
+                reportStatus("ownership", "missing", error.getClass().getSimpleName());
+            }
+            install("search", () -> TelegramSearchHook.install(
+                    classLoader,
+                    symbols,
+                    CONFIG::current,
+                    TelegramHook::revealState,
+                    ADAPTERS::track,
+                    (status, detail) -> reportStatus("search", status, detail)));
+            install("share", () -> TelegramShareHook.install(
+                    classLoader,
+                    symbols,
+                    CONFIG::current,
+                    TelegramHook::revealState,
+                    ADAPTERS::track,
+                    (status, detail) -> reportStatus("share", status, detail)));
+            install("contacts", () -> TelegramContactHook.install(
+                    classLoader,
+                    symbols,
+                    CONFIG::current,
+                    TelegramHook::revealState,
+                    ADAPTERS::track,
+                    (status, detail) -> reportStatus("contacts", status, detail)));
+            install("dialogs", () -> installDialogHook(classLoader));
+            install("notifications", () -> installNotificationHook(classLoader));
+            install("premium", () -> TelegramPremiumHook.install(
+                    classLoader,
+                    CONFIG::localPremiumEnabled,
+                    (status, detail) -> reportStatus("premium", status, detail)));
+            RevealInstallation.install(() -> installRevealHook(classLoader),
+                    () -> installRevealAdapters((Application) context.getApplicationContext()),
+                    (installed, error) -> {
+                        if (installed) reportStatus("reveal", "installed", "");
+                        else {
+                            reportStatus("reveal", "missing", error.getClass().getSimpleName());
+                            ModernHookBridge.log(
+                                    "TelegramChatHider: reveal prerequisites unavailable: " + error);
+                        }
+                    });
+        } finally {
+            symbols.close();
         }
-        install("search", () -> TelegramSearchHook.install(
-                classLoader,
-                CONFIG::current,
-                TelegramHook::revealState,
-                ADAPTERS::track,
-                (status, detail) -> reportStatus("search", status, detail)));
-        install("share", () -> TelegramShareHook.install(
-                classLoader,
-                CONFIG::current,
-                TelegramHook::revealState,
-                ADAPTERS::track,
-                (status, detail) -> reportStatus("share", status, detail)));
-        install("contacts", () -> TelegramContactHook.install(
-                classLoader,
-                CONFIG::current,
-                TelegramHook::revealState,
-                ADAPTERS::track,
-                (status, detail) -> reportStatus("contacts", status, detail)));
-        install("dialogs", () -> installDialogHook(classLoader));
-        install("notifications", () -> installNotificationHook(classLoader));
-        install("premium", () -> TelegramPremiumHook.install(
-                classLoader,
-                CONFIG::localPremiumEnabled,
-                (status, detail) -> reportStatus("premium", status, detail)));
-        RevealInstallation.install(() -> installRevealHook(classLoader),
-                () -> installRevealAdapters((Application) context.getApplicationContext()),
-                (installed, error) -> {
-                    if (installed) reportStatus("reveal", "installed", "");
-                    else {
-                        reportStatus("reveal", "missing", error.getClass().getSimpleName());
-                        ModernHookBridge.log("TelegramChatHider: reveal prerequisites unavailable: " + error);
-                    }
-                });
     }
 
     private static void installDialogHook(ClassLoader classLoader) {
