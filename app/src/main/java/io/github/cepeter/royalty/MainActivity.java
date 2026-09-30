@@ -1043,6 +1043,10 @@ public final class MainActivity extends Activity {
             telegramStatusDot.setTextColor(getColor(R.color.royalty_text_muted));
             telegramStatusText.setText(getString(R.string.telegram_connection)
                     + " · " + getString(R.string.connection_waiting));
+        } else if (protection.inactive()) {
+            telegramStatusDot.setTextColor(getColor(R.color.royalty_text_muted));
+            telegramStatusText.setText(getString(R.string.telegram_connection)
+                    + " · " + getString(R.string.connection_last_verified));
         } else {
             setConnectionStatus(
                     telegramStatusDot,
