@@ -10,7 +10,7 @@ public final class DiagnosticsFormatterTest {
     @Test public void missingAndStaleRequiredSurfacesHaveRecoveryGuidance() {
         String text = DiagnosticsFormatter.describe(Collections.singletonMap("search", "installed"),
                 Collections.emptyMap(), 1000, 100000, false, "", "12.10.4 (70992)");
-        assertTrue(text.contains("search: STALE")); assertTrue(text.contains("bridge: STALE"));
+        assertTrue(text.contains("search: STALE")); assertTrue(text.contains("bridge: MISSING"));
         assertTrue(text.contains("Open Telegram")); assertTrue(text.contains("Refresh"));
     }
 
