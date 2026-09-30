@@ -22,29 +22,35 @@ final class TelegramShareHook {
 
     interface StatusReporter { void report(String status, String detail); }
 
-    static void install(ClassLoader loader, Supplier<HiddenConfig> config,
-            BooleanSupplier revealed, Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
-        Class<?> main = Class.forName("org.telegram.ui.Components.oq0", false, loader);
-        Class<?> search = Class.forName("org.telegram.ui.Components.sq0", false, loader);
-        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(main, "E"), new ModernHookBridge.MethodHook() {
+    static void install(ClassLoader loader, TelegramSemanticResolver symbols,
+            Supplier<HiddenConfig> config, BooleanSupplier revealed,
+            Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
+        Class<?> main = symbols.resolveClass(TelegramSemanticResolver.Target.SHARE_LIST);
+        Class<?> search = symbols.resolveClass(TelegramSemanticResolver.Target.SHARE_SEARCH);
+        ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
+                "share.main.refresh", main, 0, "E"), new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
                     applyMain(p.thisObject, config, revealed, status); });
             }
         });
-        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(main, "h"), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
+                "share.main.count", main, 0, "h"), new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
                     applyMain(p.thisObject, config, revealed, status); });
             }
         });
-        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(search, "E", String.class), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(symbols.resolveMethod(
+                "share.search.query", search, null, new Class<?>[] {String.class}, "E"),
+                new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
                     applySearch(p.thisObject, config, revealed, status); });
             }
         });
-        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(search, "h"), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
+                "share.search.count", search, 0, "h"), new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 safely(status, () -> { trackAdapter.accept(p.thisObject);
                     applySearch(p.thisObject, config, revealed, status); });
@@ -154,10 +160,7 @@ final class TelegramShareHook {
 
     private static void writeMapContents(
             Object target, List<Object> dialogs, List<Long> ids) {
-        ModernHookBridge.callMethod(target, "b");
-        for (int index = 0; index < dialogs.size(); index++) {
-            ModernHookBridge.callMethod(target, "k", dialogs.get(index), ids.get(index));
-        }
+        SelectedMapSnapshot.replaceContents(target, dialogs, ids);
     }
 
     private static void guardSelection(Object outer, List<Object> dialogs, int account,

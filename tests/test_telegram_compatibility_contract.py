@@ -5,6 +5,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 MAP = ROOT / "docs/telegram-12.10.4-compatibility.md"
 EXTRACTOR = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramObjectKey.java"
 PROBE = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramCompatibilityProbe.java"
+RESOLVER = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramSemanticResolver.java"
+SELECTED = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/SelectedMapSnapshot.java"
 HOOK = ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramHook.java"
 
 
@@ -52,43 +54,65 @@ class TelegramCompatibilityContractTests(unittest.TestCase):
         self.assertNotIn("UserConfig", source)
         self.assertNotIn("selectedAccount", source)
 
-    def test_runtime_probe_checks_every_surface_and_reports_status(self):
+    def test_runtime_probe_checks_resolved_surfaces_and_reports_status(self):
         probe = PROBE.read_text()
+        resolver = RESOLVER.read_text()
         hook = HOOK.read_text()
-        for identity in (
-            '"we.b0"',
-            '"org.telegram.ui.Components.eo0"',
-            '"we.a0"',
-            '"we.n1"',
-            '"org.telegram.ui.Components.wq0"',
-            '"org.telegram.ui.Components.oq0"',
-            '"org.telegram.ui.Components.sq0"',
-            '"org.telegram.ui.Components.kq0"',
-            '"org.telegram.ui.ContactsActivity"',
-            '"org.telegram.ui.mt"',
-            '"org.telegram.ui.nt"',
-            '"org.telegram.ui.s70"',
-            '"org.telegram.ui.q70"',
-            '"z.f"',
+        for target in (
+            "DIALOG_SEARCH",
+            "DIALOG_SEARCH_VIEW",
+            "RECENT_SEARCH_ROW",
+            "SEARCH_HELPER",
+            "SHARE_ALERT",
+            "SHARE_LIST",
+            "SHARE_SEARCH",
+            "SHARE_ROW",
+            "CONTACTS_ACTIVITY",
+            "CONTACT_SEARCH",
+            "CONTACT_LIST",
+            "GROUP_ACTIVITY",
+            "GROUP_ADAPTER",
         ):
-            self.assertIn(identity, probe)
-        self.assertIn('install("compatibility"', hook)
-        self.assertIn("TelegramCompatibilityProbe.verify(classLoader)", hook)
+            self.assertIn(target, probe)
+            self.assertIn(target, resolver)
+        self.assertIn("TelegramCompatibilityProbe.verify(symbols)", hook)
+        self.assertIn('reportStatus("compatibility", "installed"', hook)
+        self.assertIn('"unsupported_version"', hook)
 
-    def test_share_map_mutation_methods_are_probed(self):
-        probe = PROBE.read_text()
-        self.assertIn('requireMethod(dialogMap, "b")', probe)
-        self.assertIn('requireMethod(dialogMap, "k", Object.class, long.class)', probe)
+    def test_share_map_mutation_has_alias_and_structural_fallback(self):
+        selected = SELECTED.read_text()
+        self.assertIn('named(type, "b", 0)', selected)
+        self.assertIn('named(type, "k", 2)', selected)
+        self.assertIn("uniqueClear", selected)
+        self.assertIn("uniquePut", selected)
+        self.assertNotIn('"z.f".equals', selected)
 
-    def test_runtime_rejects_unsupported_telegram_version_explicitly(self):
+    def test_runtime_tries_semantic_resolution_for_untested_telegram(self):
         hook = HOOK.read_text()
         guard = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramVersionGuard.java").read_text()
         activity = (ROOT / "app/src/main/java/io/github/cepeter/royalty/MainActivity.java").read_text()
         self.assertIn("TelegramVersionGuard.read(context)", hook)
-        self.assertIn('reportStatus(hook, "unsupported_version"', hook)
+        self.assertIn("TelegramSemanticResolver.create(context, classLoader, version)", hook)
+        self.assertIn("boolean testedProfile = TelegramVersionGuard.isSupported(version)", hook)
+        self.assertNotIn("if (!TelegramVersionGuard.isSupported(version))", hook)
         self.assertIn('SUPPORTED_VERSION_NAME = "12.10.4"', guard)
         self.assertIn("SUPPORTED_VERSION_CODE = 70992L", guard)
         self.assertIn("R.string.telegram_unsupported", activity)
+
+    def test_semantic_resolver_uses_dexkit_and_versioned_cache(self):
+        resolver = RESOLVER.read_text()
+        gradle = (ROOT / "app/build.gradle.kts").read_text()
+        self.assertIn('implementation("org.luckypray:dexkit:2.2.0")', gradle)
+        self.assertIn("DexKitBridge", resolver)
+        self.assertIn("FindClass.create()", resolver)
+        self.assertIn(".usingStrings(fingerprints)", resolver)
+        self.assertIn("SELECT did, date FROM search_recent WHERE 1", resolver)
+        self.assertIn("SELECT id, date FROM hashtag_recent_v2 WHERE 1", resolver)
+        self.assertIn("SELECT did, date FROM dialogs ORDER BY date DESC LIMIT 400", resolver)
+        self.assertIn(".source(target.sourceFile)", resolver)
+        self.assertIn("version.code", resolver)
+        self.assertIn("BuildConfig.VERSION_CODE", resolver)
+        self.assertIn("CACHE_SCHEMA", resolver)
 
     def test_key_extractor_uses_verified_runtime_types_without_simple_name_guessing(self):
         source = EXTRACTOR.read_text()

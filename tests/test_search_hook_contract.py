@@ -20,9 +20,9 @@ class SearchHookContractTests(unittest.TestCase):
         self.assertNotIn("verifyRefreshMethod", self.search)
 
     def test_search_rows_are_position_mapped_without_mutating_telegram_lists(self):
-        self.assertIn('Class.forName("we.b0"', self.search)
-        self.assertIn('getDeclaredMethod("h")', self.search)
-        self.assertIn('getDeclaredMethod("J", int.class)', self.search)
+        self.assertIn("TelegramSemanticResolver.Target.DIALOG_SEARCH", self.search)
+        self.assertIn('"search.count"', self.search)
+        self.assertIn('"search.item"', self.search)
         self.assertIn("DialogFilter.visiblePositions", self.search)
         self.assertIn("ModernHookBridge.invokeOriginalMethod", self.search)
         self.assertNotIn("setObjectField", self.search)
@@ -31,9 +31,9 @@ class SearchHookContractTests(unittest.TestCase):
     def test_position_sensitive_methods_and_async_refresh_are_covered(self):
         for method in ('"J"', '"j"', '"i"', '"v"'):
             self.assertIn(method, self.search)
-        self.assertIn('getDeclaredMethod("U", int.class, String.class)', self.search)
-        self.assertIn('hookAllMethods(view, "l"', self.search)
-        self.assertIn('getDeclaredMethod("T")', self.search)
+        self.assertIn('"search.invalidate"', self.search)
+        self.assertIn('"search.view.invalidate"', self.search)
+        self.assertIn('"search.async.refresh"', self.search)
         self.assertIn('status.report("runtime_error"', self.search)
         self.assertIn('"unknown_rows_visible"', self.search)
 

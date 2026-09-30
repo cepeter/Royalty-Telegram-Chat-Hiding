@@ -2,14 +2,24 @@ package io.github.cepeter.royalty.xposed;
 
 import io.github.cepeter.royalty.core.DialogKey;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Validated structural traversal of the pinned z.f selected-dialog collection. */
 final class SelectedMapSnapshot {
+    private static final Map<Class<?>, MapMethods> METHODS = new HashMap<>();
     private SelectedMapSnapshot() {}
+
+    private static final class MapMethods {
+        final Method clear;
+        final Method put;
+        MapMethods(Method clear, Method put) { this.clear = clear; this.put = put; }
+    }
 
     static final class Entry {
         final Object value;
@@ -64,9 +74,80 @@ final class SelectedMapSnapshot {
         return capture(selected, account).entries();
     }
 
+
+    static void replaceContents(Object target, List<Object> dialogs, List<Long> ids) {
+        if (dialogs.size() != ids.size()) {
+            throw new IllegalArgumentException("selected-dialog map input sizes differ");
+        }
+        MapMethods methods = resolveMethods(target.getClass());
+        try {
+            methods.clear.invoke(target);
+            for (int index = 0; index < dialogs.size(); index++) {
+                methods.put.invoke(target, dialogs.get(index), ids.get(index).longValue());
+            }
+        } catch (ReflectiveOperationException error) {
+            throw new IllegalStateException("selected-dialog map mutation failed", error);
+        }
+    }
+
+    private static synchronized MapMethods resolveMethods(Class<?> type) {
+        MapMethods cached = METHODS.get(type);
+        if (cached != null) return cached;
+        Method clear = named(type, "b", 0);
+        Method put = named(type, "k", 2);
+        if (clear == null) clear = uniqueClear(type);
+        if (put == null) put = uniquePut(type);
+        if (clear == null || put == null) {
+            throw new IllegalStateException("selected-dialog map API is ambiguous: " + type.getName());
+        }
+        clear.setAccessible(true);
+        put.setAccessible(true);
+        MapMethods resolved = new MapMethods(clear, put);
+        METHODS.put(type, resolved);
+        return resolved;
+    }
+
+    private static Method named(Class<?> type, String name, int count) {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (name.equals(method.getName()) && method.getParameterCount() == count
+                        && !Modifier.isStatic(method.getModifiers())) return method;
+            }
+        }
+        return null;
+    }
+
+    private static Method uniqueClear(Class<?> type) {
+        Method found = null;
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (Modifier.isStatic(method.getModifiers()) || method.isSynthetic()
+                        || method.getParameterCount() != 0 || method.getReturnType() != void.class) continue;
+                if (found != null) return null;
+                found = method;
+            }
+        }
+        return found;
+    }
+
+    private static Method uniquePut(Class<?> type) {
+        Method found = null;
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            for (Method method : current.getDeclaredMethods()) {
+                Class<?>[] parameters = method.getParameterTypes();
+                if (Modifier.isStatic(method.getModifiers()) || method.isSynthetic()
+                        || parameters.length != 2 || parameters[1] != long.class
+                        || parameters[0].isPrimitive()) continue;
+                if (found != null) return null;
+                found = method;
+            }
+        }
+        return found;
+    }
+
     static Backing capture(Object selected, int account) {
-        if (selected == null || !"z.f".equals(selected.getClass().getName())) {
-            throw new IllegalStateException("selected-dialog map is not the pinned z.f type");
+        if (selected == null) {
+            throw new IllegalStateException("selected-dialog map is null");
         }
         List<Field> keyFields = new ArrayList<>();
         List<Field> valueFields = new ArrayList<>();

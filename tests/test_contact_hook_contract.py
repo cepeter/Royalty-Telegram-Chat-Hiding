@@ -13,8 +13,8 @@ class ContactHookContractTests(unittest.TestCase):
 
     def test_group_and_contact_search_use_filtered_replacement_copies(self):
         self.assertIn('install("contacts"', self.hook)
-        self.assertIn('Class.forName("org.telegram.ui.q70"', self.contacts)
-        self.assertIn('Class.forName("we.g1"', self.contacts)
+        self.assertIn("TelegramSemanticResolver.Target.GROUP_ADAPTER", self.contacts)
+        self.assertIn("TelegramSemanticResolver.Target.CONTACT_SEARCH", self.contacts)
         self.assertIn("DialogFilter.filteredPairedCopy", self.contacts)
         self.assertIn("DialogFilter.filteredCopy", self.contacts)
         self.assertIn("ModernHookBridge.setObjectField", self.contacts)
@@ -25,12 +25,12 @@ class ContactHookContractTests(unittest.TestCase):
         self.assertNotIn("verifyRefreshMethod", self.contacts)
 
     def test_sectioned_contact_list_is_position_mapped_not_modified(self):
-        self.assertIn('Class.forName("we.d"', self.contacts)
+        self.assertIn("TelegramSemanticResolver.Target.CONTACT_LIST", self.contacts)
         for method in ('"M"', '"O"', '"N"', '"P"', '"V"', '"W"'):
             self.assertIn(method, self.contacts)
         self.assertIn("DialogFilter.visiblePositions", self.contacts)
         self.assertIn("ModernHookBridge.invokeOriginalMethod", self.contacts)
-        self.assertIn('isClass(p.thisObject, "org.telegram.ui.nt")', self.contacts)
+        self.assertIn("concrete.isInstance(p.thisObject)", self.contacts)
 
     def test_unknown_picker_rows_fail_open_with_health_detail(self):
         self.assertIn("TelegramObjectKey.fromPickerResult", self.contacts)

@@ -7,11 +7,20 @@ import java.util.Map;
 import org.junit.Test;
 
 public final class DiagnosticsFormatterTest {
-    @org.junit.Test public void missingAndStaleRequiredSurfacesHaveRecoveryGuidance() {
+    @Test public void missingAndStaleRequiredSurfacesHaveRecoveryGuidance() {
         String text = DiagnosticsFormatter.describe(Collections.singletonMap("search", "installed"),
                 Collections.emptyMap(), 1000, 100000, false, "", "12.10.4 (70992)");
         assertTrue(text.contains("search: STALE")); assertTrue(text.contains("bridge: MISSING"));
-        assertTrue(text.contains("LSPosed")); assertTrue(text.contains("Refresh"));
+        assertTrue(text.contains("Open Telegram")); assertTrue(text.contains("Refresh"));
+    }
+
+    @Test public void unopenedTelegramIsReportedAsWaitingNotHookFailure() {
+        String text = DiagnosticsFormatter.describe(Collections.emptyMap(), Collections.emptyMap(),
+                0, 10_000, false, "Catalog response timed out", "12.10.4 (70992)");
+        assertTrue(text.contains("bridge: WAITING"));
+        assertTrue(text.contains("Telegram is not running or has not been opened"));
+        assertFalse(text.contains("bridge: MISSING"));
+        assertFalse(text.contains("Enable Royalty for Telegram in LSPosed"));
     }
 
     @Test public void confirmedSessionEvidenceIsVisibleAndBounded() {
@@ -36,5 +45,16 @@ public final class DiagnosticsFormatterTest {
         assertTrue(text.contains("account configuration not loaded"));
         assertTrue(text.contains("Catalog response timed out"));
         assertTrue(text.contains("12.10.4 (70992)"));
+    }
+
+    @Test public void semanticCompatibilityDetailDoesNotCallUntestedBuildUnsupported() {
+        Map<String, String> statuses = new HashMap<>();
+        for (String key : ProtectionStatus.REQUIRED) statuses.put(key, "installed");
+        Map<String, String> details = Collections.singletonMap(
+                "compatibility", "semantic profile for 12.10.5 (71000)");
+        String text = DiagnosticsFormatter.describe(statuses, details, 1000, 1100,
+                false, "", "12.10.5 (71000)");
+        assertTrue(text.contains("semantic profile for 12.10.5 (71000)"));
+        assertFalse(text.contains("Use exactly Telegram 12.10.4"));
     }
 }

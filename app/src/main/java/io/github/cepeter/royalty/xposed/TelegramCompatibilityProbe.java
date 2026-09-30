@@ -10,6 +10,67 @@ public final class TelegramCompatibilityProbe {
         verify(name -> Class.forName(name, false, classLoader));
     }
 
+    static void verify(TelegramSemanticResolver symbols) throws ReflectiveOperationException {
+        Class<?> dialogsSearchView =
+                symbols.resolveClass(TelegramSemanticResolver.Target.DIALOG_SEARCH_VIEW);
+        symbols.resolveMethodByArity(
+                "search.view.invalidate", dialogsSearchView, 0, "l");
+
+        Class<?> dialogsSearch =
+                symbols.resolveClass(TelegramSemanticResolver.Target.DIALOG_SEARCH);
+        requireFields(dialogsSearch, "r0");
+        symbols.resolveMethod("search.invalidate", dialogsSearch, null,
+                new Class<?>[] {int.class, String.class}, "U");
+        symbols.resolveMethod("search.item", dialogsSearch, null,
+                new Class<?>[] {int.class}, "J");
+        symbols.resolveMethod("search.count", dialogsSearch, int.class,
+                new Class<?>[0], "h");
+
+        Class<?> recent = symbols.resolveClass(TelegramSemanticResolver.Target.RECENT_SEARCH_ROW);
+        requireFields(recent, "c");
+
+        Class<?> helper = symbols.resolveClass(TelegramSemanticResolver.Target.SEARCH_HELPER);
+        requireFields(helper, "d", "e", "g", "j", "k", "l");
+
+        Class<?> shareAlert = symbols.resolveClass(TelegramSemanticResolver.Target.SHARE_ALERT);
+        requireFields(shareAlert, "D0", "T");
+
+        Class<?> shareList = symbols.resolveClass(TelegramSemanticResolver.Target.SHARE_LIST);
+        requireFields(shareList, "d", "e", "f");
+
+        Class<?> shareSearch = symbols.resolveClass(TelegramSemanticResolver.Target.SHARE_SEARCH);
+        requireFields(shareSearch, "d", "e", "J");
+        symbols.resolveMethod("share.search.query", shareSearch, null,
+                new Class<?>[] {String.class}, "E");
+
+        Class<?> shareRow = symbols.resolveClass(TelegramSemanticResolver.Target.SHARE_ROW);
+        requireFields(shareRow, "a", "b");
+
+        Class<?> contacts = symbols.resolveClass(TelegramSemanticResolver.Target.CONTACTS_ACTIVITY);
+        requireFields(contacts, "r", "d");
+
+        Class<?> contactSearch = symbols.resolveClass(TelegramSemanticResolver.Target.CONTACT_SEARCH);
+        requireFields(contactSearch, "d", "e", "f", "G", "J");
+        symbols.resolveMethodByArity("contacts.search.count", contactSearch, 0, "h");
+        symbols.resolveMethod("contacts.search.query", contactSearch, null,
+                new Class<?>[] {String.class}, "G");
+
+        Class<?> contactList = symbols.resolveClass(TelegramSemanticResolver.Target.CONTACT_LIST);
+        requireFields(contactList, "r");
+        symbols.resolveMethod("contacts.sections.count", contactList, int.class,
+                new Class<?>[] {int.class}, "M");
+        symbols.resolveMethod("contacts.sections.item", contactList, null,
+                new Class<?>[] {int.class, int.class}, "O");
+        symbols.resolveMethodByArity("contacts.sections.refresh", contactList, 0, "l");
+
+        symbols.resolveClass(TelegramSemanticResolver.Target.GROUP_ACTIVITY);
+        Class<?> groupAdapter = symbols.resolveClass(TelegramSemanticResolver.Target.GROUP_ADAPTER);
+        requireFields(groupAdapter, "d", "e", "f", "r", "H");
+        symbols.resolveMethod("contacts.group.search", groupAdapter, null,
+                new Class<?>[] {String.class}, "L");
+        symbols.resolveMethodByArity("contacts.group.count", groupAdapter, 0, "h");
+    }
+
     static void verify(ClassLookup classes) throws ReflectiveOperationException {
         Class<?> dialogsSearchView = requireClass(
                 classes, "org.telegram.ui.Components.eo0");

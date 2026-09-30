@@ -22,45 +22,54 @@ final class TelegramContactHook {
     private TelegramContactHook() {}
     interface StatusReporter { void report(String status, String detail); }
 
-    static void install(ClassLoader loader, Supplier<HiddenConfig> config,
-            BooleanSupplier revealed, Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
-        Class<?> group = Class.forName("org.telegram.ui.q70", false, loader);
-        hookBefore(ModernHookBridge.findMethod(group, "h"), p -> {
+    static void install(ClassLoader loader, TelegramSemanticResolver symbols,
+            Supplier<HiddenConfig> config, BooleanSupplier revealed,
+            Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
+        Class<?> group = symbols.resolveClass(TelegramSemanticResolver.Target.GROUP_ADAPTER);
+        hookBefore(symbols.resolveMethodByArity(
+                "contacts.group.count", group, 0, "h"), p -> {
             trackAdapter.accept(p.thisObject);
             applyGroup(p.thisObject, config.get(), revealed.getAsBoolean(), status);
         }, status);
-        hookAfter(ModernHookBridge.findMethod(group, "L", String.class), p -> {
+        hookAfter(symbols.resolveMethod(
+                "contacts.group.search", group, null, new Class<?>[] {String.class}, "L"), p -> {
             trackAdapter.accept(p.thisObject);
             applyGroup(p.thisObject, config.get(), revealed.getAsBoolean(), status);
         }, status);
 
-        Class<?> search = Class.forName("we.g1", false, loader);
-        hookBefore(ModernHookBridge.findMethod(search, "h"), p -> {
-            if (isClass(p.thisObject, "org.telegram.ui.mt")) {
+        Class<?> search = symbols.resolveClass(TelegramSemanticResolver.Target.CONTACT_SEARCH);
+        hookBefore(symbols.resolveMethodByArity(
+                "contacts.search.count", search, 0, "h"), p -> {
+            if (search.isInstance(p.thisObject)) {
                 trackAdapter.accept(p.thisObject);
                 applySearch(p.thisObject, config.get(), revealed.getAsBoolean(), status);
             }
         }, status);
-        hookAfter(ModernHookBridge.findMethod(search, "G", String.class), p -> {
-            if (isClass(p.thisObject, "org.telegram.ui.mt")) {
+        hookAfter(symbols.resolveMethod(
+                "contacts.search.query", search, null, new Class<?>[] {String.class}, "G"), p -> {
+            if (search.isInstance(p.thisObject)) {
                 trackAdapter.accept(p.thisObject);
                 applySearch(p.thisObject, config.get(), revealed.getAsBoolean(), status);
             }
         }, status);
 
-        installSections(loader, config, revealed, trackAdapter, status);
+        installSections(loader, symbols, config, revealed, trackAdapter, status);
     }
 
-    private static void installSections(ClassLoader loader, Supplier<HiddenConfig> config,
-            BooleanSupplier revealed, Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
-        Class<?> base = Class.forName("we.d", false, loader);
-        Class<?> concrete = Class.forName("org.telegram.ui.nt", false, loader);
-        Method refresh = ModernHookBridge.findMethod(concrete, "l");
-        Method count = ModernHookBridge.findMethod(base, "M", int.class);
-        Method item = ModernHookBridge.findMethod(base, "O", int.class, int.class);
+    private static void installSections(ClassLoader loader, TelegramSemanticResolver symbols,
+            Supplier<HiddenConfig> config, BooleanSupplier revealed,
+            Consumer<Object> trackAdapter, StatusReporter status) throws Exception {
+        Class<?> concrete = symbols.resolveClass(TelegramSemanticResolver.Target.CONTACT_LIST);
+        Method refresh = symbols.resolveMethodByArity(
+                "contacts.sections.refresh", concrete, 0, "l");
+        Method count = symbols.resolveMethod(
+                "contacts.sections.count", concrete, int.class, new Class<?>[] {int.class}, "M");
+        Method item = symbols.resolveMethod(
+                "contacts.sections.item", concrete, null,
+                new Class<?>[] {int.class, int.class}, "O");
         ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
             @Override protected void afterHookedMethod(ModernHookBridge.MethodHookParam p) {
-                if (!isClass(p.thisObject, "org.telegram.ui.nt")) return;
+                if (!concrete.isInstance(p.thisObject)) return;
                 safely(status, () -> {
                     trackAdapter.accept(p.thisObject);
                     buildSection(p, item, config.get(), revealed.getAsBoolean());
@@ -68,9 +77,11 @@ final class TelegramContactHook {
             }
         });
         for (String name : new String[] {"O", "N", "P", "V", "W"}) {
-            for (Method method : base.getDeclaredMethods()) {
-                if (name.equals(method.getName()) && method.getParameterTypes().length >= 2)
-                    hookSectionPosition(method, revealed, status);
+            for (Class<?> current = concrete; current != null; current = current.getSuperclass()) {
+                for (Method method : current.getDeclaredMethods()) {
+                    if (name.equals(method.getName()) && method.getParameterTypes().length >= 2)
+                        hookSectionPosition(method, concrete, revealed, status);
+                }
             }
         }
         ModernHookBridge.hookMethod(refresh, new ModernHookBridge.MethodHook() {
@@ -94,11 +105,11 @@ final class TelegramContactHook {
         p.setResult(positions.length);
     }
 
-    private static void hookSectionPosition(Method method, BooleanSupplier revealed,
-            StatusReporter status) {
+    private static void hookSectionPosition(Method method, Class<?> concrete,
+            BooleanSupplier revealed, StatusReporter status) {
         ModernHookBridge.hookMethod(method, new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
-                if (!isClass(p.thisObject, "org.telegram.ui.nt") || revealed.getAsBoolean()) return;
+                if (!concrete.isInstance(p.thisObject) || revealed.getAsBoolean()) return;
                 safely(status, () -> {
                     int section = ((Number) p.args[0]).intValue();
                     int row = ((Number) p.args[1]).intValue();
