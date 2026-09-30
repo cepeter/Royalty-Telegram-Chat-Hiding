@@ -12,16 +12,25 @@ public final class DiagnosticsFormatter {
     public static String describe(Map<String, String> statuses, Map<String, String> details,
             long observedAt, long now, boolean checking, String error, String installedVersion, String session) {
         StringBuilder text = new StringBuilder("Installed Telegram: ").append(installedVersion)
-                .append(" · Supported: 12.10.4 (70992)");
+                .append(" · Tested profile: 12.10.4 (70992); semantic resolver may validate other builds");
         if (checking) text.append("\nChecking Telegram… Previous observations follow; check not complete.");
         if (observedAt > 0 && now >= observedAt)
             text.append("\nLast known response: ").append((now - observedAt) / 1000).append("s ago");
         else text.append("\nNo confirmed response yet");
         text.append("\nConfirmed main-process session: ")
-                .append(session == null || session.isEmpty() ? "unavailable" : session.substring(0, Math.min(64, session.length())));
+                .append(session == null || session.isEmpty() ? "unavailable"
+                        : session.substring(0, Math.min(64, session.length())));
         boolean failed = error != null && !error.isEmpty();
-        if (failed) text.append("\nRefresh error: ").append(error)
-                .append(". Open Telegram and Refresh; expired or incomplete responses preserve the last confirmed cache.");
+        boolean neverObserved = statuses.isEmpty() && observedAt <= 0;
+        if (failed) {
+            text.append("\nRefresh error: ").append(error).append('.');
+            if (neverObserved) {
+                text.append(" Telegram is not running or has not been opened, or its hook process has not answered."
+                        + " Open Telegram and Refresh; if it remains waiting, verify the LSPosed scope.");
+            } else {
+                text.append(" Open Telegram and Refresh; expired or incomplete responses preserve the last confirmed cache.");
+            }
+        }
         ProtectionStatus evaluated = ProtectionStatus.evaluate(statuses, details, observedAt, now, failed);
         for (Map.Entry<String, ProtectionStatus.State> surface : evaluated.surfaces().entrySet()) {
             String key = surface.getKey();
@@ -30,19 +39,21 @@ public final class DiagnosticsFormatter {
             String detail = details.get(key);
             if (detail != null && !detail.isEmpty()) text.append(" — ").append(detail);
             switch (surface.getValue()) {
+                case WAITING:
+                    text.append(". Telegram has not provided a hook observation yet; open Telegram and Refresh."); break;
                 case MISSING:
-                    text.append(". Enable Royalty for Telegram in LSPosed, restart Telegram, then Refresh."); break;
+                    text.append(". This hook surface did not report from a running Telegram process; restart Telegram and review the LSPosed scope."); break;
                 case STALE:
                     text.append(". Open Telegram and Refresh for a current observation."); break;
                 case UNSUPPORTED:
-                    text.append(". Use exactly Telegram 12.10.4 (70992); other versions have no verified profile."); break;
+                    text.append(". Semantic compatibility resolution failed for this build; use the tested Telegram 12.10.4 profile or update Royalty."); break;
                 case DEGRADED:
-                    text.append(". Restart the supported Telegram build and Refresh. If fallback or incomplete scan persists, review this surface manually; concealment is not fully confirmed."); break;
+                    text.append(". Restart Telegram and Refresh. If fallback or incomplete scan persists, review this surface manually; concealment is not fully confirmed."); break;
                 default: break;
             }
         }
         text.append("\nOptional Premium: ").append(evaluated.premium());
-        text.append("\nManual device checks pending: test two accounts, logout/replacement, empty account, lists, search, share, contacts, and notifications on the supported build.");
+        text.append("\nManual device checks pending: test two accounts, logout/replacement, empty account, lists, search, share, contacts, and notifications on the target build.");
         return text.toString();
     }
 }
