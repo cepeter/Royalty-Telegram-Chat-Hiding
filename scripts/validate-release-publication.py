@@ -80,7 +80,6 @@ def validate(staged, version_file):
     if (staged / f"royalty-{tag}.apk.sha256").read_text() != f"{actual}  royalty-{tag}.apk\n":
         fail("Staged APK checksum manifest mismatch")
     highest = None
-    bootstrap_found = False
     for release in published_releases(os.environ["GITHUB_REPOSITORY"]):
         if not isinstance(release, dict) or not isinstance(release.get("tag_name"), str) or type(release.get("draft")) is not bool or not isinstance(release.get("assets"), list):
             fail("Malformed release API entry")
@@ -97,8 +96,6 @@ def validate(staged, version_file):
         if apk_name not in names:
             fail(f"Unrecognized published release: {prior_tag}")
         meta_name = f"{apk_name}.release.json"
-        if prior_tag == BOOTSTRAP[0]:
-            bootstrap_found = True
         if prior_tag == BOOTSTRAP[0] and meta_name not in names:
             prior_code = BOOTSTRAP[1]
         else:
@@ -111,8 +108,6 @@ def validate(staged, version_file):
             if prior_tag == BOOTSTRAP[0] and prior_code != BOOTSTRAP[1]:
                 fail("Published bootstrap metadata contradicts verified version code")
         highest = prior_code if highest is None else max(highest, prior_code)
-    if not bootstrap_found:
-        fail("Verified v3.0.5 bootstrap release is missing")
     if highest is None or code <= highest:
         fail(f"Release code {code} must exceed latest published code {highest}")
     print(f"Validated {tag} code {code} above published code {highest}")

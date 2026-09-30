@@ -64,6 +64,18 @@ class PublicationTests(unittest.TestCase):
         result = self.run_validation()
         self.assertEqual(0, result.returncode, result.stderr)
 
+    def test_accepts_metadata_chain_after_bootstrap_release_is_pruned(self):
+        prior = self.remote / "v3.0.6"
+        prior.mkdir()
+        self.metadata("v3.0.6", 17, "a" * 64, prior / "royalty-v3.0.6.apk.release.json")
+        self.set_releases(
+            [self.release("v3.0.6", ["royalty-v3.0.6.apk", "royalty-v3.0.6.apk.release.json"])]
+        )
+
+        result = self.run_validation()
+
+        self.assertEqual(0, result.returncode, result.stderr)
+
     def test_older_legacy_release_does_not_block_verified_bootstrap(self):
         self.set_releases([self.release("v2.2.0", ["royalty-v2.2.0.apk"]),
                            self.release("v3.0.5", ["royalty-v3.0.5.apk"])])
