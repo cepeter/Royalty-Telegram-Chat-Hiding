@@ -12,29 +12,32 @@ On a tag build, the tag must be exactly `v<versionName>`. A manual main-branch
 run produces a signed acceptance artifact without publishing it.
 
 The publication job serializes release creation and, inside that serialized
-section, compares the staged version code with every applicable published
+section, compares the staged version code with every applicable retained
 release. A release with missing or malformed metadata, or a failed GitHub API
-lookup, blocks publication. Prior releases and tags remain available for
-rollback. The public v3.0.5 release is the verified legacy bootstrap; later
-releases carry `royalty-v<version>.apk.release.json` beside the APK and checksum.
-Older pre-bootstrap versions are retained, but their metadata is not used as
-the comparison baseline.
-An already-published tag cannot be reused, even with a higher version code.
+lookup, blocks publication. The historical v3.0.5 release established the
+verified legacy bootstrap. If it is retained, its known code remains an allowed
+baseline; once metadata-backed releases exist, their
+`royalty-v<version>.apk.release.json` files provide the monotonic comparison
+chain even when latest-only retention has pruned v3.0.5. Older pre-bootstrap
+versions are ignored as comparison baselines. An already-published tag cannot
+be reused, even with a higher version code.
 
-Before any 3.1.6 publication, review the [current device acceptance matrix](device-acceptance-3.1.0.md)
+Before any future publication, review the [current device acceptance matrix](device-acceptance-3.1.0.md)
 on the exact supported Telegram build and complete the protected release CI
 gates. If an installed build must be rolled back, retain its encrypted backup,
 review older release compatibility and Android's version-code downgrade rules,
-and restore configuration through a supported installed build. Never delete
-prior release assets as part of normal publication.
+and restore configuration through a supported installed build. Under
+latest-only retention, verify the successor release and all assets before
+removing an older release or tag.
 
 ## Production signer evidence
 
-The pinned Royalty certificate came from the actual published v3.0.5 APK,
-not from Telegram. The release asset URL is
-<https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/download/v3.0.5/royalty-v3.0.5.apk>.
-The GitHub Actions tag run `36254556155`, artifact `10910094621`, contained a
-byte-identical APK. The verified APK SHA-256 was
+The pinned Royalty certificate came from the actual v3.0.5 APK published at
+the time, not from Telegram. Its historical release asset URL was
+`https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/download/v3.0.5/royalty-v3.0.5.apk`;
+latest-only retention may remove that public asset after a verified successor
+exists. The GitHub Actions tag run `36254556155`, artifact `10910094621`,
+contained a byte-identical APK. The verified APK SHA-256 was
 `7f17e0694751f4a2440cf715054b3815ca669255fa9a7e2c703807551204acde`.
 `apksigner verify --verbose --print-certs` exited 0, reported one signer,
 verified APK Signature Scheme v2 and v3, and reported signer #1 certificate
