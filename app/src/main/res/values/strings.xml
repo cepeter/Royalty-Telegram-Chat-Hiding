@@ -7,7 +7,8 @@
     <string name="telegram_connection">Telegram</string>
     <string name="telegram_unsupported">Telegram compatibility unresolved</string>
     <string name="connection_working">Working</string>
-    <string name="connection_not_working">Not working</string>\n    <string name="connection_waiting">Waiting for Telegram</string>
+    <string name="connection_not_working">Not working</string>
+    <string name="connection_waiting">Waiting for Telegram</string>
     <string name="hidden_chats_section">Hidden chats</string>
     <string name="hidden_chats_subtitle">Select chats to conceal across supported Telegram surfaces.</string>
     <string name="search_chats_hint">Search chats</string>
