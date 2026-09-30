@@ -160,10 +160,7 @@ final class TelegramShareHook {
 
     private static void writeMapContents(
             Object target, List<Object> dialogs, List<Long> ids) {
-        ModernHookBridge.callMethod(target, "b");
-        for (int index = 0; index < dialogs.size(); index++) {
-            ModernHookBridge.callMethod(target, "k", dialogs.get(index), ids.get(index));
-        }
+        SelectedMapSnapshot.replaceContents(target, dialogs, ids);
     }
 
     private static void guardSelection(Object outer, List<Object> dialogs, int account,
