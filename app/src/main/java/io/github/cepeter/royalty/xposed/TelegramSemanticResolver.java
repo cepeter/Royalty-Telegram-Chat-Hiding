@@ -398,14 +398,40 @@ final class TelegramSemanticResolver implements AutoCloseable {
 
         @Override public List<String> discover(Target target) {
             DexKitBridge scanner = scanner();
-            List<String> names = new ArrayList<>();
-            for (ClassData data : scanner.findClass(
-                    FindClass.create()
-                            .searchPackages("org.telegram", "we", "z")
-                            .matcher(ClassMatcher.create().source(target.sourceFile)))) {
-                names.add(data.getName());
+            LinkedHashSet<String> names = new LinkedHashSet<>();
+            String[] fingerprints = fingerprints(target);
+            if (fingerprints.length > 0) {
+                for (ClassData data : scanner.findClass(
+                        FindClass.create()
+                                .searchPackages("org.telegram", "we", "z")
+                                .matcher(ClassMatcher.create().usingStrings(fingerprints)))) {
+                    names.add(data.getName());
+                }
             }
-            return names;
+            if (names.isEmpty()) {
+                for (ClassData data : scanner.findClass(
+                        FindClass.create()
+                                .searchPackages("org.telegram", "we", "z")
+                                .matcher(ClassMatcher.create().source(target.sourceFile)))) {
+                    names.add(data.getName());
+                }
+            }
+            return new ArrayList<>(names);
+        }
+
+        private static String[] fingerprints(Target target) {
+            switch (target) {
+                case DIALOG_SEARCH:
+                    return new String[] {"SELECT did, date FROM search_recent WHERE 1"};
+                case SEARCH_HELPER:
+                    return new String[] {"SELECT id, date FROM hashtag_recent_v2 WHERE 1"};
+                case SHARE_SEARCH:
+                    return new String[] {
+                        "SELECT did, date FROM dialogs ORDER BY date DESC LIMIT 400"
+                    };
+                default:
+                    return new String[0];
+            }
         }
 
         private synchronized DexKitBridge scanner() {
