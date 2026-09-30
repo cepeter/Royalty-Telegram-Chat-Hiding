@@ -2,7 +2,7 @@
 
 `version.properties` is the single source of Royalty's `versionName` and
 `versionCode`. Both the Android build and signed APK verifier read it. The
-current source is `3.1.6` / code `23`. This is build metadata, not evidence
+current source is `3.1.7` / code `24`. This is build metadata, not evidence
 of a published release or physical-device acceptance.
 
 The verifier checks the actual APK package and version, its production signing
