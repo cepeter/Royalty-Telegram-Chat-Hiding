@@ -4,6 +4,13 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.7] - 2026-09-30
+
+### Fixed
+
+- Allow signed releases to continue their monotonic version-code chain from retained metadata after latest-only retention prunes the historical v3.0.5 bootstrap release.
+- Advance Android release metadata to version 3.1.7 (code 24) for the signed release.
+
 ## [3.1.6] - 2026-09-30
 
 ### Added
@@ -239,7 +246,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.6...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.7...HEAD
+[3.1.7]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.7
 [3.1.6]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.6
 [3.1.5]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.5
 [3.1.4]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.4
