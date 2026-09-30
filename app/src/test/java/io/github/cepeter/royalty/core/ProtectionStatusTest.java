@@ -19,6 +19,7 @@ public final class ProtectionStatusTest {
     @Test public void allRequiredHealthyWithoutPremiumIsWorking() {
         ProtectionStatus status = ProtectionStatus.evaluate(healthy(), new HashMap<>(), 1000, 1100, false);
         assertTrue(status.working());
+        assertFalse(status.waiting());
         assertEquals(ProtectionStatus.State.MISSING, status.premium());
     }
 
@@ -26,6 +27,23 @@ public final class ProtectionStatusTest {
         Map<String, String> statuses = healthy();
         statuses.put("ownership", "runtime_error");
         assertFalse(ProtectionStatus.evaluate(statuses, new HashMap<>(), 1000, 1100, false).working());
+    }
+
+    @Test public void neverObservedTimedOutTelegramIsWaitingInsteadOfFailed() {
+        ProtectionStatus status = ProtectionStatus.evaluate(
+                new HashMap<>(), new HashMap<>(), 0, 10_000, true);
+        assertTrue(status.waiting());
+        assertFalse(status.working());
+        assertEquals(ProtectionStatus.State.WAITING, status.surface("bridge"));
+        assertEquals(ProtectionStatus.State.WAITING, status.surface("search"));
+    }
+
+    @Test public void lastHealthyObservationBecomesStaleWhenTelegramIsNotResponding() {
+        ProtectionStatus status = ProtectionStatus.evaluate(
+                healthy(), new HashMap<>(), 1000, 62_001, true);
+        assertFalse(status.waiting());
+        assertEquals(ProtectionStatus.State.STALE, status.surface("bridge"));
+        assertFalse(status.working());
     }
 
     @Test public void partialStaleUnknownAndUnsupportedAreNeverGreen() {
@@ -41,6 +59,5 @@ public final class ProtectionStatusTest {
         Map<String, String> unsupported = healthy();
         unsupported.put("compatibility", "unsupported_version");
         assertTrue(ProtectionStatus.evaluate(unsupported, new HashMap<>(), 1000, 1100, false).unsupported());
-        assertFalse(ProtectionStatus.evaluate(healthy(), new HashMap<>(), 1000, 1100, true).working());
     }
 }
