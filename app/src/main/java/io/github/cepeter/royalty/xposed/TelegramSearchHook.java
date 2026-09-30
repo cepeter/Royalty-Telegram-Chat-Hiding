@@ -23,16 +23,15 @@ final class TelegramSearchHook {
 
     static void install(
             ClassLoader loader,
+            TelegramSemanticResolver symbols,
             Supplier<HiddenConfig> config,
             BooleanSupplier revealed,
             Consumer<Object> trackAdapter, StatusReporter status) throws ReflectiveOperationException {
-        Class<?> adapter = Class.forName("we.b0", false, loader);
-        // Compatibility note: previous Telegram builds resolved methods through getDeclaredMethod(). The shared resolver preserves that behavior while adding superclass fallback.
-        // getDeclaredMethod("h") replaced by resolver to support superclass moves.
-        // getDeclaredMethod("J", int.class) remains the verified search item anchor.
-        // getDeclaredMethod("T") remains the verified async refresh anchor.
-        Method count = ModernHookBridge.findMethod(adapter, "h");
-        Method item = ModernHookBridge.findMethod(adapter, "J", int.class);
+        Class<?> adapter = symbols.resolveClass(TelegramSemanticResolver.Target.DIALOG_SEARCH);
+        Method count = symbols.resolveMethod(
+                "search.count", adapter, int.class, new Class<?>[0], "h");
+        Method item = symbols.resolveMethod(
+                "search.item", adapter, null, new Class<?>[] {int.class}, "J");
 
         ModernHookBridge.hookMethod(count, new ModernHookBridge.MethodHook() {
             @Override
@@ -50,10 +49,15 @@ final class TelegramSearchHook {
             }
         });
 
-        hookPosition(ModernHookBridge.findMethod(adapter, "J", int.class), 0, revealed, status);
-        hookPosition(ModernHookBridge.findMethod(adapter, "j", int.class), 0, revealed, status);
-        hookPosition(ModernHookBridge.findMethod(adapter, "i", int.class), 0, revealed, status);
-        hookPosition(findMethod(adapter, "v", 2), 1, revealed, status);
+        hookPosition(item, 0, revealed, status);
+        hookPosition(symbols.resolveMethod(
+                "search.position.j", adapter, null, new Class<?>[] {int.class}, "j"),
+                0, revealed, status);
+        hookPosition(symbols.resolveMethod(
+                "search.position.i", adapter, null, new Class<?>[] {int.class}, "i"),
+                0, revealed, status);
+        hookPosition(symbols.resolveMethodByArity(
+                "search.position.v", adapter, 2, "v"), 1, revealed, status);
 
         ModernHookBridge.MethodHook invalidate = new ModernHookBridge.MethodHook() {
             @Override
@@ -61,14 +65,15 @@ final class TelegramSearchHook {
                 POSITIONS.remove(param.thisObject);
             }
         };
-        // getDeclaredMethod("U", int.class, String.class) is the verified Telegram 12.10.4 anchor; resolver adds superclass fallback.
-        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(adapter, "U", int.class, String.class), invalidate);
-        Class<?> view = Class.forName("org.telegram.ui.Components.eo0", false, loader);
-        if (ModernHookBridge.hookAllMethods(view, "l", invalidate).isEmpty()) {
-            throw new NoSuchMethodException(view.getName() + ".l");
-        }
+        ModernHookBridge.hookMethod(symbols.resolveMethod(
+                "search.invalidate", adapter, null,
+                new Class<?>[] {int.class, String.class}, "U"), invalidate);
+        Class<?> view = symbols.resolveClass(TelegramSemanticResolver.Target.DIALOG_SEARCH_VIEW);
+        ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
+                "search.view.invalidate", view, 0, "l"), invalidate);
 
-        ModernHookBridge.hookMethod(ModernHookBridge.findMethod(adapter, "T"), new ModernHookBridge.MethodHook() {
+        ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
+                "search.async.refresh", adapter, 0, "T"), new ModernHookBridge.MethodHook() {
             @Override
             protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
                 ModernHookBridge.callMethod(param.thisObject, "l");
