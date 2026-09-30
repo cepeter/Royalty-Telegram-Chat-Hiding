@@ -42,7 +42,18 @@ public final class ProtectionStatusTest {
         ProtectionStatus status = ProtectionStatus.evaluate(
                 healthy(), new HashMap<>(), 1000, 62_001, true);
         assertFalse(status.waiting());
+        assertTrue(status.inactive());
         assertEquals(ProtectionStatus.State.STALE, status.surface("bridge"));
+        assertFalse(status.working());
+    }
+
+    @Test public void oldKnownHookFailureRemainsDegradedInsteadOfLookingInactive() {
+        Map<String, String> statuses = healthy();
+        statuses.put("ownership", "runtime_error");
+        ProtectionStatus status = ProtectionStatus.evaluate(
+                statuses, new HashMap<>(), 1000, 100_000, true);
+        assertEquals(ProtectionStatus.State.DEGRADED, status.surface("ownership"));
+        assertFalse(status.inactive());
         assertFalse(status.working());
     }
 
