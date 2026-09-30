@@ -13,8 +13,8 @@ class ShareHookContractTests(unittest.TestCase):
 
     def test_share_hook_covers_main_search_and_recent_surfaces(self):
         self.assertIn('install("share"', self.hook)
-        self.assertIn('Class.forName("org.telegram.ui.Components.oq0"', self.share)
-        self.assertIn('Class.forName("org.telegram.ui.Components.sq0"', self.share)
+        self.assertIn("TelegramSemanticResolver.Target.SHARE_LIST", self.share)
+        self.assertIn("TelegramSemanticResolver.Target.SHARE_SEARCH", self.share)
         for field in ('"d", SEARCH', '"d", HELPER', '"D0", RECENT'):
             self.assertIn(field, self.share)
 
@@ -24,8 +24,12 @@ class ShareHookContractTests(unittest.TestCase):
     def test_share_lists_use_filtered_copies_and_maps_keep_identity(self):
         self.assertIn("DialogFilter.filteredCopy", self.share)
         self.assertIn("ModernHookBridge.setObjectField", self.share)
-        self.assertIn('callMethod(target, "b")', self.share)
-        self.assertIn('target, "k"', self.share)
+        self.assertIn("SelectedMapSnapshot.replaceContents", self.share)
+        selected = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/SelectedMapSnapshot.java").read_text()
+        self.assertIn('named(type, "b", 0)', selected)
+        self.assertIn('named(type, "k", 2)', selected)
+        self.assertIn("uniqueClear", selected)
+        self.assertIn("uniquePut", selected)
         self.assertNotIn("getDeclaredConstructor", self.share)
         self.assertNotIn('setObjectField(adapter, "e"', self.share)
         self.assertNotIn('setObjectField(outer, "T"', self.share)
