@@ -1036,12 +1036,20 @@ public final class MainActivity extends Activity {
                 frameworkStatusText,
                 R.string.framework_connection,
                 preferencesAvailable);
-        setConnectionStatus(
-                telegramStatusDot,
-                telegramStatusText,
-                protection.unsupported() ? R.string.telegram_unsupported : R.string.telegram_connection,
-                requestNonce == null && protection.working());
-        if (requestNonce != null) telegramStatusText.setText("Telegram: checking…");
+        if (requestNonce != null) {
+            telegramStatusDot.setTextColor(getColor(R.color.royalty_text_muted));
+            telegramStatusText.setText("Telegram · Checking…");
+        } else if (protection.waiting()) {
+            telegramStatusDot.setTextColor(getColor(R.color.royalty_text_muted));
+            telegramStatusText.setText(getString(R.string.telegram_connection)
+                    + " · " + getString(R.string.connection_waiting));
+        } else {
+            setConnectionStatus(
+                    telegramStatusDot,
+                    telegramStatusText,
+                    protection.unsupported() ? R.string.telegram_unsupported : R.string.telegram_connection,
+                    protection.working());
+        }
     }
 
     @SuppressWarnings("deprecation")
