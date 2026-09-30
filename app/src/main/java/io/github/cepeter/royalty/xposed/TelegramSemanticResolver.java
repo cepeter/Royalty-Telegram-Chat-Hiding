@@ -26,7 +26,7 @@ final class TelegramSemanticResolver implements AutoCloseable {
     private static final String CACHE_NAME = "io.github.cepeter.royalty.semantic_hooks";
 
     enum Target {
-        DIALOG_SEARCH("dialog_search", "DialogsSearchAdapter.java", 3, "we.b0"),
+        DIALOG_SEARCH("dialog_search", "DialogsSearchAdapter.java", 5, "we.b0"),
         DIALOG_SEARCH_VIEW("dialog_search_view", "SearchViewPager.java", 1,
                 "org.telegram.ui.Components.eo0"),
         RECENT_SEARCH_ROW("recent_search_row", "DialogsSearchAdapter.java", 3, "we.a0"),
@@ -197,7 +197,7 @@ final class TelegramSemanticResolver implements AutoCloseable {
 
     private static Method findNamed(Class<?> type, String name, Class<?> returnType,
             Class<?>[] parameterTypes) {
-        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+        for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
             try {
                 Method method = current.getDeclaredMethod(name, parameterTypes);
                 if (!usable(method, returnType)) return null;
@@ -212,7 +212,7 @@ final class TelegramSemanticResolver implements AutoCloseable {
 
     private static Method findNamedByArity(Class<?> type, String name, int parameterCount) {
         Method found = null;
-        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+        for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
             for (Method method : current.getDeclaredMethods()) {
                 if (!name.equals(method.getName()) || method.getParameterCount() != parameterCount
                         || method.isSynthetic() || method.isBridge()) continue;
@@ -227,7 +227,7 @@ final class TelegramSemanticResolver implements AutoCloseable {
     private static Method uniqueBySignature(
             Class<?> type, Class<?> returnType, Class<?>[] parameterTypes) {
         Method found = null;
-        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+        for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
             for (Method method : current.getDeclaredMethods()) {
                 if (method.isSynthetic() || method.isBridge()
                         || !Arrays.equals(method.getParameterTypes(), parameterTypes)
@@ -242,7 +242,7 @@ final class TelegramSemanticResolver implements AutoCloseable {
 
     private static Method uniqueByArity(Class<?> type, int parameterCount) {
         Method found = null;
-        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+        for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
             for (Method method : current.getDeclaredMethods()) {
                 if (method.isSynthetic() || method.isBridge()
                         || method.getParameterCount() != parameterCount) continue;
