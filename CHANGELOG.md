@@ -4,6 +4,23 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.6] - 2026-09-30
+
+### Added
+
+- Add DexKit-backed semantic discovery for obfuscated Telegram hook targets, with stable string fingerprints and a versioned persistent descriptor cache.
+
+### Changed
+
+- Keep the verified Telegram 12.10.4 aliases as the fast path while allowing other builds only when semantic validation resolves every required surface safely.
+- Preserve the Modern Xposed API 101 `ModernHookBridge`, protective interception, atomic rollback, tracked cleanup, and per-surface isolation around the new resolver.
+- Show Telegram as waiting or last-verified/inactive when its process is not running instead of reporting healthy hooks as failed.
+
+### Fixed
+
+- Keep known hook failures degraded while preventing unopened or stopped Telegram from being misclassified as a hook failure.
+- Advance Android release metadata to version 3.1.6 (code 23) for the signed release.
+
 ## [3.1.5] - 2026-09-30
 
 ### Changed
@@ -222,7 +239,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.5...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.6...HEAD
+[3.1.6]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.6
 [3.1.5]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.5
 [3.1.4]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.4
 [3.1.3]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.3
