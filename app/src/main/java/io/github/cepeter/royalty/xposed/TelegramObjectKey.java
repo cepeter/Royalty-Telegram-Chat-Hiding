@@ -12,8 +12,15 @@ public final class TelegramObjectKey {
     private static final String TLRPC_CHAT = "org.telegram.tgnet.TLRPC$Chat";
     private static final String RECENT_SEARCH_OBJECT = "we.a0";
     private static final String SHARE_SEARCH_ROW = "org.telegram.ui.Components.kq0";
+    private static volatile Class<?> recentSearchType;
+    private static volatile Class<?> shareSearchRowType;
 
     private TelegramObjectKey() {}
+
+    static void configure(TelegramSemanticResolver symbols) {
+        recentSearchType = symbols.resolveClass(TelegramSemanticResolver.Target.RECENT_SEARCH_ROW);
+        shareSearchRowType = symbols.resolveClass(TelegramSemanticResolver.Target.SHARE_ROW);
+    }
 
     public static Optional<DialogKey> fromDialog(int account, Object dialog) {
         return fromSignedId(account, readLongField(dialog, "id"));
@@ -37,7 +44,7 @@ public final class TelegramObjectKey {
     }
 
     public static Optional<DialogKey> fromRecent(int account, Object recent) {
-        if (!hasClassName(recent, RECENT_SEARCH_OBJECT)) {
+        if (!hasConfiguredType(recent, recentSearchType, RECENT_SEARCH_OBJECT)) {
             return Optional.empty();
         }
         return fromSignedId(account, readLongField(recent, "c"));
@@ -56,7 +63,7 @@ public final class TelegramObjectKey {
         if (hasTypeInHierarchy(result, TLRPC_CHAT)) {
             return fromChat(account, result);
         }
-        if (hasClassName(result, RECENT_SEARCH_OBJECT)) {
+        if (hasConfiguredType(result, recentSearchType, RECENT_SEARCH_OBJECT)) {
             return fromRecent(account, result);
         }
         return Optional.empty();
@@ -73,7 +80,7 @@ public final class TelegramObjectKey {
     }
 
     public static Optional<DialogKey> fromShareSearch(int account, Object result) {
-        if (!hasClassName(result, SHARE_SEARCH_ROW)) {
+        if (!hasConfiguredType(result, shareSearchRowType, SHARE_SEARCH_ROW)) {
             return Optional.empty();
         }
         Object dialog = readObjectField(result, "a");
@@ -150,6 +157,11 @@ public final class TelegramObjectKey {
             }
         }
         return null;
+    }
+
+    private static boolean hasConfiguredType(Object target, Class<?> configured, String fallbackName) {
+        return target != null && (configured != null
+                ? configured.isInstance(target) : fallbackName.equals(target.getClass().getName()));
     }
 
     private static boolean hasClassName(Object target, String className) {
