@@ -7,7 +7,7 @@
     <string name="telegram_connection">Telegram</string>
     <string name="telegram_unsupported">Telegram 12.10.4 required</string>
     <string name="connection_working">Working</string>
-    <string name="connection_not_working">Not working</string>
+    <string name="connection_not_working">Not working</string>\n    <string name="connection_waiting">Waiting for Telegram</string>
     <string name="hidden_chats_section">Hidden chats</string>
     <string name="hidden_chats_subtitle">Select chats to conceal across supported Telegram surfaces.</string>
     <string name="search_chats_hint">Search chats</string>
@@ -19,8 +19,8 @@
     <string name="premium_subtitle">Unlock client-side Premium UI only. Server-side limits remain unchanged.</string>
     <string name="local_premium">Enable Local Premium</string>
     <string name="xposed_description">Hide selected Telegram chats from lists, search, sharing, and people pickers.</string>
-    <string name="supported_scope">Main lists, notifications, search, share targets, and group/contact pickers are supported on Telegram 12.10.4. Local Premium controls client-side UI only.</string>
-    <string name="supported_scope_compact">Telegram 12.10.4 · Lists · Search · Sharing · People · Notifications</string>
+    <string name="supported_scope">Telegram 12.10.4 is the tested profile. Other Telegram builds can be accepted only when semantic hook resolution validates every required surface. Local Premium controls client-side UI only.</string>
+    <string name="supported_scope_compact">Tested 12.10.4 · Semantic hook validation · Lists · Search · Sharing · People</string>
     <string name="privacy_section">Privacy controls</string>
     <string name="concealment_title">Concealment &amp; app lock</string>
     <string name="concealment_subtitle">Telegram reveal stays instant. Automatic concealment and Royalty settings lock are configured here.</string>
