@@ -101,7 +101,8 @@ class XposedHookContractTests(unittest.TestCase):
         self.assertIn("REVEAL.toggle", gesture)
 
     def test_each_hook_reports_install_status(self):
-        self.assertIn('install("compatibility"', self.source)
+        self.assertIn("TelegramCompatibilityProbe.verify(symbols)", self.source)
+        self.assertIn('reportStatus("compatibility", "installed"', self.source)
         self.assertIn('install("search"', self.source)
         self.assertIn('install("share"', self.source)
         self.assertIn('install("contacts"', self.source)
