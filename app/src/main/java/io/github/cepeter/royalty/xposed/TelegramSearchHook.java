@@ -22,6 +22,12 @@ final class TelegramSearchHook {
         void report(String status, String detail);
     }
 
+    /**
+     * Installs search count filtering, position remapping, and cache invalidation hooks.
+     * Adds the post-refresh redraw hook when its optional reload target resolves.
+     *
+     * @throws ReflectiveOperationException if a required hook surface cannot be resolved
+     */
     static void install(
             ClassLoader loader,
             TelegramSemanticResolver symbols,
@@ -77,6 +83,7 @@ final class TelegramSearchHook {
         if (asyncReload != null) {
             ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
                     "search.async.refresh", adapter, 0, "T"), new ModernHookBridge.MethodHook() {
+                /** Redraws the adapter through the resolved target after async refresh. */
                 @Override
                 protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
                     invokeReload(asyncReload, param.thisObject);
@@ -103,6 +110,11 @@ final class TelegramSearchHook {
         }
     }
 
+    /**
+     * Invokes the resolved redraw target, propagating its runtime exceptions and errors.
+     *
+     * @throws IllegalStateException if access fails or the target throws a checked exception
+     */
     private static void invokeReload(Method reload, Object adapter) {
         try {
             reload.invoke(adapter);
@@ -116,8 +128,10 @@ final class TelegramSearchHook {
         }
     }
 
+    /** Clears all cached visible-to-source position mappings. */
     static void invalidatePositions() { POSITIONS.clear(); }
 
+    /** Remaps a visible position argument to its source index while chats are concealed. */
     private static void hookPosition(
             Method method,
             int argumentIndex,

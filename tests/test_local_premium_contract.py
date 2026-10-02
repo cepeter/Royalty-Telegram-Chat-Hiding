@@ -20,12 +20,14 @@ class LocalPremiumContractTests(unittest.TestCase):
         self.assertIn('status.report("runtime_error"', source)
 
     def test_hook_is_registered_and_reported(self):
+        """Check that the premium hook uses configuration state and reports status."""
         source = TELEGRAM_HOOK.read_text()
         self.assertIn('install("premium"', source)
         self.assertIn("CONFIG::localPremiumEnabled", source)
         self.assertIn('reportStatus("premium", status, detail)', source)
 
     def test_toggle_defaults_off_and_is_persisted(self):
+        """Check that Local Premium defaults off and the UI saves the configured toggle."""
         store = STORE.read_text()
         activity = ACTIVITY.read_text()
         strings = STRINGS.read_text()

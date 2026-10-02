@@ -18,6 +18,7 @@ public final class PendingRequestStore {
     private final SharedPreferences preferences;
     private final SecureRandom random = new SecureRandom();
 
+    /** Loads persisted nonce expiries after checking for a changed boot marker. */
     public PendingRequestStore(Context context) {
         preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         requests = new HashMap<>();
@@ -45,11 +46,19 @@ public final class PendingRequestStore {
         preferences.edit().clear().putInt(BOOT_ID, bootId).commit();
     }
 
+    /** Copies nonce expiries into an in-memory store without persistence. */
     PendingRequestStore(Map<String, Long> requests) {
         this.requests = new HashMap<>(requests);
         this.preferences = null;
     }
 
+    /**
+     * Replaces pending requests with a fresh nonce, preserving any stored boot marker.
+     *
+     * @param nowElapsedRealtime current monotonic time in milliseconds since boot
+     * @return the nonce and its expiration time on the same clock
+     * @throws IllegalStateException if the new request cannot be persisted
+     */
     public synchronized Request create(long nowElapsedRealtime) {
         requests.clear();
         String nonce;

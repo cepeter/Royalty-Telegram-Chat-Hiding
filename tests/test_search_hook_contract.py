@@ -29,6 +29,7 @@ class SearchHookContractTests(unittest.TestCase):
         self.assertNotIn("getObjectField", self.search)
 
     def test_position_sensitive_methods_and_async_refresh_are_covered(self):
+        """Check for position hooks, refresh invalidation, and degraded-state reporting."""
         for method in ('"J"', '"j"', '"i"', '"v"'):
             self.assertIn(method, self.search)
         self.assertIn('"search.invalidate"', self.search)
@@ -38,6 +39,7 @@ class SearchHookContractTests(unittest.TestCase):
         self.assertIn('"unknown_rows_visible"', self.search)
 
     def test_async_reload_resolves_through_semantic_resolver(self):
+        """Check that async redraw uses the resolver and its alias is probed."""
         self.assertIn('"search.async.reload"', self.search)
         self.assertIn('resolveMethodByArity("search.async.reload"', self.search)
         self.assertNotIn('callMethod(param.thisObject, "l")', self.search)
