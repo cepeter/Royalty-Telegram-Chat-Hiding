@@ -81,6 +81,7 @@ public final class TelegramCompatibilityProbe {
         requireMethod(dialogsSearch, "U", int.class, String.class);
         requireMethod(dialogsSearch, "J", int.class);
         requireMethod(dialogsSearch, "h");
+        requireMethod(dialogsSearch, "l");
 
         Class<?> recent = requireClass(classes, "we.a0");
         requireFields(recent, "a", "b", "c");

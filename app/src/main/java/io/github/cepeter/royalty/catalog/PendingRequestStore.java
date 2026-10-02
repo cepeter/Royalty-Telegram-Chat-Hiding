@@ -3,6 +3,7 @@ package io.github.cepeter.royalty.catalog;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.provider.Settings;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -11,6 +12,7 @@ import java.util.Map;
 @SuppressLint("ApplySharedPref")
 public final class PendingRequestStore {
     private static final String PREFERENCES_NAME = "catalog_requests";
+    private static final String BOOT_ID = "boot_id";
 
     private final Map<String, Long> requests;
     private final SharedPreferences preferences;
@@ -19,11 +21,28 @@ public final class PendingRequestStore {
     public PendingRequestStore(Context context) {
         preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         requests = new HashMap<>();
+        dropNoncesFromPreviousBoot(context);
         for (Map.Entry<String, ?> entry : preferences.getAll().entrySet()) {
             if (entry.getValue() instanceof Long) {
                 requests.put(entry.getKey(), (Long) entry.getValue());
             }
         }
+    }
+
+    /**
+     * Expiries are {@code elapsedRealtime} based and restart at zero on boot, so
+     * persisted nonces from a previous boot must not appear active again.
+     */
+    private void dropNoncesFromPreviousBoot(Context context) {
+        int bootId;
+        try {
+            bootId = Settings.Global.getInt(
+                    context.getContentResolver(), Settings.Global.BOOT_COUNT, -1);
+        } catch (RuntimeException error) {
+            return;
+        }
+        if (bootId < 0 || preferences.getInt(BOOT_ID, bootId) == bootId) return;
+        preferences.edit().clear().putInt(BOOT_ID, bootId).commit();
     }
 
     PendingRequestStore(Map<String, Long> requests) {
@@ -39,8 +58,12 @@ public final class PendingRequestStore {
         } while (requests.containsKey(nonce));
         long expiry = nowElapsedRealtime + CatalogProtocol.NONCE_LIFETIME_MS;
         if (preferences != null) {
-            SharedPreferences.Editor editor = preferences.edit();
-            editor.clear().putLong(nonce, expiry);
+            int bootId = preferences.getInt(BOOT_ID, Integer.MIN_VALUE);
+            SharedPreferences.Editor editor = preferences.edit().clear();
+            if (bootId != Integer.MIN_VALUE) {
+                editor.putInt(BOOT_ID, bootId);
+            }
+            editor.putLong(nonce, expiry);
             if (!editor.commit()) {
                 throw new IllegalStateException("catalog request could not be persisted");
             }

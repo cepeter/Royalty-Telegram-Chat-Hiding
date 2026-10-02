@@ -29,6 +29,12 @@ class CatalogResultContractTests(unittest.TestCase):
         self.assertIn("CatalogUpdates.shared().complete", self.receiver)
         self.assertIn("SystemClock.elapsedRealtime()", self.receiver)
 
+    def test_pending_nonces_do_not_survive_reboot(self):
+        store = (ROOT / "app/src/main/java/io/github/cepeter/royalty/catalog/PendingRequestStore.java").read_text()
+        self.assertIn("Settings.Global.BOOT_COUNT", store)
+        self.assertIn("dropNoncesFromPreviousBoot", store)
+        self.assertIn("BOOT_ID", store)
+
     def test_result_receiver_is_not_exported(self):
         manifest = ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot()
         application = manifest.find("application")

@@ -29,9 +29,6 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".AuthenticationActivity" android:exported="true"
-            android:excludeFromRecents="true" />
-
         <receiver
             android:name=".catalog.CatalogResultReceiver"
             android:exported="false" />

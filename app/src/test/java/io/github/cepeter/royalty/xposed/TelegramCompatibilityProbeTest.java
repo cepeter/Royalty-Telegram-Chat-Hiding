@@ -20,6 +20,7 @@ public final class TelegramCompatibilityProbeTest {
         void U(int folder, String query) {}
         Object J(int index) { return null; }
         int h() { return 0; }
+        void l() {}
     }
 
     private static final class DialogSearchView {

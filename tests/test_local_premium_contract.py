@@ -23,7 +23,7 @@ class LocalPremiumContractTests(unittest.TestCase):
         source = TELEGRAM_HOOK.read_text()
         self.assertIn('install("premium"', source)
         self.assertIn("CONFIG::localPremiumEnabled", source)
-        self.assertIn('"notifications", "premium", "reveal"', source)
+        self.assertIn('reportStatus("premium", status, detail)', source)
 
     def test_toggle_defaults_off_and_is_persisted(self):
         store = STORE.read_text()

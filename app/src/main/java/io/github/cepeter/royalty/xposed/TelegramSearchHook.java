@@ -3,6 +3,7 @@ package io.github.cepeter.royalty.xposed;
 import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Map;
@@ -72,13 +73,47 @@ final class TelegramSearchHook {
         ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
                 "search.view.invalidate", view, 0, "l"), invalidate);
 
-        ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
-                "search.async.refresh", adapter, 0, "T"), new ModernHookBridge.MethodHook() {
-            @Override
-            protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
-                ModernHookBridge.callMethod(param.thisObject, "l");
-            }
-        });
+        Method asyncReload = resolveOptionalReload(symbols, adapter, status);
+        if (asyncReload != null) {
+            ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
+                    "search.async.refresh", adapter, 0, "T"), new ModernHookBridge.MethodHook() {
+                @Override
+                protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
+                    invokeReload(asyncReload, param.thisObject);
+                }
+            });
+        }
+    }
+
+    /**
+     * The post-refresh redraw target has no semantic fingerprint, so it resolves only
+     * from the validated alias or a unique zero-argument match. An unresolvable target
+     * skips the optional redraw instead of invoking a raw obfuscated name; concealment
+     * filtering never depends on it.
+     */
+    private static Method resolveOptionalReload(
+            TelegramSemanticResolver symbols, Class<?> adapter, StatusReporter status) {
+        try {
+            return symbols.resolveMethodByArity("search.async.reload", adapter, 0, "l");
+        } catch (IllegalStateException ambiguous) {
+            status.report("installed", "async_reload_unavailable");
+            ModernHookBridge.log(
+                    "Royalty: search async reload unresolved; skipping optional redraw hook");
+            return null;
+        }
+    }
+
+    private static void invokeReload(Method reload, Object adapter) {
+        try {
+            reload.invoke(adapter);
+        } catch (IllegalAccessException error) {
+            throw new IllegalStateException("search async reload unavailable", error);
+        } catch (InvocationTargetException error) {
+            Throwable cause = error.getCause();
+            if (cause instanceof RuntimeException) throw (RuntimeException) cause;
+            if (cause instanceof Error) throw (Error) cause;
+            throw new IllegalStateException("search async reload failed", cause);
+        }
     }
 
     static void invalidatePositions() { POSITIONS.clear(); }
