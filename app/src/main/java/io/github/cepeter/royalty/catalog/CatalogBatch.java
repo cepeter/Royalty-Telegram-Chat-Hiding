@@ -121,6 +121,9 @@ public final class CatalogBatch {
     private boolean invalidate() { invalid = true; return false; }
     public boolean invalid() { return invalid; }
 
+    /** Whether this staged sequence belongs to {@code candidate}, without accepting it. */
+    boolean owns(String candidate) { return nonce.equals(candidate); }
+
     private static String validateToken(String value) {
         if (value == null || value.isEmpty() || value.length() > CatalogProtocol.MAX_STATUS_NAME_LENGTH)
             throw new IllegalArgumentException("invalid token");

@@ -14,6 +14,16 @@ public final class CatalogResultReceiver extends BroadcastReceiver {
         batch = new CatalogBatch(nonce);
     }
 
+    /**
+     * Drops a staged sequence whose request expired before completion.
+     *
+     * <p>Once an owning request can no longer complete, callers use this to release the staged
+     * snapshot. The nonce check prevents one request from clearing a newer batch.
+     */
+    public static synchronized void clear(String nonce) {
+        if (nonce != null && batch != null && batch.owns(nonce)) batch = null;
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || !CatalogProtocol.ACTION_RESULT.equals(intent.getAction())) return;
