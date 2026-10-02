@@ -20,9 +20,13 @@ public final class PendingRequestStore {
 
     /** Loads persisted nonce expiries after checking for a changed boot marker. */
     public PendingRequestStore(Context context) {
-        preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
+        this(context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE), readBootId(context));
+    }
+
+    PendingRequestStore(SharedPreferences preferences, int bootId) {
+        this.preferences = preferences;
         requests = new HashMap<>();
-        dropNoncesFromPreviousBoot(context);
+        dropNoncesFromPreviousBoot(bootId);
         for (Map.Entry<String, ?> entry : preferences.getAll().entrySet()) {
             if (entry.getValue() instanceof Long) {
                 requests.put(entry.getKey(), (Long) entry.getValue());
@@ -30,20 +34,24 @@ public final class PendingRequestStore {
         }
     }
 
-    /**
-     * Expiries are {@code elapsedRealtime} based and restart at zero on boot, so
-     * persisted nonces from a previous boot must not appear active again.
-     */
-    private void dropNoncesFromPreviousBoot(Context context) {
-        int bootId;
+    private static int readBootId(Context context) {
         try {
-            bootId = Settings.Global.getInt(
+            return Settings.Global.getInt(
                     context.getContentResolver(), Settings.Global.BOOT_COUNT, -1);
         } catch (RuntimeException error) {
-            return;
+            return -1;
         }
-        if (bootId < 0 || preferences.getInt(BOOT_ID, bootId) == bootId) return;
-        preferences.edit().clear().putInt(BOOT_ID, bootId).commit();
+    }
+
+    /**
+     * Expiries are {@code elapsedRealtime} based and restart at zero on boot, so
+     * persisted nonces from a previous or unverifiable boot must not appear active again.
+     */
+    private void dropNoncesFromPreviousBoot(int bootId) {
+        if (bootId >= 0 && preferences.getInt(BOOT_ID, -1) == bootId) return;
+        SharedPreferences.Editor editor = preferences.edit().clear();
+        if (bootId >= 0) editor.putInt(BOOT_ID, bootId);
+        editor.commit();
     }
 
     /** Copies nonce expiries into an in-memory store without persistence. */
