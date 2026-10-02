@@ -73,6 +73,13 @@ class ConfigurationUiContractTests(unittest.TestCase):
         self.assertIn("Show diagnostics", strings)
         self.assertIn("Backup &amp; recovery", strings)
 
+    def test_system_insets_protect_the_viewport_and_locked_gate(self):
+        self.assertIn("applySystemInsets(scrollView)", self.source)
+        self.assertIn("applySystemInsets(gate)", self.source)
+        self.assertNotIn("applySystemInsets(root)", self.source)
+        self.assertIn("int initialTop = view.getPaddingTop()", self.source)
+        self.assertIn("initialTop + insets.getSystemWindowInsetTop()", self.source)
+
     def test_dashboard_uses_four_native_tabs(self):
         strings = (ROOT / "app/src/main/res/values/strings.xml").read_text()
         for token in ("TAB_CHATS", "TAB_PRIVACY", "TAB_STATUS", "TAB_BACKUP",

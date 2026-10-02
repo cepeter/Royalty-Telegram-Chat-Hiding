@@ -301,6 +301,7 @@ public final class MainActivity extends Activity {
         gate.setGravity(Gravity.CENTER);
         gate.setPadding(dp(24), dp(24), dp(24), dp(24));
         gate.setBackgroundColor(getColor(R.color.royalty_background));
+        applySystemInsets(gate);
         TextView message = createText(0, 18, R.color.royalty_text, Typeface.BOLD);
         message.setText(settingsAccess.known() ? "Confirm your device screen lock to open settings"
                 : "Waiting for saved privacy settings…");
@@ -339,11 +340,11 @@ public final class MainActivity extends Activity {
         dashboardScroll = scrollView;
         scrollView.setFillViewport(true);
         scrollView.setBackgroundColor(getColor(R.color.royalty_background));
+        applySystemInsets(scrollView);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(16), dp(20), dp(16));
-        applySystemInsets(root);
 
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
@@ -397,7 +398,7 @@ public final class MainActivity extends Activity {
             tabBar.addView(tab, new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         }
-        root.addView(tabBar, withTopMargin(matchWrap(), 14));
+        root.addView(tabBar, withTopMargin(matchWrap(), 24));
 
         chatsPage = createDashboardPage();
         privacyPage = createDashboardPage();
@@ -1183,16 +1184,20 @@ public final class MainActivity extends Activity {
         protectedModals.open(modalToken, dialog::dismiss);
     }
 
-    private void applySystemInsets(View root) {
-        root.setOnApplyWindowInsetsListener((view, insets) -> {
-            view.setPadding(
-                    dp(20) + insets.getSystemWindowInsetLeft(),
-                    dp(16) + insets.getSystemWindowInsetTop(),
-                    dp(20) + insets.getSystemWindowInsetRight(),
-                    dp(16) + insets.getSystemWindowInsetBottom());
+    private void applySystemInsets(View view) {
+        int initialLeft = view.getPaddingLeft();
+        int initialTop = view.getPaddingTop();
+        int initialRight = view.getPaddingRight();
+        int initialBottom = view.getPaddingBottom();
+        view.setOnApplyWindowInsetsListener((target, insets) -> {
+            target.setPadding(
+                    initialLeft + insets.getSystemWindowInsetLeft(),
+                    initialTop + insets.getSystemWindowInsetTop(),
+                    initialRight + insets.getSystemWindowInsetRight(),
+                    initialBottom + insets.getSystemWindowInsetBottom());
             return insets;
         });
-        root.requestApplyInsets();
+        view.requestApplyInsets();
     }
 
     private void configureSystemBars() {
