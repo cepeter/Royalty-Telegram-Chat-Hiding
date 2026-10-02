@@ -4,6 +4,10 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+### Fixed
+
+- Resolve known obfuscated methods from the nearest declaring class before scanning superclass shadows, restoring search, share, and contact hooks on official Telegram builds with alternate class hierarchies.
+
 ## [3.1.9] - 2026-10-02
 
 ### Added
