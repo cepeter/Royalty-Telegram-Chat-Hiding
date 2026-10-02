@@ -398,7 +398,7 @@ public final class MainActivity extends Activity {
             tabBar.addView(tab, new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         }
-        root.addView(tabBar, withTopMargin(matchWrap(), 24));
+        root.addView(tabBar, withTopMargin(matchWrap(), 14));
 
         chatsPage = createDashboardPage();
         privacyPage = createDashboardPage();
