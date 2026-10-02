@@ -234,6 +234,7 @@ public final class MainActivity extends Activity {
             updateChecker.close();
         }
         XposedPreferenceService.unsubscribe(preferenceListener);
+        CatalogResultReceiver.clear(requestNonce);
         // Drops posts queued before unsubscribe so no callback outlives the Activity.
         mainHandler.removeCallbacksAndMessages(null);
         super.onDestroy();
