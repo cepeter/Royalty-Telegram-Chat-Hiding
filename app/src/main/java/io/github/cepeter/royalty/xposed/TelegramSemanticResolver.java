@@ -211,17 +211,20 @@ final class TelegramSemanticResolver implements AutoCloseable {
     }
 
     private static Method findNamedByArity(Class<?> type, String name, int parameterCount) {
-        Method found = null;
         for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
+            Method found = null;
             for (Method method : current.getDeclaredMethods()) {
                 if (!name.equals(method.getName()) || method.getParameterCount() != parameterCount
                         || method.isSynthetic() || method.isBridge()) continue;
                 if (found != null) return null;
                 found = method;
             }
+            if (found != null) {
+                found.setAccessible(true);
+                return found;
+            }
         }
-        if (found != null) found.setAccessible(true);
-        return found;
+        return null;
     }
 
     private static Method uniqueBySignature(

@@ -24,6 +24,21 @@ public final class TelegramSemanticResolverTest {
         void renamedSearch(int folder, String query) {}
     }
 
+    private static class InheritedArityAlias {
+        private Object alias() { return null; }
+        private void alias(String value, int position) {}
+    }
+
+    private static final class ConcreteArityAlias extends InheritedArityAlias {
+        private int alias() { return 0; }
+        private void alias(Object value, int position) {}
+    }
+
+    private static final class AmbiguousConcreteArityAlias {
+        private void alias(String value, int position) {}
+        private void alias(Object value, long position) {}
+    }
+
     private static final class MapCache implements TelegramSemanticResolver.Cache {
         final Map<String, String> values = new HashMap<>();
         @Override public String get(String key) { return values.get(key); }
@@ -77,6 +92,27 @@ public final class TelegramSemanticResolverTest {
         Method cached = resolver.resolveMethod(
                 "search.count", SearchLike.class, int.class, new Class<?>[0], "doesNotExist");
         assertEquals(count, cached);
+    }
+
+    @Test public void namedArityPrefersConcreteDeclarationOverSuperclassShadows() {
+        MapCache cache = new MapCache();
+        TelegramSemanticResolver resolver = new TelegramSemanticResolver(
+                getClass().getClassLoader(), cache, target -> List.of());
+
+        Method zero = resolver.resolveMethodByArity(
+                "concrete.zero", ConcreteArityAlias.class, 0, "alias");
+        Method two = resolver.resolveMethodByArity(
+                "concrete.two", ConcreteArityAlias.class, 2, "alias");
+
+        assertEquals(ConcreteArityAlias.class, zero.getDeclaringClass());
+        assertEquals(ConcreteArityAlias.class, two.getDeclaringClass());
+    }
+
+    @Test public void namedArityStillRejectsAmbiguityWithinConcreteClass() {
+        TelegramSemanticResolver resolver = new TelegramSemanticResolver(
+                getClass().getClassLoader(), new MapCache(), target -> List.of());
+        assertThrows(IllegalStateException.class, () -> resolver.resolveMethodByArity(
+                "ambiguous.concrete", AmbiguousConcreteArityAlias.class, 2, "alias"));
     }
 
     @Test public void ambiguousStructuralMethodFailsClosed() {
