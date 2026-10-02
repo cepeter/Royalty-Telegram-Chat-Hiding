@@ -10,16 +10,16 @@ public final class DiagnosticsFormatterTest {
     @Test public void missingAndStaleRequiredSurfacesHaveRecoveryGuidance() {
         String text = DiagnosticsFormatter.describe(Collections.singletonMap("search", "installed"),
                 Collections.emptyMap(), 1000, 100000, false, "", "12.10.4 (70992)");
-        assertTrue(text.contains("search: STALE")); assertTrue(text.contains("bridge: MISSING"));
+        assertTrue(text.contains("● search: STALE")); assertTrue(text.contains("● bridge: MISSING"));
         assertTrue(text.contains("Open Telegram")); assertTrue(text.contains("Refresh"));
     }
 
     @Test public void unopenedTelegramIsReportedAsWaitingNotHookFailure() {
         String text = DiagnosticsFormatter.describe(Collections.emptyMap(), Collections.emptyMap(),
                 0, 10_000, false, "Catalog response timed out", "12.10.4 (70992)");
-        assertTrue(text.contains("bridge: WAITING"));
+        assertTrue(text.contains("● bridge: WAITING"));
         assertTrue(text.contains("Telegram is not running or has not been opened"));
-        assertFalse(text.contains("bridge: MISSING"));
+        assertFalse(text.contains("● bridge: MISSING"));
         assertFalse(text.contains("Enable Royalty for Telegram in LSPosed"));
     }
 
@@ -45,6 +45,17 @@ public final class DiagnosticsFormatterTest {
         assertTrue(text.contains("account configuration not loaded"));
         assertTrue(text.contains("Catalog response timed out"));
         assertTrue(text.contains("12.10.4 (70992)"));
+    }
+
+    @Test public void everySurfaceHasABulletedStateLabel() {
+        Map<String, String> statuses = new HashMap<>();
+        for (String key : ProtectionStatus.REQUIRED) statuses.put(key, "installed");
+        statuses.put("premium", "installed");
+        String text = DiagnosticsFormatter.describe(statuses, Collections.emptyMap(),
+                1000, 1100, false, "", "12.10.4 (70992)");
+        for (String key : ProtectionStatus.REQUIRED)
+            assertTrue(text.contains("● " + key + ": HEALTHY"));
+        assertTrue(text.contains("● Optional Premium: HEALTHY"));
     }
 
     @Test public void semanticCompatibilityDetailDoesNotCallUntestedBuildUnsupported() {

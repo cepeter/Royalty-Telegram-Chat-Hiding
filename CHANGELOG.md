@@ -10,6 +10,7 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 - Add a bounded in-memory diagnostic event log for refreshes, saved settings, and hook-status transitions, with a text export from the Status screen.
 - Exclude chat titles, IDs, messages, and raw exceptions from the unencrypted diagnostic report; require settings access when returning from the document picker.
+- Show a green bullet for each healthy diagnostic surface and a red bullet for every non-working state while retaining the textual state label.
 
 ### Changed
 

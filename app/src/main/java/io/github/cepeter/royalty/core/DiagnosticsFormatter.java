@@ -34,7 +34,7 @@ public final class DiagnosticsFormatter {
         ProtectionStatus evaluated = ProtectionStatus.evaluate(statuses, details, observedAt, now, failed);
         for (Map.Entry<String, ProtectionStatus.State> surface : evaluated.surfaces().entrySet()) {
             String key = surface.getKey();
-            text.append("\n").append(key).append(": ").append(surface.getValue());
+            text.append("\n● ").append(key).append(": ").append(surface.getValue());
             if (statuses.containsKey(key)) text.append(" (reported ").append(statuses.get(key)).append(')');
             String detail = details.get(key);
             if (detail != null && !detail.isEmpty()) text.append(" — ").append(detail);
@@ -52,7 +52,7 @@ public final class DiagnosticsFormatter {
                 default: break;
             }
         }
-        text.append("\nOptional Premium: ").append(evaluated.premium());
+        text.append("\n● Optional Premium: ").append(evaluated.premium());
         text.append("\nManual device checks pending: test two accounts, logout/replacement, empty account, lists, search, share, contacts, and notifications on the target build.");
         return text.toString();
     }

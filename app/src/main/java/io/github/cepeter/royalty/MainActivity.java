@@ -25,7 +25,10 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -1092,10 +1095,11 @@ public final class MainActivity extends Activity {
         ProtectionStatus protection = ProtectionStatus.evaluate(statuses,
                 catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
                 System.currentTimeMillis(), catalogRequestTimedOut);
-        protectionDetails.setText(DiagnosticsFormatter.describe(statuses,
+        String diagnostics = DiagnosticsFormatter.describe(statuses,
                 catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
                 System.currentTimeMillis(), requestNonce != null, catalogError,
-                installedTelegramVersion(), catalogRepository.processSession()));
+                installedTelegramVersion(), catalogRepository.processSession());
+        protectionDetails.setText(colorDiagnosticBullets(diagnostics, protection));
         setConnectionStatus(
                 frameworkStatusDot,
                 frameworkStatusText,
@@ -1139,6 +1143,28 @@ public final class MainActivity extends Activity {
         label.setText(getString(labelResource)
                 + " · "
                 + getString(working ? R.string.connection_working : R.string.connection_not_working));
+    }
+
+    private CharSequence colorDiagnosticBullets(String diagnostics, ProtectionStatus protection) {
+        SpannableStringBuilder styled = new SpannableStringBuilder(diagnostics);
+        int searchFrom = 0;
+        for (ProtectionStatus.State state : protection.surfaces().values()) {
+            searchFrom = colorNextDiagnosticBullet(styled, diagnostics, searchFrom, state);
+        }
+        colorNextDiagnosticBullet(styled, diagnostics, searchFrom, protection.premium());
+        return styled;
+    }
+
+    private int colorNextDiagnosticBullet(SpannableStringBuilder styled, String diagnostics,
+            int searchFrom, ProtectionStatus.State state) {
+        int marker = diagnostics.indexOf("\n● ", searchFrom);
+        if (marker < 0) return diagnostics.length();
+        int bullet = marker + 1;
+        int color = state == ProtectionStatus.State.HEALTHY
+                ? R.color.royalty_success : R.color.royalty_error;
+        styled.setSpan(new ForegroundColorSpan(getColor(color)), bullet, bullet + 1,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return bullet + 1;
     }
 
     private void showError(String message) {
