@@ -23,6 +23,12 @@ public final class PendingRequestStore {
         this(context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE), readBootId(context));
     }
 
+    /**
+     * Loads persisted nonce expiries after discarding entries from a different or unknown boot.
+     *
+     * @param preferences storage for nonce expiries and the boot marker
+     * @param bootId current boot count, or a negative value when it cannot be verified
+     */
     PendingRequestStore(SharedPreferences preferences, int bootId) {
         this.preferences = preferences;
         requests = new HashMap<>();
@@ -34,6 +40,7 @@ public final class PendingRequestStore {
         }
     }
 
+    /** Returns the system boot count, or {@code -1} if it is missing or cannot be read. */
     private static int readBootId(Context context) {
         try {
             return Settings.Global.getInt(

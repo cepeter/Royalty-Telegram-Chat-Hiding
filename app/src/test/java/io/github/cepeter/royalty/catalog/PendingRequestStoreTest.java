@@ -12,6 +12,7 @@ import java.util.Map;
 import org.junit.Test;
 
 public final class PendingRequestStoreTest {
+    /** Verifies that first use records boot zero and retains a new nonce on the same boot. */
     @Test
     public void firstUseRecordsBootAndPreservesNewNonceAcrossRecreation() {
         MemoryPreferences memory = new MemoryPreferences();
@@ -23,6 +24,7 @@ public final class PendingRequestStoreTest {
                 .isActive(request.nonce(), 1001));
     }
 
+    /** Verifies that a missing boot marker discards old nonces and records the current boot. */
     @Test
     public void missingBootIdDiscardsUnverifiablePersistedNonce() {
         MemoryPreferences memory = new MemoryPreferences();
@@ -33,6 +35,7 @@ public final class PendingRequestStoreTest {
         assertEquals(7, memory.values.get("boot_id"));
     }
 
+    /** Verifies that a reboot invalidates persisted nonces despite their old expiry times. */
     @Test
     public void changedBootDiscardsNonceEvenBeforeItsOldExpiry() {
         MemoryPreferences memory = new MemoryPreferences();
@@ -44,6 +47,7 @@ public final class PendingRequestStoreTest {
         assertEquals(8, memory.values.get("boot_id"));
     }
 
+    /** Verifies that an unknown boot clears persisted state but allows requests until recreation. */
     @Test
     public void unavailableBootCountDiscardsPersistedNonceAndOldBootId() {
         MemoryPreferences memory = new MemoryPreferences();
@@ -102,6 +106,7 @@ public final class PendingRequestStoreTest {
     private static final class MemoryPreferences {
         private final Map<String, Object> values = new HashMap<>();
 
+        /** Returns a map-backed proxy supporting only the preference reads and edits used here. */
         SharedPreferences preferences() {
             return (SharedPreferences) Proxy.newProxyInstance(getClass().getClassLoader(),
                     new Class<?>[] {SharedPreferences.class}, (proxy, method, args) -> {
@@ -114,6 +119,7 @@ public final class PendingRequestStoreTest {
                     });
         }
 
+        /** Stages integer and long writes, applying any clear before those writes on commit. */
         SharedPreferences.Editor editor() {
             Map<String, Object> changes = new HashMap<>();
             boolean[] clear = {false};
