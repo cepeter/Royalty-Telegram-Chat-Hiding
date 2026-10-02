@@ -16,7 +16,7 @@ class AndroidPackageContractTests(unittest.TestCase):
         self.assertIn("targetSdk = 35", app_gradle)
         self.assertIn("versionName = releaseVersionName", app_gradle)
         self.assertIn("versionCode = releaseVersionCode", app_gradle)
-        self.assertEqual("versionName=3.1.9\nversionCode=26\n", (ROOT / "version.properties").read_text())
+        self.assertEqual("versionName=3.1.10\nversionCode=27\n", (ROOT / "version.properties").read_text())
 
     def test_android_identity_is_royalty(self):
         app_gradle = (ROOT / "app/build.gradle.kts").read_text()

@@ -4,9 +4,17 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.10] - 2026-10-03
+
 ### Fixed
 
+- Release static Activity, fragment, queued-handler, and staged catalog references when their lifecycle ends, preventing bounded state from being retained indefinitely.
+- Keep the dashboard and locked-settings gate below Android system bars even after scrolling, while preserving their existing layout padding.
 - Resolve known obfuscated methods from the nearest declaring class before scanning superclass shadows, restoring search, share, and contact hooks on official Telegram builds with alternate class hierarchies.
+
+### Changed
+
+- Advance Android release metadata to version 3.1.10 (code 27).
 
 ## [3.1.9] - 2026-10-02
 
