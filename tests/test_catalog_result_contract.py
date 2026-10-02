@@ -20,6 +20,7 @@ class CatalogResultContractTests(unittest.TestCase):
         self.assertIn("CatalogProtocol.EXTRA_CALLBACK", self.client)
 
     def test_receiver_validates_nonce_and_payload_before_storage(self):
+        """Check for nonce, payload, and completion guards in the result receiver."""
         self.assertIn("isActive", self.receiver)
         self.assertIn("batch.account", self.receiver)
         self.assertIn("batch.status", self.receiver)
@@ -29,7 +30,15 @@ class CatalogResultContractTests(unittest.TestCase):
         self.assertIn("CatalogUpdates.shared().complete", self.receiver)
         self.assertIn("SystemClock.elapsedRealtime()", self.receiver)
 
+    def test_pending_nonces_do_not_survive_reboot(self):
+        """Check that persisted nonce handling references the boot-count guard."""
+        store = (ROOT / "app/src/main/java/io/github/cepeter/royalty/catalog/PendingRequestStore.java").read_text()
+        self.assertIn("Settings.Global.BOOT_COUNT", store)
+        self.assertIn("dropNoncesFromPreviousBoot", store)
+        self.assertIn("BOOT_ID", store)
+
     def test_result_receiver_is_not_exported(self):
+        """Check that catalog callbacks cannot enter through an exported receiver."""
         manifest = ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot()
         application = manifest.find("application")
         receivers = application.findall("receiver") if application is not None else []

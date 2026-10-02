@@ -29,7 +29,7 @@ Royalty started as a personal replacement for [Loyalty](https://github.com/Xpose
 - Lets you reveal hidden chats temporarily with a three-second press and hold.
 - Keeps selections tied to stable Telegram account owners, with account labels, filters, and review of legacy selections.
 - Offers optional re-concealment on background, screen-off, or a 30-second, one-minute, or five-minute timeout.
-- Offers optional device screen-lock confirmation for settings and reveal.
+- Offers optional device screen-lock confirmation for Royalty settings.
 - Provides hidden-only filtering, selected counts, scoped selection, Undo, Save, and Discard.
 - Exports and imports encrypted, owner-aware configuration backups through Android's document picker.
 - Shows per-surface hook health in the app, so failures are visible instead of silent.

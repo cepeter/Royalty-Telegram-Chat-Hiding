@@ -698,19 +698,6 @@ public final class TelegramHook extends XposedModule {
         }
     }
 
-    private static void reportUnsupportedVersion(TelegramVersionGuard.Version version) {
-        String detail = version.describe() + "; requires "
-                + TelegramVersionGuard.SUPPORTED_VERSION_NAME + " ("
-                + TelegramVersionGuard.SUPPORTED_VERSION_CODE + ")";
-        String[] hooks = {
-            "compatibility", "search", "share", "contacts", "dialogs", "notifications", "premium", "reveal", "ownership"
-        };
-        for (String hook : hooks) {
-            reportStatus(hook, "unsupported_version", detail);
-        }
-        ModernHookBridge.log("TelegramChatHider: unsupported Telegram " + detail);
-    }
-
     private static void reportRuntimeError(String hook, Throwable error) {
         if (error instanceof VirtualMachineError) {
             throw (VirtualMachineError) error;

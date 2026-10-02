@@ -17,9 +17,14 @@ public final class TelegramCompatibilityProbeTest {
         List<Object> u0;
         Object w0;
 
+        /** Provides the search invalidation signature inspected by the probe. */
         void U(int folder, String query) {}
+        /** Provides the search item signature without supplying fixture rows. */
         Object J(int index) { return null; }
+        /** Provides the search count signature with an empty fixture result. */
         int h() { return 0; }
+        /** Provides the optional async redraw alias inspected by the probe. */
+        void l() {}
     }
 
     private static final class DialogSearchView {

@@ -4,6 +4,22 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+### Changed
+
+- Resolve the search adapter's post-refresh redraw target through the semantic resolver (`search.async.reload`) instead of a hardcoded obfuscated call: the tested 12.10.4 alias is verified by the pinned compatibility probe, and builds where the target is ambiguous or missing skip only the optional redraw while keeping concealment filtering.
+- Make pending catalog nonces boot-aware: entries persisted before a reboot are dropped because their `elapsedRealtime`-based expiries restart at zero across boots.
+
+### Removed
+
+- Remove the unused, exported `AuthenticationActivity` and its `AuthenticationProtocol`/`AuthenticationRoute` helpers. Device credential authentication protects Royalty settings only, and the exported component let any app present a misleading credential prompt.
+
+### Fixed
+
+- Align SECURITY.md with the implemented version guard (tested 12.10.4 profile or builds fully validated by semantic resolution), remove the dead unsupported-version reporter it described, and document the plaintext local catalog cache.
+- Keep persisted catalog nonces rejected when a boot-marker cleanup cannot be committed.
+- Preserve the optional search-redraw diagnostic after hook installation completes.
+- Correct the README device-lock bullet to settings-only authentication.
+
 ## [3.1.7] - 2026-09-30
 
 ### Fixed

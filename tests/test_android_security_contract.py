@@ -39,12 +39,44 @@ class CatalogSecurityContractTests(unittest.TestCase):
         self.assertIn("return ConfigStore.load(preferences)", xposed_store)
 
     def test_callback_surface_is_bounded(self):
+        """Check that callback metadata and catalog payload limits remain declared."""
         protocol = (ROOT / "app/src/main/java/io/github/cepeter/royalty/catalog/CatalogProtocol.java").read_text()
         submission = (ROOT / "app/src/main/java/io/github/cepeter/royalty/core/CatalogSubmission.java").read_text()
         self.assertIn("MAX_STATUS_COUNT = 16", protocol)
         self.assertIn("MAX_STATUS_DETAIL_LENGTH = 256", protocol)
         self.assertIn("MAX_ENTRIES = 1024", submission)
         self.assertIn("MAX_TITLE_LENGTH = 256", submission)
+
+
+class AuditFollowUpContractTests(unittest.TestCase):
+    def test_unused_exported_authentication_surface_is_removed(self):
+        """Check that the unused authentication entry point and helpers stay removed."""
+        manifest = ET.parse(ROOT / "app/src/main/AndroidManifest.xml").getroot()
+        application = manifest.find("application")
+        activities = application.findall("activity") if application is not None else []
+        for activity in activities:
+            self.assertNotEqual(
+                ".AuthenticationActivity", activity.attrib.get(ANDROID_NS + "name"))
+        for removed in (
+            "app/src/main/java/io/github/cepeter/royalty/AuthenticationActivity.java",
+            "app/src/main/java/io/github/cepeter/royalty/core/AuthenticationProtocol.java",
+            "app/src/main/java/io/github/cepeter/royalty/core/AuthenticationRoute.java",
+        ):
+            self.assertFalse((ROOT / removed).exists(), removed)
+
+    def test_security_policy_matches_resolver_gated_version_guard(self):
+        """Check that security guidance describes validation through the resolver."""
+        security = (ROOT / "SECURITY.md").read_text()
+        hook = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramHook.java").read_text()
+        self.assertNotIn(
+            "refuses to install filtering hooks unless Telegram reports exactly", security)
+        self.assertIn("uniquely validates every required hook surface", security)
+        self.assertNotIn("reportUnsupportedVersion", hook)
+
+    def test_readme_authentication_covers_settings_only(self):
+        """Check that the README no longer promises authentication for reveal."""
+        readme = (ROOT / "README.md").read_text()
+        self.assertNotIn("screen-lock confirmation for settings and reveal", readme)
 
 
 if __name__ == "__main__":

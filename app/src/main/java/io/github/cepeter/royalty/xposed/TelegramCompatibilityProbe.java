@@ -71,6 +71,12 @@ public final class TelegramCompatibilityProbe {
         symbols.resolveMethodByArity("contacts.group.count", groupAdapter, 0, "h");
     }
 
+    /**
+     * Checks the required fields and method signatures of the Telegram 12.10.4 aliases.
+     *
+     * @param classes lookup for the Telegram classes to inspect
+     * @throws ReflectiveOperationException if a required class, field, or method is absent
+     */
     static void verify(ClassLookup classes) throws ReflectiveOperationException {
         Class<?> dialogsSearchView = requireClass(
                 classes, "org.telegram.ui.Components.eo0");
@@ -81,6 +87,7 @@ public final class TelegramCompatibilityProbe {
         requireMethod(dialogsSearch, "U", int.class, String.class);
         requireMethod(dialogsSearch, "J", int.class);
         requireMethod(dialogsSearch, "h");
+        requireMethod(dialogsSearch, "l");
 
         Class<?> recent = requireClass(classes, "we.a0");
         requireFields(recent, "a", "b", "c");

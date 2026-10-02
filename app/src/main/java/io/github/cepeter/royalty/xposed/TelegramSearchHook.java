@@ -3,6 +3,7 @@ package io.github.cepeter.royalty.xposed;
 import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.Map;
@@ -21,6 +22,12 @@ final class TelegramSearchHook {
         void report(String status, String detail);
     }
 
+    /**
+     * Installs search count filtering, position remapping, and cache invalidation hooks.
+     * Adds the post-refresh redraw hook when its optional reload target resolves.
+     *
+     * @throws ReflectiveOperationException if a required hook surface cannot be resolved
+     */
     static void install(
             ClassLoader loader,
             TelegramSemanticResolver symbols,
@@ -72,17 +79,60 @@ final class TelegramSearchHook {
         ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
                 "search.view.invalidate", view, 0, "l"), invalidate);
 
+        Method asyncReload = resolveOptionalReload(symbols, adapter);
         ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
                 "search.async.refresh", adapter, 0, "T"), new ModernHookBridge.MethodHook() {
+            /** Redraws the adapter through the resolved target after async refresh. */
             @Override
             protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
-                ModernHookBridge.callMethod(param.thisObject, "l");
+                if (asyncReload == null) {
+                    status.report("installed", "async_reload_unavailable");
+                    return;
+                }
+                invokeReload(asyncReload, param.thisObject);
             }
         });
     }
 
+    /**
+     * The post-refresh redraw target has no semantic fingerprint, so it resolves only
+     * from the validated alias or a unique zero-argument match. An unresolvable target
+     * skips the optional redraw instead of invoking a raw obfuscated name; concealment
+     * filtering never depends on it.
+     */
+    private static Method resolveOptionalReload(
+            TelegramSemanticResolver symbols, Class<?> adapter) {
+        try {
+            return symbols.resolveMethodByArity("search.async.reload", adapter, 0, "l");
+        } catch (IllegalStateException ambiguous) {
+            ModernHookBridge.log(
+                    "Royalty: search async reload unresolved; skipping optional redraw hook");
+            return null;
+        }
+    }
+
+    /**
+     * Invokes the resolved redraw target, propagating its runtime exceptions and errors.
+     *
+     * @throws IllegalStateException if access fails or the target throws a checked exception
+     */
+    private static void invokeReload(Method reload, Object adapter) {
+        try {
+            reload.invoke(adapter);
+        } catch (IllegalAccessException error) {
+            throw new IllegalStateException("search async reload unavailable", error);
+        } catch (InvocationTargetException error) {
+            Throwable cause = error.getCause();
+            if (cause instanceof RuntimeException) throw (RuntimeException) cause;
+            if (cause instanceof Error) throw (Error) cause;
+            throw new IllegalStateException("search async reload failed", cause);
+        }
+    }
+
+    /** Clears all cached visible-to-source position mappings. */
     static void invalidatePositions() { POSITIONS.clear(); }
 
+    /** Remaps a visible position argument to its source index while chats are concealed. */
     private static void hookPosition(
             Method method,
             int argumentIndex,
