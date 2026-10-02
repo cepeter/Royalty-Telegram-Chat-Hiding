@@ -25,7 +25,10 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -55,12 +58,16 @@ import io.github.cepeter.royalty.core.AccountBindingPresentation;
 import io.github.cepeter.royalty.core.ConfigurationDraft;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.DiagnosticsFormatter;
+import io.github.cepeter.royalty.core.DiagnosticLog;
 import io.github.cepeter.royalty.core.HiddenConfig;
 import io.github.cepeter.royalty.core.ProtectionStatus;
 import io.github.cepeter.royalty.core.ProtectedModalController;
 import io.github.cepeter.royalty.core.SettingsAccess;
 import io.github.cepeter.royalty.update.UpdateChecker;
 import io.github.cepeter.royalty.update.UpdateRelease;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -75,6 +82,8 @@ public final class MainActivity extends Activity {
     private static final String DISMISSED_UPDATE_TAG = "dismissed_update_tag";
     private static final String CACHED_UPDATE_TAG = "cached_update_tag";
     private static final String CACHED_UPDATE_URL = "cached_update_url";
+    private static final int CREATE_DIAGNOSTICS_REQUEST = 93;
+    private static final DiagnosticLog DIAGNOSTICS = new DiagnosticLog(64);
 
     private final List<CatalogEntry> catalog = new ArrayList<>();
     private final List<CatalogEntry> visibleCatalog = new ArrayList<>();
@@ -90,6 +99,7 @@ public final class MainActivity extends Activity {
     private BackupController backupController;
     private boolean contentBuilt;
     private boolean credentialPending;
+    private Uri pendingDiagnosticsUri;
     private Switch backgroundSwitch, screenOffSwitch, authenticationSwitch;
     private Button timeoutButton;
     private static final int SETTINGS_CREDENTIAL_REQUEST = 90;
@@ -101,6 +111,7 @@ public final class MainActivity extends Activity {
     private String requestNonce;
     private long requestExpiresAt;
 
+    private CatalogRepository catalogRepository;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final XposedPreferenceService.Listener preferenceListener = current ->
             mainHandler.post(() -> {
@@ -113,6 +124,7 @@ public final class MainActivity extends Activity {
                 && SystemClock.elapsedRealtime() >= requestExpiresAt) {
             catalogRequestTimedOut = true;
             catalogError = "Catalog response timed out";
+            DIAGNOSTICS.record(System.currentTimeMillis(), "refresh_timed_out");
             CatalogUpdates.shared().complete(requestNonce, false, catalogError);
             requestNonce = null;
             requestExpiresAt = 0;
@@ -123,13 +135,16 @@ public final class MainActivity extends Activity {
         if (!event.nonce().equals(requestNonce)) return;
         catalogRequestTimedOut = !event.success();
         catalogError = event.detail();
+        DIAGNOSTICS.record(System.currentTimeMillis(),
+                event.success() ? "refresh_succeeded" : "refresh_failed");
+        if (event.success()) DIAGNOSTICS.observe(System.currentTimeMillis(),
+                catalogRepository.loadHookStatuses());
         requestNonce = null;
         requestExpiresAt = 0;
         mainHandler.removeCallbacks(catalogTimeout);
         renderCatalogAndHealth();
     });
 
-    private CatalogRepository catalogRepository;
     private UpdateChecker updateChecker;
     private SharedPreferences preferences;
     private LinearLayout updateCard;
@@ -251,6 +266,14 @@ public final class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == CREATE_DIAGNOSTICS_REQUEST) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                pendingDiagnosticsUri = data.getData();
+                if (settingsAccess.allowed()) resumeDiagnosticsExport();
+                else requestSettingsCredential();
+            }
+            return;
+        }
         if (requestCode == BackupController.CREATE_REQUEST || requestCode == BackupController.OPEN_REQUEST) {
             backupController.onDocument(requestCode, resultCode, data);
             return;
@@ -258,9 +281,13 @@ public final class MainActivity extends Activity {
         if (requestCode != SETTINGS_CREDENTIAL_REQUEST) return;
         credentialPending = false;
         if (resultCode == RESULT_OK) settingsAccess.authenticated();
-        else Toast.makeText(this, "Authentication cancelled; settings remain locked", Toast.LENGTH_SHORT).show();
+        else {
+            pendingDiagnosticsUri = null;
+            Toast.makeText(this, "Authentication cancelled; settings remain locked", Toast.LENGTH_SHORT).show();
+        }
         renderCached();
         backupController.resumeIfAllowed();
+        resumeDiagnosticsExport();
         if (settingsAccess.allowed()) requestCatalog();
     }
 
@@ -420,6 +447,10 @@ public final class MainActivity extends Activity {
         statusActions.addView(diagnosticsButton, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         statusCard.addView(statusActions, withTopMargin(matchWrap(), 10));
+
+        Button exportDiagnosticsButton = createSecondaryButton(R.string.export_diagnostic_log);
+        exportDiagnosticsButton.setOnClickListener(view -> chooseDiagnosticsDocument());
+        statusCard.addView(exportDiagnosticsButton, withTopMargin(matchWrap(), 8));
 
         protectionDetails = createText(0, 12, R.color.royalty_text_muted, Typeface.NORMAL);
         protectionDetails.setLineSpacing(0, 1.12f);
@@ -765,6 +796,7 @@ public final class MainActivity extends Activity {
     }
 
     private void requestCatalog() {
+        DIAGNOSTICS.record(System.currentTimeMillis(), "refresh_started");
         catalogRequestTimedOut = false;
         catalogError = "";
         renderCatalogAndHealth();
@@ -777,12 +809,45 @@ public final class MainActivity extends Activity {
             long delay = Math.max(0, requestExpiresAt - SystemClock.elapsedRealtime());
             mainHandler.postDelayed(catalogTimeout, delay + 100);
         } catch (RuntimeException error) {
+            DIAGNOSTICS.record(System.currentTimeMillis(), "refresh_failed");
             requestNonce = null;
             requestExpiresAt = 0;
             catalogRequestTimedOut = true;
             catalogError = "Catalog request failed: " + error.getClass().getSimpleName();
             renderCatalogAndHealth();
         }
+    }
+
+    private void chooseDiagnosticsDocument() {
+        if (!settingsAccess.allowed()) return;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("text/plain")
+                .putExtra(Intent.EXTRA_TITLE, "royalty-diagnostics.txt");
+        try { startActivityForResult(intent, CREATE_DIAGNOSTICS_REQUEST); }
+        catch (RuntimeException error) { showError(getString(R.string.diagnostic_document_picker_unavailable)); }
+    }
+
+    private void exportDiagnostics(Uri uri) {
+        try {
+            String report = DIAGNOSTICS.export(BuildConfig.VERSION_NAME, installedTelegramVersion(),
+                    catalogRepository.loadHookStatuses(), catalogRepository.observedAtMillis());
+            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                if (output == null) throw new IOException("document unavailable");
+                output.write(report.getBytes(StandardCharsets.UTF_8));
+                output.flush();
+            }
+            Toast.makeText(this, R.string.diagnostic_log_exported, Toast.LENGTH_SHORT).show();
+        } catch (IOException | RuntimeException error) {
+            showError(getString(R.string.diagnostic_export_failed));
+        }
+    }
+
+    private void resumeDiagnosticsExport() {
+        if (!settingsAccess.allowed() || pendingDiagnosticsUri == null) return;
+        Uri uri = pendingDiagnosticsUri;
+        pendingDiagnosticsUri = null;
+        exportDiagnostics(uri);
     }
 
     private void maybeCheckForUpdate() {
@@ -966,14 +1031,17 @@ public final class MainActivity extends Activity {
             boolean saved = ConfigStore.save(preferences, current);
             draft.markSaved(saved);
             if (!saved) {
+                DIAGNOSTICS.record(System.currentTimeMillis(), "settings_save_failed");
                 showError(getString(R.string.save_failed));
                 return;
             }
             settingsAccess.learn(draft.baseline());
+            DIAGNOSTICS.record(System.currentTimeMillis(), "settings_saved");
             if (settingsAccess.allowed()) renderCatalogAndHealth();
             else showGate();
             Toast.makeText(this, "Changes saved", Toast.LENGTH_SHORT).show();
         } catch (RuntimeException error) {
+            DIAGNOSTICS.record(System.currentTimeMillis(), "settings_save_failed");
             draft.markSaved(false);
             preferencesAvailable = false;
             saveButton.setEnabled(false);
@@ -1027,10 +1095,11 @@ public final class MainActivity extends Activity {
         ProtectionStatus protection = ProtectionStatus.evaluate(statuses,
                 catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
                 System.currentTimeMillis(), catalogRequestTimedOut);
-        protectionDetails.setText(DiagnosticsFormatter.describe(statuses,
+        String diagnostics = DiagnosticsFormatter.describe(statuses,
                 catalogRepository.loadHookDetails(), catalogRepository.observedAtMillis(),
                 System.currentTimeMillis(), requestNonce != null, catalogError,
-                installedTelegramVersion(), catalogRepository.processSession()));
+                installedTelegramVersion(), catalogRepository.processSession());
+        protectionDetails.setText(colorDiagnosticBullets(diagnostics, protection));
         setConnectionStatus(
                 frameworkStatusDot,
                 frameworkStatusText,
@@ -1074,6 +1143,28 @@ public final class MainActivity extends Activity {
         label.setText(getString(labelResource)
                 + " · "
                 + getString(working ? R.string.connection_working : R.string.connection_not_working));
+    }
+
+    private CharSequence colorDiagnosticBullets(String diagnostics, ProtectionStatus protection) {
+        SpannableStringBuilder styled = new SpannableStringBuilder(diagnostics);
+        int searchFrom = 0;
+        for (ProtectionStatus.State state : protection.surfaces().values()) {
+            searchFrom = colorNextDiagnosticBullet(styled, diagnostics, searchFrom, state);
+        }
+        colorNextDiagnosticBullet(styled, diagnostics, searchFrom, protection.premium());
+        return styled;
+    }
+
+    private int colorNextDiagnosticBullet(SpannableStringBuilder styled, String diagnostics,
+            int searchFrom, ProtectionStatus.State state) {
+        int marker = diagnostics.indexOf("\n● ", searchFrom);
+        if (marker < 0) return diagnostics.length();
+        int bullet = marker + 1;
+        int color = state == ProtectionStatus.State.HEALTHY
+                ? R.color.royalty_success : R.color.royalty_error;
+        styled.setSpan(new ForegroundColorSpan(getColor(color)), bullet, bullet + 1,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return bullet + 1;
     }
 
     private void showError(String message) {
