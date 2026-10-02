@@ -4,6 +4,17 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.9] - 2026-10-02
+
+### Added
+
+- Add a bounded in-memory diagnostic event log for refreshes, saved settings, and hook-status transitions, with a text export from the Status screen.
+- Exclude chat titles, IDs, messages, and raw exceptions from the unencrypted diagnostic report; require settings access when returning from the document picker.
+
+### Changed
+
+- Advance Android release metadata to version 3.1.9 (code 26).
+
 ## [3.1.8] - 2026-10-02
 
 ### Changed

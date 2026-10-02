@@ -66,6 +66,8 @@ Royalty 3.1.0 binds each saved hidden chat to the stable owner ID of its Telegra
 
 Use the account filter, search, or hidden-only view to narrow the list. **Select matching** acts on the visible scope. Undo reverses draft edits; Discard restores the last saved configuration. Save commits the draft only after account ownership is checked again. The diagnostics panel shows the installed and supported Telegram versions, cache age, bridge status, and per-surface health. A fresh check asks Telegram for current observations; it does not perform the [physical-device acceptance matrix](docs/device-acceptance-3.1.0.md).
 
+To collect a diagnostic report, open Telegram, tap **Refresh** in Royalty, then tap **Export diagnostic log** and choose where to save `royalty-diagnostics.txt`. The report contains module/Telegram versions, the last confirmed response time, hook status transitions, and recent refresh/save events (up to 64). It does not include chat titles, IDs, message content, account IDs, or raw exceptions. Events remain in memory only while the Royalty process runs; previous observations survive as the cached hook statuses. The exported text is **not encrypted**: review it before sharing and choose a trusted document provider. Framework/Telegram logcat output is not included.
+
 Background re-concealment, screen-off re-concealment, reveal timeout, and device-lock authentication start disabled. Timeout choices are Off, 30 seconds, 1 minute, and 5 minutes. These options govern reveal state; notification suppression is independent. Authentication uses the device's configured screen lock and requires a secure lock to enable. Settings relock after backgrounding, while unsaved draft edits remain available after unlocking.
 
 ### Encrypted backups
