@@ -42,6 +42,8 @@ class SearchHookContractTests(unittest.TestCase):
         """Check that async redraw uses the resolver and its alias is probed."""
         self.assertIn('"search.async.reload"', self.search)
         self.assertIn('resolveMethodByArity("search.async.reload"', self.search)
+        self.assertIn("if (asyncReload == null)", self.search)
+        self.assertIn('status.report("installed", "async_reload_unavailable")', self.search)
         self.assertNotIn('callMethod(param.thisObject, "l")', self.search)
         probe = (ROOT / "app/src/main/java/io/github/cepeter/royalty/xposed/TelegramCompatibilityProbe.java").read_text()
         self.assertIn('requireMethod(dialogsSearch, "l")', probe)

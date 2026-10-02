@@ -47,6 +47,17 @@ public final class PendingRequestStoreTest {
         assertEquals(8, memory.values.get("boot_id"));
     }
 
+    /** Verifies that a failed boot-marker write never reactivates persisted stale nonces. */
+    @Test
+    public void failedBootMarkerWriteDoesNotLoadPersistedNonce() {
+        MemoryPreferences memory = new MemoryPreferences();
+        memory.values.put("boot_id", 7);
+        memory.values.put("old-nonce", 100000L);
+        memory.commitSucceeds = false;
+        PendingRequestStore store = new PendingRequestStore(memory.preferences(), 8);
+        assertFalse(store.isActive("old-nonce", 1));
+    }
+
     /** Verifies that an unknown boot clears persisted state but allows requests until recreation. */
     @Test
     public void unavailableBootCountDiscardsPersistedNonceAndOldBootId() {
@@ -105,6 +116,7 @@ public final class PendingRequestStoreTest {
 
     private static final class MemoryPreferences {
         private final Map<String, Object> values = new HashMap<>();
+        private boolean commitSucceeds = true;
 
         /** Returns a map-backed proxy supporting only the preference reads and edits used here. */
         SharedPreferences preferences() {
@@ -130,6 +142,7 @@ public final class PendingRequestStoreTest {
                             case "putInt": case "putLong":
                                 changes.put((String) args[0], args[1]); return proxy;
                             case "commit":
+                                if (!commitSucceeds) return false;
                                 if (clear[0]) values.clear();
                                 values.putAll(changes);
                                 return true;

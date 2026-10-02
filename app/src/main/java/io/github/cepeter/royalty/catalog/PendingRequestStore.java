@@ -32,7 +32,10 @@ public final class PendingRequestStore {
     PendingRequestStore(SharedPreferences preferences, int bootId) {
         this.preferences = preferences;
         requests = new HashMap<>();
-        dropNoncesFromPreviousBoot(bootId);
+        boolean persistedRequestsAreCurrent = dropNoncesFromPreviousBoot(bootId);
+        if (!persistedRequestsAreCurrent) {
+            return;
+        }
         for (Map.Entry<String, ?> entry : preferences.getAll().entrySet()) {
             if (entry.getValue() instanceof Long) {
                 requests.put(entry.getKey(), (Long) entry.getValue());
@@ -53,12 +56,19 @@ public final class PendingRequestStore {
     /**
      * Expiries are {@code elapsedRealtime} based and restart at zero on boot, so
      * persisted nonces from a previous or unverifiable boot must not appear active again.
+     *
+     * @return whether persisted nonce entries are safe to load for the current boot
      */
-    private void dropNoncesFromPreviousBoot(int bootId) {
-        if (bootId >= 0 && preferences.getInt(BOOT_ID, -1) == bootId) return;
+    private boolean dropNoncesFromPreviousBoot(int bootId) {
+        if (bootId >= 0 && preferences.getInt(BOOT_ID, -1) == bootId) {
+            return true;
+        }
         SharedPreferences.Editor editor = preferences.edit().clear();
-        if (bootId >= 0) editor.putInt(BOOT_ID, bootId);
-        editor.commit();
+        if (bootId >= 0) {
+            editor.putInt(BOOT_ID, bootId);
+        }
+        boolean cleared = editor.commit();
+        return bootId >= 0 && cleared;
     }
 
     /** Copies nonce expiries into an in-memory store without persistence. */

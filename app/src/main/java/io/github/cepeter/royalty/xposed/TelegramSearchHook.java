@@ -79,17 +79,19 @@ final class TelegramSearchHook {
         ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
                 "search.view.invalidate", view, 0, "l"), invalidate);
 
-        Method asyncReload = resolveOptionalReload(symbols, adapter, status);
-        if (asyncReload != null) {
-            ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
-                    "search.async.refresh", adapter, 0, "T"), new ModernHookBridge.MethodHook() {
-                /** Redraws the adapter through the resolved target after async refresh. */
-                @Override
-                protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
-                    invokeReload(asyncReload, param.thisObject);
+        Method asyncReload = resolveOptionalReload(symbols, adapter);
+        ModernHookBridge.hookMethod(symbols.resolveMethodByArity(
+                "search.async.refresh", adapter, 0, "T"), new ModernHookBridge.MethodHook() {
+            /** Redraws the adapter through the resolved target after async refresh. */
+            @Override
+            protected void afterHookedMethod(ModernHookBridge.MethodHookParam param) {
+                if (asyncReload == null) {
+                    status.report("installed", "async_reload_unavailable");
+                    return;
                 }
-            });
-        }
+                invokeReload(asyncReload, param.thisObject);
+            }
+        });
     }
 
     /**
@@ -99,11 +101,10 @@ final class TelegramSearchHook {
      * filtering never depends on it.
      */
     private static Method resolveOptionalReload(
-            TelegramSemanticResolver symbols, Class<?> adapter, StatusReporter status) {
+            TelegramSemanticResolver symbols, Class<?> adapter) {
         try {
             return symbols.resolveMethodByArity("search.async.reload", adapter, 0, "l");
         } catch (IllegalStateException ambiguous) {
-            status.report("installed", "async_reload_unavailable");
             ModernHookBridge.log(
                     "Royalty: search async reload unresolved; skipping optional redraw hook");
             return null;
