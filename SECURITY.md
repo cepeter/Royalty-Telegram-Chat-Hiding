@@ -4,8 +4,8 @@
 
 | Version | Supported |
 |---|---|
-| 3.0.x | Yes |
-| 2.x and older | No — upgrade to the latest release |
+| 3.1.x | Yes |
+| 3.0.x and older | No — upgrade to the latest release |
 
 Version 1.x is additionally unsafe because its custom ART entry-point hook was not ABI-safe.
 

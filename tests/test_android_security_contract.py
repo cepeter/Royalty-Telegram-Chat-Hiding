@@ -71,6 +71,8 @@ class AuditFollowUpContractTests(unittest.TestCase):
         self.assertNotIn(
             "refuses to install filtering hooks unless Telegram reports exactly", security)
         self.assertIn("uniquely validates every required hook surface", security)
+        self.assertIn("| 3.1.x | Yes |", security)
+        self.assertIn("| 3.0.x and older | No", security)
         self.assertNotIn("reportUnsupportedVersion", hook)
 
     def test_readme_authentication_covers_settings_only(self):

@@ -4,6 +4,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+## [3.1.8] - 2026-10-02
+
 ### Changed
 
 - Resolve the search adapter's post-refresh redraw target through the semantic resolver (`search.async.reload`) instead of a hardcoded obfuscated call: the tested 12.10.4 alias is verified by the pinned compatibility probe, and builds where the target is ambiguous or missing skip only the optional redraw while keeping concealment filtering.
@@ -19,6 +21,7 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 - Keep persisted catalog nonces rejected when a boot-marker cleanup cannot be committed.
 - Preserve the optional search-redraw diagnostic after hook installation completes.
 - Correct the README device-lock bullet to settings-only authentication.
+- Advance Android release metadata to version 3.1.8 (code 25).
 
 ## [3.1.7] - 2026-09-30
 
@@ -262,7 +265,8 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 Legacy APatch release. Superseded by the version 2 architecture and no longer supported.
 
-[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.7...HEAD
+[Unreleased]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/compare/v3.1.8...HEAD
+[3.1.8]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.8
 [3.1.7]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.7
 [3.1.6]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.6
 [3.1.5]: https://github.com/cepeter/Royalty-Telegram-Chat-Hiding/releases/tag/v3.1.5
