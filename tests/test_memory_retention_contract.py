@@ -33,6 +33,11 @@ class MemoryRetentionContractTests(unittest.TestCase):
         timeout = self.activity.split("private final Runnable catalogTimeout", 1)[1]
         self.assertIn("CatalogResultReceiver.clear(requestNonce)", timeout)
 
+    def test_activity_destroy_releases_active_catalog_batch(self):
+        """Destroying settings during a request must not leave a static catalog snapshot behind."""
+        on_destroy = self.activity.split("protected void onDestroy()", 1)[1]
+        self.assertIn("CatalogResultReceiver.clear(requestNonce)", on_destroy)
+
     def test_activity_destroy_drops_queued_posts(self):
         """No post queued before unsubscribe may outlive the Activity."""
         on_destroy = self.activity.split("protected void onDestroy()", 1)[1]
