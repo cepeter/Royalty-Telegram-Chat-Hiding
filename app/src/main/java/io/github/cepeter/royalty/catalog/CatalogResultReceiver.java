@@ -17,9 +17,8 @@ public final class CatalogResultReceiver extends BroadcastReceiver {
     /**
      * Drops a staged sequence whose request expired before completion.
      *
-     * <p>A timed-out request never receives another frame: the nonce guard above rejects late
-     * frames, and {@code fail} bails once the active nonce is already cleared. This is the only
-     * path that releases the retained catalog snapshot.
+     * <p>Once an owning request can no longer complete, callers use this to release the staged
+     * snapshot. The nonce check prevents one request from clearing a newer batch.
      */
     public static synchronized void clear(String nonce) {
         if (nonce != null && batch != null && batch.owns(nonce)) batch = null;
