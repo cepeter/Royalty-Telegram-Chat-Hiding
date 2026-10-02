@@ -22,6 +22,7 @@ import io.github.cepeter.royalty.core.RevealSession;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
 import io.github.cepeter.royalty.core.PressAndHoldGesture;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,7 +56,9 @@ public final class TelegramHook extends XposedModule {
     private static final AdapterRefreshRegistry ADAPTERS = new AdapterRefreshRegistry();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static String modulePackage;
-    private static Object lastDialogsFragment;
+    // Weak so a destroyed DialogsActivity can be collected; Telegram keeps the
+    // fragment strongly reachable for exactly as long as its screen is on the stack.
+    private static WeakReference<Object> lastDialogsFragment = new WeakReference<>(null);
     private static final AtomicBoolean RUNTIME_HOOKS_INSTALLED = new AtomicBoolean(false);
     private static final PressAndHoldGesture REVEAL_GESTURE =
             new PressAndHoldGesture(REVEAL_HOLD_DURATION_MS);
@@ -373,7 +376,7 @@ public final class TelegramHook extends XposedModule {
             if (fragment != expectedFragment) {
                 return;
             }
-            lastDialogsFragment = fragment;
+            lastDialogsFragment = new WeakReference<>(fragment);
             REVEAL.configure(CONFIG.saved());
             // Device authentication is intentionally scoped to opening Royalty settings.
             // The Telegram header gesture only toggles the in-process reveal state.
@@ -656,7 +659,7 @@ public final class TelegramHook extends XposedModule {
     }
 
     private static void refreshRevealedViews() {
-        Object fragment = lastDialogsFragment;
+        Object fragment = lastDialogsFragment.get();
         if (fragment != null) {
             try { requestDialogsReload(fragment); }
             catch (Throwable error) { reportRuntimeError("reveal", error); }
