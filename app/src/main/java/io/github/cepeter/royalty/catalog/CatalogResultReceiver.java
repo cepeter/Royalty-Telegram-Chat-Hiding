@@ -14,6 +14,17 @@ public final class CatalogResultReceiver extends BroadcastReceiver {
         batch = new CatalogBatch(nonce);
     }
 
+    /**
+     * Drops a staged sequence whose request expired before completion.
+     *
+     * <p>A timed-out request never receives another frame: the nonce guard above rejects late
+     * frames, and {@code fail} bails once the active nonce is already cleared. This is the only
+     * path that releases the retained catalog snapshot.
+     */
+    public static synchronized void clear(String nonce) {
+        if (nonce != null && batch != null && batch.owns(nonce)) batch = null;
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null || !CatalogProtocol.ACTION_RESULT.equals(intent.getAction())) return;

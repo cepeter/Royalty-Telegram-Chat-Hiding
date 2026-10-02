@@ -47,6 +47,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import io.github.cepeter.royalty.catalog.CatalogRepository;
 import io.github.cepeter.royalty.catalog.CatalogRequestClient;
+import io.github.cepeter.royalty.catalog.CatalogResultReceiver;
 import io.github.cepeter.royalty.catalog.CatalogUpdates;
 import io.github.cepeter.royalty.catalog.PendingRequestStore;
 import io.github.cepeter.royalty.config.ConfigStore;
@@ -126,6 +127,7 @@ public final class MainActivity extends Activity {
             catalogError = "Catalog response timed out";
             DIAGNOSTICS.record(System.currentTimeMillis(), "refresh_timed_out");
             CatalogUpdates.shared().complete(requestNonce, false, catalogError);
+            CatalogResultReceiver.clear(requestNonce);
             requestNonce = null;
             requestExpiresAt = 0;
             renderCatalogAndHealth();
@@ -232,6 +234,8 @@ public final class MainActivity extends Activity {
             updateChecker.close();
         }
         XposedPreferenceService.unsubscribe(preferenceListener);
+        // Drops posts queued before unsubscribe so no callback outlives the Activity.
+        mainHandler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
 
