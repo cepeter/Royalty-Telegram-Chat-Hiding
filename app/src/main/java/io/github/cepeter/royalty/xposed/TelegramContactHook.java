@@ -4,6 +4,7 @@ import io.github.cepeter.royalty.core.DialogFilter;
 import io.github.cepeter.royalty.core.DialogKey;
 import io.github.cepeter.royalty.core.HiddenConfig;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -76,14 +77,8 @@ final class TelegramContactHook {
                 });
             }
         });
-        for (String name : new String[] {"O", "N", "P", "V", "W"}) {
-            for (Class<?> current = concrete; current != null; current = current.getSuperclass()) {
-                for (Method method : current.getDeclaredMethods()) {
-                    if (name.equals(method.getName()) && method.getParameterTypes().length >= 2)
-                        hookSectionPosition(method, concrete, revealed, status);
-                }
-            }
-        }
+        for (Method method : sectionPositionMethods(concrete))
+            hookSectionPosition(method, concrete, revealed, status);
         ModernHookBridge.hookMethod(refresh, new ModernHookBridge.MethodHook() {
             @Override protected void beforeHookedMethod(ModernHookBridge.MethodHookParam p) {
                 SECTIONS.remove(p.thisObject);
@@ -92,6 +87,24 @@ final class TelegramContactHook {
     }
 
     static void invalidateSections() { SECTIONS.clear(); }
+
+    static List<Method> sectionPositionMethods(Class<?> concrete) {
+        List<Method> methods = new ArrayList<>();
+        for (String name : new String[] {"O", "N", "P", "V", "W"}) {
+            for (Class<?> current = concrete; current != null && current != Object.class;
+                    current = current.getSuperclass()) {
+                for (Method method : current.getDeclaredMethods()) {
+                    int modifiers = method.getModifiers();
+                    if (name.equals(method.getName()) && method.getParameterCount() >= 2
+                            && !Modifier.isAbstract(modifiers) && !Modifier.isStatic(modifiers)
+                            && !method.isSynthetic() && !method.isBridge()) {
+                        methods.add(method);
+                    }
+                }
+            }
+        }
+        return methods;
+    }
 
     private static void buildSection(ModernHookBridge.MethodHookParam p, Method item,
             HiddenConfig config, boolean reveal) {
