@@ -4,6 +4,10 @@ All notable changes are documented here. The project follows [Keep a Changelog](
 
 ## [Unreleased]
 
+### Fixed
+
+- Skip abstract, static, synthetic, and bridge section-position methods when installing Contacts hooks, preserving executable concrete overrides instead of rolling back on abstract Telegram adapter declarations.
+
 ## [3.1.10] - 2026-10-03
 
 ### Fixed
